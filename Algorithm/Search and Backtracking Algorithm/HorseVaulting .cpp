@@ -1,16 +1,11 @@
+/*
+	问题描述：给定n*n方格棋盘，求棋盘上一只马从一个位置到达另一位置的最短路径长。 注意马是走"日"形的。
+*/
 #include<bits/stdc++.h>
 using namespace std;
 int a[100][100]={0},num=0;
 int x[9]={0,1,2,2,1,-1,-2,-2,-1},y[9]={0,-2,-1,1,2,2,1,-1,-2},n;
 bool b[100][100]={0};
-void dfs(int,int,int);
-int main(){
-	cin>>n;
-	a[1][1]=1;b[1][1]=1;
-	dfs(1,1,2);
-	cout<<num<<endl;
-	system("pause");
-}
 void dfs(int l,int r,int t){
 	int i,j,x1,y1;
 	if (t>n*n){
@@ -33,4 +28,11 @@ void dfs(int l,int r,int t){
 			b[x1][y1]=0;
 		}
 	}
+}
+int main(){
+	cin>>n;
+	a[1][1]=1;b[1][1]=1;
+	dfs(1,1,2);
+	cout<<num<<endl;
+	system("pause");
 }
