@@ -1,14 +1,4 @@
 #include<bits/stdc++.h>
-using namespace std;
-int main(){
-    
-    system("pause");
-    return 0;
-}
-
-    : 
-
-#include<bits/stdc++.h>
 #define MAXSIZE 10000
 #define ERROR 0
 #define OK 1
