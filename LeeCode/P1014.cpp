@@ -10,7 +10,6 @@
 Ê¾Àı 2£º
 ÊäÈë£ºvalues = [1,2]
 Êä³ö£º2
-
 */
 class Solution {
 public:
