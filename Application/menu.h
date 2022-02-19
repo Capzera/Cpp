@@ -1,5 +1,6 @@
 #pragma once
 #include<bits/stdc++.h>
+#include "color.h"
 #include<conio.h>
 #include<fstream>
 using namespace std;
@@ -100,6 +101,8 @@ void menu::printmenustr()
     char c;
     for(i=0;i<n;i++) 
     {
+        int r=rand()%255,g=rand()%255,b=rand()%255;
+        rgb_set(r,g,b);
         c=i+97;
         cout<<c<<"."<<s[i]<<endl;
     }
@@ -112,8 +115,10 @@ void menu::start(int x)
     while (ch!=n+96) 
     {
         system("cls");
+        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY| FOREGROUND_GREEN);
         cout<<title<<endl;
-        printf("-----By:机长大大-----\n");  
+        printf("\\-----By:机长大大-----/\n"); 
+        printf(" \\--------V1.2-------/\n");
         printmenustr();
         if (ch-96>0&&ch-96<n) 
         {
