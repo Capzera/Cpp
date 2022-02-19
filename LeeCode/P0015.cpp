@@ -29,14 +29,39 @@ public:
         }
         if (m[0]>2) ans.push_back(temp);//如果至少有3个0，
         if (m[0]>0) m[0]=1;
-        map<int,int>::iterator m1=m.begin(),m2=m.begin();
-        while (m2!=m.end()&&m2->first<=0) m2++;
-        int left=m1->first,right=m2->first;//选中一对负数和正数，寻找该数对的和并求值
-        while (left<0&&right<=MAX)
+        if (m[0]==0) m.erase(0);
+        map<int,int>::iterator m1=m.begin(),m2=m.end();//m2右指针
+        while(m1->first<0)
         {
-            while(left<0&&m[left]==0) left++;//left指向当前负数
-            while(right<=MAX&&m[right]==0) right++;//right指向当前正数
-            
+            map<int,int>::iterator m2=m.end();
+            m2--;
+            while(m2->first>0)
+            {
+                int target=0-m1->first-m2->first;
+                if (target<m1->first||target>m2->first)
+                {
+                }
+                else if (target==m1->first&&m1->second==2)//目标值为左指针且左指针>1
+                {
+                    temp[0]=temp[1]=m1->first;temp[2]=m2->first;
+                    ans.push_back(temp);
+                }
+                else if (target==m2->first&&m2->second==2)//目标值为右指针且右指针>1
+                {
+                    temp[0]=m1->first;temp[1]=temp[2]=m2->first;
+                    ans.push_back(temp);
+                }
+                else if ((target==m1->first&&m1->second<2)||(target==m2->first&&m2->second<2))
+                {//目标值不符合
+                }
+                else if (m.find(target)!=m.end())
+                {
+                    temp[0]=m1->first;temp[1]=target;temp[2]=m2->first;
+                    ans.push_back(temp);
+                }
+                m2--;
+            }
+            m1++;
         }
         return ans;
     }
