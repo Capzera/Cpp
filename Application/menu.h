@@ -23,6 +23,7 @@ static vector<string>
     },
     s1=
     {
+        {"广度优先搜索"},
         {"深度优先搜索"},
         {"分治"},
         {"双指针"},
@@ -118,7 +119,7 @@ void menu::start(int x)
         SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY| FOREGROUND_GREEN);
         cout<<title<<endl;
         printf("\\-----By:机长大大-----/\n"); 
-        printf(" \\--------V1.2-------/\n");
+        printf(" \\--------V1.3-------/\n");
         printmenustr();
         if (ch-96>0&&ch-96<n) 
         {
@@ -195,35 +196,39 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
                 textcreate(DAD+"Algorithm\\Breadth First Search Algorithm\\LCP");
             break;
             case 2:
-                textcreate(DAD+"Algorithm\\Divide and Conquer Algorithm\\LCP");
+                textcreate(DAD+"Algorithm\\Depth First Search Algorithm\\LCP");
             break;
             case 3:
-                textcreate(DAD+"Algorithm\\Double Pointer\\LCP");
+                textcreate(DAD+"Algorithm\\Divide and Conquer Algorithm\\LCP");
             break;
             case 4:
-                textcreate(DAD+"Algorithm\\Dynamic Programming\\LCP");
+                textcreate(DAD+"Algorithm\\Double Pointer\\LCP");
             break;
             case 5:
+                textcreate(DAD+"Algorithm\\Dynamic Programming\\LCP");
+            break;
+            case 6:
                 textcreate(DAD+"Algorithm\\Greedy Algorithm\\LCP");
             break;
+            case 7:
                 textcreate(DAD+"Algorithm\\HashMap\\LCP");  
             break;
-            case 7:
+            case 8:
                 textcreate(DAD+"Algorithm\\HighAccuracy Algorithm\\LCP");
             break;
-            case 8:
+            case 9:
                 textcreate(DAD+"Algorithm\\Recursion Algorithm\\LCP");
             break;
-            case 9:
+            case 10:
                 textcreate(DAD+"Algorithm\\Recursive Algorithm\\LCP");
             break;
-            case 10:
+            case 11:
                 textcreate(DAD+"Algorithm\\Search and Backtracking Algorithm\\LCP");
             break;
-            case 11:
+            case 12:
                 textcreate(DAD+"Algorithm\\Sliding Window\\LCP");
             break;
-            case 12:
+            case 13:
                 textcreate(DAD+"Algorithm\\Sorting Algorithm\\LCP");
             break;
         }
