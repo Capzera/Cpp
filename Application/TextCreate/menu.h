@@ -80,6 +80,7 @@ public:
 private:
     vector<string> s;//保存菜单
     string title;//保存标题
+    bool listset=0,titleset=0;
 };
 #include "menu.h"
 menu a,b,c,d,e;
@@ -89,14 +90,18 @@ int menu::listsize(vector<string> t)//列表求长
 }
 void menu::strin(vector<string> s,int x)//导入菜单清单
 {
+    if (listset) return;
     int n=s.size();
     for(int i=0;i<n;i++) this->s.push_back(s[i]);
+    listset=1;
     if (x==1)this->s.push_back("退出");
     else this->s.push_back("返回");
 }
 void menu::titlein(string t)//标题输入
 {
+    if (titleset) return;
     this->title=t;
+    titleset=1;
 }
 void menu::printmenustr()//打印菜单
 {
@@ -121,7 +126,7 @@ void menu::start(int x)//菜单开始
         SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY| FOREGROUND_GREEN);
         cout<<title<<endl;
         printf("\\-----By:机长大大-----/\n"); 
-        printf(" \\--------V1.4-------/\n");
+        printf(" \\--------V1.5-------/\n");
         printmenustr();
         if (ch-96>0&&ch-96<n) 
         {
@@ -159,6 +164,7 @@ void menu::textcreate(string address)//文件创建系统
 }
 void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
 {
+    menu a,b,c,d,e;
     a.strin(s1,2);
     a.titlein("        算法");
     b.strin(s2,2);
