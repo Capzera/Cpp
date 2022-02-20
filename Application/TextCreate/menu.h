@@ -1,13 +1,13 @@
-#pragma once
+#ifndef _MENU_H_
+#define _MENU_H_
 #include<bits/stdc++.h>
 #include "color.h"
 #include<conio.h>
 #include<fstream>
 using namespace std;
-string DAD="D:\\Program\\C++\\";
-static vector<string>
-    s0=
-    {
+const string DAD="D:\\Program\\C++\\";
+const vector<string>
+    s0={//主菜单
         {"2021暑假集训"},
         {"算法"},
         {"应用"},
@@ -21,8 +21,7 @@ static vector<string>
         {"基础C++语言部分"},
         {"测试"}
     },
-    s1=
-    {
+    s1={//算法分菜单
         {"广度优先搜索"},
         {"深度优先搜索"},
         {"分治"},
@@ -37,14 +36,12 @@ static vector<string>
         {"滑动窗口"},
         {"排序"}
     },
-    s2=
-    {
+    s2={//蓝桥别分菜单
         {"2013年试题"},
         {"2021西安工程大学校赛"},
         {"官网OJ"}
     },
-    s3=
-    {
+    s3={//数据结构分菜单
         {"数组与广义表"},
         {"线性表"},
         {"链表"},
@@ -53,8 +50,7 @@ static vector<string>
         {"栈"},
         {"树"},
     },
-    s4=
-    {
+    s4={//基础部分分菜单
         {"数组"},
         {"循环结构"},
         {"类与对象"},
@@ -64,8 +60,7 @@ static vector<string>
         {"字符串"},
         {"结构体"},
     },
-    s5=
-    {
+    s5={//蓝桥杯3级菜单
         {"ALGO"},
         {"BASIC"},
         {"PreTest"},
@@ -74,29 +69,36 @@ class menu
 {
 public:
     menu(){}
-    void strin(vector<string>,int);
-    void printmenustr();
-    void start(int);
-    void select(int,int);
-    void textcreate(string str);
-    int listsize(vector<string>);
+    void strin(vector<string>,int);//导入菜单清单
+    void printmenustr();//打印菜单
+    void start(int);//菜单开始
+    void select(int,int);//选择系统
+    void textcreate(string);//文件创建系统
+    void titlein(string);//标题输入系统
+    int listsize(vector<string>);//列表求长
     ~menu(){}
 private:
-    vector<string> s;
-    string title="     文件管理系统";
+    vector<string> s;//保存菜单
+    string title;//保存标题
 };
-int menu::listsize(vector<string> t)
+#include "menu.h"
+menu a,b,c,d,e;
+int menu::listsize(vector<string> t)//列表求长
 {
     return t.size();
 }
-void menu::strin(vector<string> s,int x)
+void menu::strin(vector<string> s,int x)//导入菜单清单
 {
     int n=s.size();
     for(int i=0;i<n;i++) this->s.push_back(s[i]);
     if (x==1)this->s.push_back("退出");
     else this->s.push_back("返回");
 }
-void menu::printmenustr()
+void menu::titlein(string t)//标题输入
+{
+    this->title=t;
+}
+void menu::printmenustr()//打印菜单
 {
     int i,n=s.size();
     char c;
@@ -108,7 +110,7 @@ void menu::printmenustr()
         cout<<c<<"."<<s[i]<<endl;
     }
 }
-void menu::start(int x)
+void menu::start(int x)//菜单开始
 {
     system("cls");
     int n=listsize(s);
@@ -119,7 +121,7 @@ void menu::start(int x)
         SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY| FOREGROUND_GREEN);
         cout<<title<<endl;
         printf("\\-----By:机长大大-----/\n"); 
-        printf(" \\--------V1.3-------/\n");
+        printf(" \\--------V1.4-------/\n");
         printmenustr();
         if (ch-96>0&&ch-96<n) 
         {
@@ -133,19 +135,40 @@ void menu::start(int x)
         }
     }
 }
+void menu::textcreate(string address)//文件创建系统
+{
+    fstream File;
+    system("cls");
+    string str="",swi="";
+    int number,times=-1;
+    cout<<"请输入题目序号:";
+    cin>>number;
+    if (number<0) return;
+    if (number<10) times=3;
+    else if (number<100) times=2;
+    else if (number<1000) times=1;
+    for(int i=0;i<times;i++)str.push_back('0');
+    swi=to_string(number);
+    str+=swi;
+    File.open(address+str+".cpp",ios::out);
+            File<<"/*"<<endl<<"问题描述：P"<<str<<endl<<endl<<"*/"<<endl;
+    File.close();
+    system("cls");
+    cout<<"P"<<str<<".cpp"<<"创建完毕！"<<endl;
+    system("pause");
+}
 void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
 {
-    menu a,b,c,d,e;
     a.strin(s1,2);
-    a.title="        算法";
+    a.titlein("        算法");
     b.strin(s2,2);
-    b.title="      蓝桥杯";
+    b.titlein("      蓝桥杯");
     c.strin(s3,2);
-    c.title="       数据结构";
+    c.titlein("       数据结构");
     d.strin(s4,2);
-    d.title="      基础语言";
+    d.titlein("      基础语言");
     e.strin(s5,2);
-    e.title="    蓝桥杯题库";
+    e.titlein("    蓝桥杯题库");
     if (n==1)
     {
         switch(x)
@@ -321,25 +344,4 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
         }
     }
 }
-void menu::textcreate(string address)
-{
-    fstream File;
-    system("cls");
-    string str="",swi="";
-    int number,times=-1;
-    cout<<"请输入题目序号:";
-    cin>>number;
-    if (number<0) return;
-    if (number<10) times=3;
-    else if (number<100) times=2;
-    else if (number<1000) times=1;
-    for(int i=0;i<times;i++)str.push_back('0');
-    swi=to_string(number);
-    str+=swi;
-    File.open(address+str+".cpp",ios::out);
-            File<<"/*"<<endl<<"问题描述：P"<<str<<endl<<endl<<"*/"<<endl;
-    File.close();
-    system("cls");
-    cout<<"P"<<str<<".cpp"<<"创建完毕！"<<endl;
-    system("pause");
-}
+#endif

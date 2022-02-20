@@ -1,5 +1,5 @@
-#ifndef COLOR_H_
-#define COLOR_H_
+#ifndef _COLOR_H_
+#define _COLOR_H_
 #include <bits/stdc++.h>
 #include <windows.h>
 using namespace std;
