@@ -14,6 +14,7 @@
 提示:
 0 <= rowIndex <= 33
 */
+//动态规划，时间复杂度O(rowIndex^2)，空间复杂度O(1)
 class Solution {
 public:
     vector<int> getRow(int rowIndex) {
@@ -27,7 +28,7 @@ public:
         return dp;
     }
 };
-//数学方法
+//数学方法，时间复杂度O(rowIndex)，空间复杂度O(1)
 class Solution {
 public:
     vector<int> getRow(int rowIndex) {
