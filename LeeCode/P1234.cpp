@@ -1,6 +1,0 @@
-/*
-ฮสฬโร่ส๖ฃบP1234
-
-*/
-FSDKJLGHLKJDFHJKLHGJKLHJKLFDG
-น๙ฟตสวษตฑฦ
