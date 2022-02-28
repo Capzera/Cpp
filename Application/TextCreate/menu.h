@@ -33,6 +33,7 @@ const vector<string>
         {"递归"},
         {"递推"},
         {"搜索与回溯"},
+        {"线段树"},
         {"滑动窗口"},
         {"排序"}
     },
@@ -126,7 +127,7 @@ void menu::start(int x)//菜单开始
         SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY| FOREGROUND_GREEN);
         cout<<title<<endl;
         printf("\\-----By:机长大大-----/\n"); 
-        printf(" \\--------V1.5-------/\n");
+        printf(" \\--------V1.6-------/\n");
         printmenustr();
         if (ch-96>0&&ch-96<n) 
         {
@@ -255,9 +256,12 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
                 textcreate(DAD+"Algorithm\\Search and Backtracking Algorithm\\LCP");
             break;
             case 12:
-                textcreate(DAD+"Algorithm\\Sliding Window\\LCP");
+                textcreate(DAD+"Algorithm\\Segment Tree\\LCP");
             break;
             case 13:
+                textcreate(DAD+"Algorithm\\Sliding Window\\LCP");
+            break;
+            case 14:
                 textcreate(DAD+"Algorithm\\Sorting Algorithm\\LCP");
             break;
         }

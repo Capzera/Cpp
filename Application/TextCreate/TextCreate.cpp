@@ -3,7 +3,7 @@ using namespace std;
 int main()
 {   
     rgb_init();
-    system("title 文件管理系统 V1.5");
+    system("title 文件管理系统 V1.6");
     menu first;
     first.strin(s0,1);
     first.titlein("     文件管理系统");
