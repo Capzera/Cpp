@@ -22,6 +22,7 @@ const vector<string>
         {"测试"}
     },
     s1={//算法分菜单
+        {"二分查找"},
         {"广度优先搜索"},
         {"深度优先搜索"},
         {"分治"},
@@ -172,17 +173,17 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
 {
     menu a,b,c,d,e,f;
     a.strin(s1,2);
-    a.titlein("        算法");
+    a.titlein("          算法");
     b.strin(s2,2);
-    b.titlein("      蓝桥杯");
+    b.titlein("         蓝桥杯");
     c.strin(s3,2);
-    c.titlein("       数据结构");
+    c.titlein("        数据结构");
     d.strin(s4,2);
-    d.titlein("      基础语言");
+    d.titlein("        基础语言");
     e.strin(s5,2);
-    e.titlein("    蓝桥杯题库");
+    e.titlein("       蓝桥杯题库");
     f.strin(s6,2);
-    f.titlein("    剑指Offer");
+    f.titlein("        LeetCode");
     if (n==1)
     {
         switch(x)
@@ -230,45 +231,48 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
         switch(x)
         {
             case 1:
-                textcreate(DAD+"Algorithm\\Breadth First Search Algorithm\\LCP");
+                textcreate(DAD+"Algorithm\\Binary Search\\LCP");
             break;
             case 2:
-                textcreate(DAD+"Algorithm\\Depth First Search Algorithm\\LCP");
+                textcreate(DAD+"Algorithm\\Breadth First Search Algorithm\\LCP");
             break;
             case 3:
-                textcreate(DAD+"Algorithm\\Divide and Conquer Algorithm\\LCP");
+                textcreate(DAD+"Algorithm\\Depth First Search Algorithm\\LCP");
             break;
             case 4:
-                textcreate(DAD+"Algorithm\\Double Pointer\\LCP");
+                textcreate(DAD+"Algorithm\\Divide and Conquer Algorithm\\LCP");
             break;
             case 5:
-                textcreate(DAD+"Algorithm\\Dynamic Programming\\LCP");
+                textcreate(DAD+"Algorithm\\Double Pointer\\LCP");
             break;
             case 6:
-                textcreate(DAD+"Algorithm\\Greedy Algorithm\\LCP");
+                textcreate(DAD+"Algorithm\\Dynamic Programming\\LCP");
             break;
             case 7:
-                textcreate(DAD+"Algorithm\\HashMap\\LCP");  
+                textcreate(DAD+"Algorithm\\Greedy Algorithm\\LCP");
             break;
             case 8:
-                textcreate(DAD+"Algorithm\\HighAccuracy Algorithm\\LCP");
+                textcreate(DAD+"Algorithm\\HashMap\\LCP");  
             break;
             case 9:
-                textcreate(DAD+"Algorithm\\Recursion Algorithm\\LCP");
+                textcreate(DAD+"Algorithm\\HighAccuracy Algorithm\\LCP");
             break;
             case 10:
-                textcreate(DAD+"Algorithm\\Recursive Algorithm\\LCP");
+                textcreate(DAD+"Algorithm\\Recursion Algorithm\\LCP");
             break;
             case 11:
-                textcreate(DAD+"Algorithm\\Search and Backtracking Algorithm\\LCP");
+                textcreate(DAD+"Algorithm\\Recursive Algorithm\\LCP");
             break;
             case 12:
-                textcreate(DAD+"Algorithm\\Segment Tree\\LCP");
+                textcreate(DAD+"Algorithm\\Search and Backtracking Algorithm\\LCP");
             break;
             case 13:
-                textcreate(DAD+"Algorithm\\Sliding Window\\LCP");
+                textcreate(DAD+"Algorithm\\Segment Tree\\LCP");
             break;
             case 14:
+                textcreate(DAD+"Algorithm\\Sliding Window\\LCP");
+            break;
+            case 15:
                 textcreate(DAD+"Algorithm\\Sorting Algorithm\\LCP");
             break;
         }
