@@ -65,6 +65,11 @@ const vector<string>
         {"ALGO"},
         {"BASIC"},
         {"PreTest"},
+    },
+    s6={//LeetCode二级菜单
+        {"热题 100"},
+        {"剑指Offer"},
+        {"原题库"},
     };
 class menu
 {
@@ -127,7 +132,7 @@ void menu::start(int x)//菜单开始
         SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY| FOREGROUND_GREEN);
         cout<<title<<endl;
         printf("\\-----By:机长大大-----/\n"); 
-        printf(" \\--------V1.6-------/\n");
+        printf(" \\--------V1.7-------/\n");
         printmenustr();
         if (ch-96>0&&ch-96<n) 
         {
@@ -165,7 +170,7 @@ void menu::textcreate(string address)//文件创建系统
 }
 void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
 {
-    menu a,b,c,d,e;
+    menu a,b,c,d,e,f;
     a.strin(s1,2);
     a.titlein("        算法");
     b.strin(s2,2);
@@ -176,6 +181,8 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
     d.titlein("      基础语言");
     e.strin(s5,2);
     e.titlein("    蓝桥杯题库");
+    f.strin(s6,2);
+    f.titlein("    剑指Offer");
     if (n==1)
     {
         switch(x)
@@ -196,7 +203,7 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
                 c.start(4);
             break;
             case 6:
-                textcreate(DAD+"LeeCode\\P");    
+                f.start(7);
             break;
             case 7:
                 textcreate(DAD+"LGOJ\\P");
@@ -350,6 +357,21 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
             break;
             case 3:
                 textcreate(DAD+"BlueBridgeCompetitive\\OpenJudge\\PreTest\\PT-");
+            break;
+        }
+    }
+    if (n==7)
+    {
+        switch(x)
+        {
+            case 1:
+                textcreate(DAD+"LeetCode\\Hot 100\\Offer-P");
+            break;
+            case 2:
+                textcreate(DAD+"LeetCode\\Sword Finger Offer\\Offer-P");
+            break;
+            case 3:
+                textcreate(DAD+"LeetCode\\P");
             break;
         }
     }
