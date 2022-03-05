@@ -33,7 +33,8 @@ class Solution {
 public:
     vector<int> sortJumbled(vector<int>& mapping, vector<int>& nums) {
         int n=nums.size();
-        vector<pair<int,int>> ans(n);
+        vector<pair<int,int>> vec(n);
+        vector<int> ans;
         for(int i=0;i<n;i++)
         {
             string tmp="";
@@ -41,15 +42,14 @@ public:
             if (!num) tmp+=mapping[0]+48;
             while (num>0)
             {
-                tmp+=mapping[num%10]+48;
+                tmp+=mapping[num%10]+48;//获得当前nums[i]的权值
                 num/=10;
             }
             reverse(tmp.begin(),tmp.end());
-            ans[i]=pair<int,int>(stoi(tmp),i);
+            vec[i]=pair<int,int>(stoi(tmp),i);//保存当前权值-位置
         }
-        sort(ans.begin(),ans.end());
-        vector<int> ss;
-        for(pair<int,int> t:ans)ss.push_back(nums[t.second]);
-        return ss;
+        sort(vec.begin(),vec.end());//优先根据权值排序，权值相等，位置小的靠前
+        for(pair<int,int> v:vec)ans.push_back(nums[v.second]);
+        return ans;
     }
 };
