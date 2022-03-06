@@ -39,6 +39,7 @@ void Josephus(CLinkList CL,int m,int n)
         p->next=s->next;
         m=s->pwd;
         printf("%d ",s->num);
+        delete s;
         n--;
     }
     printf("%d",p->num);
