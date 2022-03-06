@@ -35,6 +35,7 @@ const vector<string>
         {"递推"},
         {"搜索与回溯"},
         {"线段树"},
+        {"模拟"},
         {"滑动窗口"},
         {"排序"}
     },
@@ -118,8 +119,12 @@ void menu::printmenustr()//打印菜单
     {
         int r=rand()%255,g=rand()%255,b=rand()%255;
         rgb_set(r,g,b);
-        c=i+97;
-        cout<<c<<"."<<s[i]<<endl;
+        if (i<n-1) 
+        {
+            c=i+65;
+            cout<<c<<"-"<<s[i]<<endl;
+        }
+        else cout<<s[i];
     }
 }
 void menu::start(int x)//菜单开始
@@ -127,13 +132,13 @@ void menu::start(int x)//菜单开始
     system("cls");
     int n=listsize(s);
     char ch='0';
-    while (ch!=n+96) 
+    while (ch!='.') 
     {
         system("cls");
         SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY| FOREGROUND_GREEN);
         cout<<title<<endl;
         printf("\\-----By:机长大大-----/\n"); 
-        printf(" \\--------V1.7-------/\n");
+        printf(" \\--------V1.8-------/\n");
         printmenustr();
         if (ch-96>0&&ch-96<n) 
         {
@@ -270,9 +275,12 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
                 textcreate(DAD+"Algorithm\\Segment Tree\\LCP");
             break;
             case 14:
-                textcreate(DAD+"Algorithm\\Sliding Window\\LCP");
+                textcreate(DAD+"Algorithm\\Simulation\\LCP");
             break;
             case 15:
+                textcreate(DAD+"Algorithm\\Sliding Window\\LCP");
+            break;
+            case 16:
                 textcreate(DAD+"Algorithm\\Sorting Algorithm\\LCP");
             break;
         }

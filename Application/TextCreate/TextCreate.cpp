@@ -3,7 +3,7 @@ using namespace std;
 int main()
 {   
     rgb_init();
-    system("title 文件管理系统 V1.7");
+    system("title 文件管理系统 V1.8");
     menu first;
     first.strin(s0,1);
     first.titlein("     文件管理系统");
@@ -27,5 +27,8 @@ V1.7
 修复了LeetCode文件夹名的错误
 新增了LeetCode子菜单:剑指Offer，热题100+
 新增了算法子菜单：二分查找
-
+V1.8
+新增算法子菜单：模拟
+更改菜单返回模式为按 '.' 返回
+更改按键菜单指示为大写字母
 */
