@@ -1,5 +1,5 @@
 /*
-问题描述：P6018
+问题描述：P6018 力扣第283场周赛
 给你一个二维整数数组 descriptions ，其中 descriptions[i] = [parenti, childi, isLefti] 
 表示 parenti 是 childi 在 二叉树 中的 父节点，二叉树中各节点的值 互不相同 。此外：
 如果 isLefti == 1 ，那么 childi 就是 parenti 的左子节点。
