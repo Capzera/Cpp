@@ -1,35 +1,17 @@
-#include<bits/stdc++.h>
-using namespace std;
-int h,n,m,l[110],r[110],ans;
-char a[110][1010];
-void dfs(int i,int lr,int now){
-    if (i==h){
-        if(!lr) now+=r[i];
-        else now+=m-l[i]+1;
-        ans=min(ans,now);
-    }
-    if (!lr) dfs(i-1,0,now+2*r[i]+1);
-    else dfs(i-1,1,now+2*(m-l[i]+1)+1);
-    dfs(i-1,lr^1,now+m+2);
-}
-int main(){
-    cin>>n>>m;
-    h=n;
-    for(int i=1;i<=n;i++){
-        scanf("%s",a[i]);
-        l[i]=m+1;
-        r[i]=0;
-        for(int j=0;j<m+2;j++){
-            if(a[i][j]=='1'){
-                l[i]=min(l[i],j);
-                r[i]=max(r[i],j);
-                h=min(h,i);
-            }
+\1-3-1\Ë¼¿¼£ºvoid insertion_sort(Type *a, int n)
+
+{
+    Type key;                 //   cost  times
+    for (i=1;i<n;i++)         //   c1    n  
+    {
+        key=a[i];             //   c2    n-1
+        j=i-1;                //   c3    n-1
+        while(j>=0&&a[j]>key) //   c4    sum of ti
+        {
+            a[j+1]=a[j];      //   c5    sum of (ti-1) 
+            j--;              //   c6    sum of (ti-1)
         }
+        a[j+1]=key;           //   c7    n-1
     }
-    ans=1010*110*10;
-    dfs(n,0,0);
-    printf("%d",ans);
-    system("pause");
-    return 0;
 }
+1 2 3 4 5 6 7 8
