@@ -1,4 +1,4 @@
-\1-3-1\Ë¼¿¼£ºvoid insertion_sort(Type *a, int n)
+/*\1-3-1\Ë¼¿¼£ºvoid insertion_sort(Type *a, int n)
 
 {
     Type key;                 //   cost  times
@@ -13,5 +13,36 @@
         }
         a[j+1]=key;           //   c7    n-1
     }
+}³£
+*/
+#include<bits/stdc++.h>
+using namespace std;
+    vector<int> nums;
+    int n,p;
+void insertionsort(vector<int>& nums)
+{
+    for(int i=1;i<n;i++)
+    {
+        int key=nums[i],j=i-1;
+        while(j>=0&&nums[j]>key)
+        {
+            nums[j--+1]=nums[j];
+        }
+        nums[j+1]=key;
+    }
 }
-1 2 3 4 5 6 7 8
+int main()
+{
+
+    cin>>n;
+    nums.resize(n);
+    for(int i=0;i<n;i++)
+    {
+        cin>>p;
+        nums[i]=p;
+    }
+    insertionsort(nums);
+    for(int i:nums) cout<<i<<" ";
+    system("pause");
+    return 0;
+}
