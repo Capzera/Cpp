@@ -21,15 +21,22 @@ public:
         int m=matrix.size();
         if (!m) return false;
         int n=matrix[0].size();
-        for(int i=0;i<m;i++){
-            int l=0,r=n;
-            if (matrix[i][r-1]<target) continue;
-            while (l<r){
-                int mid=l+(r-l)/2;
-                if (matrix[i][mid]==target) return true;
-                if (matrix[i][mid]>target) r=mid;
-                else l=mid+1;
+        int l=0,r=m,i=0,mid;
+        while (l<r){
+            mid=l+(r-l)/2;
+            if (matrix[mid][0]==target) return true;
+            if (matrix[mid][0]<target) {
+                i=mid;
+                l=mid+1;
             }
+            else r=mid;
+        }
+        l=0;r=n;
+        while (l<r){
+            mid=l+(r-l)/2;
+            if (matrix[i][mid]==target) return true;
+            if (matrix[i][mid]>target) r=mid;
+            else l=mid+1;
         }
         return false;
     }
