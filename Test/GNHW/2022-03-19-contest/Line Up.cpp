@@ -22,7 +22,7 @@ void msort(int l,int r)
     while (j<=r)  tmp.push_back(nums[j++]);
     for(int i=l,j=0;i<=r;i++) nums[i]=tmp[j++];
 }
-int main(void)
+int main()
 {
     int put;
     cin>>n;
