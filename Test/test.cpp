@@ -1,48 +1,30 @@
-/*\1-3-1\思考：void insertion_sort(Type *a, int n)
-
-{
-    Type key;                 //   cost  times
-    for (i=1;i<n;i++)         //   c1    n  
-    {
-        key=a[i];             //   c2    n-1
-        j=i-1;                //   c3    n-1
-        while(j>=0&&a[j]>key) //   c4    sum of ti
-        {
-            a[j+1]=a[j];      //   c5    sum of (ti-1) 
-            j--;              //   c6    sum of (ti-1)
-        }
-        a[j+1]=key;           //   c7    n-1
-    }
-}常
-*/
 #include<bits/stdc++.h>
 using namespace std;
-    vector<int> nums;
-    int n,p;
-void insertionsort(vector<int>& nums)
-{
-    for(int i=1;i<n;i++)
-    {
-        int key=nums[i],j=i-1;
-        while(j>=0&&nums[j]>key)
-        {
-            nums[j--+1]=nums[j];
-        }
-        nums[j+1]=key;
-    }
+int add(int x,int y){//形参——形式参数
+    return x+y;
 }
 int main()
 {
-
-    cin>>n;
-    nums.resize(n);
-    for(int i=0;i<n;i++)
-    {
-        cin>>p;
-        nums[i]=p;
-    }
-    insertionsort(nums);
-    for(int i:nums) cout<<i<<" ";
+    scanf("%d",&n);
+    printf("%d",ans);   
     system("pause");
     return 0;
 }
+/*
+返回值类型 函数名(传入参数1类型 传入参数1，传入参数2类型 传入参数2 ……){
+
+}
+1）有返回值类型函数
+必须要有返回值
+返回值类型必须和定义相匹配
+返回值唯一
+
+2) 无返回值类型函数——过程
+必须不能有返回值
+*/
+
+
+
+
+//ProblemA:  键盘输入a,b，输出2*a+b*b;
+//ProblemB:  键盘输入一个正整数n，求1-n的和
