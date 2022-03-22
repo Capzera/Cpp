@@ -1,12 +1,9 @@
 #include<bits/stdc++.h>
 using namespace std;
-int add(int x,int y){//形参——形式参数
-    return x+y;
-}
 int main()
 {
-    scanf("%d",&n);
-    printf("%d",ans);   
+    int i;
+    printf("%d",'\'');
     system("pause");
     return 0;
 }
