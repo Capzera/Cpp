@@ -3,7 +3,7 @@ using namespace std;
 int main()
 {
     int i;
-    printf("%d",'\'');
+    for(i=1;i<=150;i++) cout<<i<<endl;
     system("pause");
     return 0;
 }

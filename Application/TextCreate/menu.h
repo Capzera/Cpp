@@ -37,7 +37,8 @@ const vector<string>
         {"线段树"},
         {"模拟"},
         {"滑动窗口"},
-        {"排序"}
+        {"排序"},
+        {"字典树"}
     },
     s2={//蓝桥别分菜单
         {"2013年试题"},
@@ -138,7 +139,7 @@ void menu::start(int x)//菜单开始
         SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY| FOREGROUND_GREEN);
         cout<<title<<endl;
         printf("\\-----By:机长大大-----/\n"); 
-        printf(" \\--------V1.8-------/\n");
+        printf(" \\--------V1.9-------/\n");
         printmenustr();
         if (ch-96>0&&ch-96<n) 
         {
@@ -189,7 +190,7 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
     e.titlein("       蓝桥杯题库");
     f.strin(s6,2);
     f.titlein("        LeetCode");
-    if (n==1)
+    if (n==1)//主菜单
     {
         switch(x)
         {
@@ -231,7 +232,7 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
             break;
         }
     }
-    if (n==2)
+    if (n==2)//算法
     {
         switch(x)
         {
@@ -283,9 +284,12 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
             case 16:
                 textcreate(DAD+"Algorithm\\Sorting Algorithm\\LCP");
             break;
+            case 17:
+                textcreate(DAD+"Algorithm\\Trie Tree\\LCP");
+            break;
         }
     }
-    if (n==3)
+    if (n==3)//蓝桥杯
     {
         switch(x)
         {
@@ -300,7 +304,7 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
             break;
         }
     }
-    if (n==4)
+    if (n==4)//数据结构
     {
         switch(x)
         {
@@ -327,7 +331,7 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
             break;            
         }
     }
-    if (n==5)
+    if (n==5)//基础部分
     {
         switch(x)
         {
@@ -357,7 +361,7 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
             break;           
         }
     }
-    if (n==6)
+    if (n==6)//蓝桥杯子
     {
         switch(x)
         {
@@ -372,7 +376,7 @@ void menu::select(int x,int n)//x控制进到哪个子分类，n控制第几级菜单
             break;
         }
     }
-    if (n==7)
+    if (n==7)//力扣
     {
         switch(x)
         {
