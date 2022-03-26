@@ -1,11 +1,10 @@
 #include<bits/stdc++.h>
 using namespace std;
-int main()
-{
-    int i;
-    for(i=1;i<=150;i++) cout<<i<<endl;
-    system("pause");
-    return 0;
+int main() {
+	int year;
+	cin>>year;
+	if ((!year%4&&year%100)||(!year%400)) cout<<"Run";
+	else cout<<"Ping";
 }
 /*
 返回值类型 函数名(传入参数1类型 传入参数1，传入参数2类型 传入参数2 ……){
@@ -19,8 +18,6 @@ int main()
 2) 无返回值类型函数——过程
 必须不能有返回值
 */
-
-
 
 
 //ProblemA:  键盘输入a,b，输出2*a+b*b;
