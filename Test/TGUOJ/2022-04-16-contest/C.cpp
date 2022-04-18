@@ -10,12 +10,11 @@ int main(){
     dp[0]=0;
     for (i=0;i<n;i++) {
         for (j=V;j>=w[i];j--) {
-            dp[j]=max(dp[j],dp[j-w[i]]+v[i]);
-            if (dp[j]<0) dp[j]=INT_MIN;
+            if (dp[j-w[i]]>0) 
+                dp[j]=max(dp[j],dp[j-w[i]]+v[i]);
         }
     }
-    if (dp[V]<0) cout<<0<<endl;
-    else cout<<dp[V]<<endl;
+    cout<<(dp[V]<0? 0:dp[V])<<endl;
     system("pause");
     return 0;
 }
