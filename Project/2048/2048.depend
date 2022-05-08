@@ -5,7 +5,7 @@
 	"Menu.h"
 	"game.h"
 
-1650355845 d:\program\c++\project\2048\map.h
+1650358923 d:\program\c++\project\2048\map.h
 	<bits/stdc++.h>
 	"game.h"
 
@@ -21,7 +21,7 @@
 	<bits/stdc++.h>
 	"game.h"
 
-1650358431 d:\program\c++\project\2048\game.h
+1650358930 d:\program\c++\project\2048\game.h
 	<bits/stdc++.h>
 	<vector>
 	"map.h"
