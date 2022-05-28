@@ -1,15 +1,15 @@
 # depslib dependency file v1.0
-1650358417 source:d:\program\c++\project\2048\main.cpp
+1652324775 source:d:\program\c++\project\2048\main.cpp
 	<bits/stdc++.h>
 	<stdlib.h>
 	"Menu.h"
 	"game.h"
 
-1650358923 d:\program\c++\project\2048\map.h
-	<bits/stdc++.h>
-	"game.h"
+1652324608 d:\program\c++\project\2048\map.h
+	<iostream>
+	<vector>
 
-1650357068 source:d:\program\c++\project\2048\map.cpp
+1652325007 source:d:\program\c++\project\2048\map.cpp
 	<iostream>
 	"map.h"
 	"color.h"
@@ -21,16 +21,14 @@
 	<bits/stdc++.h>
 	"game.h"
 
-1650358930 d:\program\c++\project\2048\game.h
-	<bits/stdc++.h>
-	<vector>
+1652324654 d:\program\c++\project\2048\game.h
 	"map.h"
+	<vector>
+	<set>
 	<iostream>
-	<conio.h>
-	<ctime>
 	<stdio.h>
 
-1650358772 source:d:\program\c++\project\2048\game.cpp
+1652324805 source:d:\program\c++\project\2048\game.cpp
 	"game.h"
 	"time.h"
 	"windows.h"
@@ -39,14 +37,11 @@
 1650339522 source:d:\program\c++\project\2048\menu.cpp
 	"Menu.h"
 
-1650358408 d:\program\c++\project\2048\menu.h
-	<iostream>
+1652324936 d:\program\c++\project\2048\menu.h
 	<windows.h>
-	<conio.h>
-	<ctime>
 	<stdio.h>
+	<conio.h>
 
-1650355772 d:\program\c++\project\2048\color.h
-	<bits/stdc++.h>
+1652324682 d:\program\c++\project\2048\color.h
 	<windows.h>
 

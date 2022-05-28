@@ -1,18 +1,18 @@
 #pragma once
-#include <iostream>
+
 #include <windows.h>
-#include <conio.h>
-#include<ctime>
 #include <stdio.h>
+#include <conio.h>
 
 using namespace std;
 
 void Pos(int x, int y);
+
 void HideCursor();
 
 int Menu_exam = 0;
-void Drawmenu()
-{
+
+void Drawmenu() { //打印菜单
 	void HideCursor();
 	if(!Menu_exam)
 	{
@@ -36,42 +36,39 @@ void Drawmenu()
 		printf("\t\t\t\t |                                                    |\n");
 		printf("\t\t\t\t |                                                    |\n");
 		printf("\t\t\t\t☆-☆-☆-☆-☆-☆-☆-☆-☆-☆-☆-☆-☆-☆-☆-☆-☆-☆-☆\n");
-		printf("\t\t\t\t                                    wasd控制，space选择\n");
+		printf("\t\t\t\t                         WASD控制, Space选择, T获取提示\n");
 		printf("\t\t\t\t                                        制作人:机长大大\n");
-		}
+	}
 }
 
-void choice(int &x)
-{
+void choice(int &x) { //确定菜单中的选项
 	void HideCursor();
-	static char n='1';
-	if (_kbhit())
-	{
+	static bool n=1;
+	if (_kbhit()) {
 		char temp=_getch();
-		if (n=='1'&&temp=='s')
-			n='2';
-		if (n=='2'&&temp=='w')
-			n='1';
-		if (temp==' '&&n=='1') {
+		if (n&&temp=='s')
+			n=0;
+		if (!n&&temp=='w')
+			n=1;
+		if (temp==' '&&n) {
 			x=2;
 			return;
 		}
-		if (temp==' '&&n=='2') {
-			x=3;
+		if (temp==' '&&!n) {
+			x=4;
 			return;
 		}
 	}
-	switch (n)
-	{
-	case '1':
+	switch (n) {
+	case 1:
 		Pos(52, 15);
 		cout<<"●";
 		Pos(52, 18);
 		cout<<"  ";
 		break;
-	case '2':
+	case 0:
 		Pos(52, 15);
-		cout << "  ";
+		cout<<"  ";
 		Pos(52, 18);
 		cout<<"●";
 		break;

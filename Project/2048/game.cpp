@@ -16,12 +16,10 @@ game::game(){
 
 void game::culempty(){
     New.clear();
-    for (int i=0;i<4;i++){
-        for (int j=0;j<4;j++) {
+    for (int i=0;i<4;i++)
+        for (int j=0;j<4;j++)
             if (!grid[i][j])
                 New.push_back({i,j});
-        }
-    }
 }
 
 void game::NewNumber(){
@@ -38,173 +36,178 @@ void game::NewNumber(){
     m.printmap();
 }
 
-int game::use(char ops) {
-    if (ops>96) ops-=32;
-    int ans=0;
+bool game::Move(char ops){
     switch(ops) {
         case 'W':
-            for (int i=0;i<4;i++) {
-                vector<int> d(4,0);
-                int k=0;
-                for (int j=0;j<4;j++)
-                    if (grid[j][i])
-                        d[k++]=grid[j][i];
-                if (d[0]==d[1]&&d[1]) {
-                    d[0]*=2;
-                    ans+=d[0];
-                    d[1]=0;
-                    if (d[2]==d[3]&&d[3]) {
-                        d[1]=d[2]*2;
-                        ans+=d[1];
-                        d[2]=d[3]=0;
-                    }
-                    else {
-                        d[1]=d[2];
-                        d[2]=d[3];
-                    }
+            for (int j=0;j<4;j++) {
+                vector<int> tmp(4,0);
+                for (int i=0;i<4;i++)
+                    tmp[i]=grid[i][j];
+                for (int i=0;i<3;i++) {
+                    if (!tmp[i]&&tmp[i+1]) return true;
+                    if (tmp[i]==tmp[i+1]&&tmp[i]&&!index[i][j]) return true;
                 }
-                else if (d[1]==d[2]&&d[2]) {
-                    d[1]*=2;
-                    ans+=d[1];
-                    d[2]=0;
-                    if (d[3]) swap(d[2],d[3]);
+            }
+        break;
+        case 'S':
+            for (int j=0;j<4;j++) {
+                vector<int> tmp(4,0);
+                for (int i=0;i<4;i++)
+                    tmp[i]=grid[i][j];
+                for (int i=3;i>0;i--) {
+                    if (!tmp[i]&&tmp[i-1]) return true;
+                    if (!index[i][j]&&tmp[i]&&tmp[i]==tmp[i-1]) return true;
                 }
-                else if (d[2]==d[3]&&d[2]){
-                    d[2]*=2;
-                    ans+=d[2];
-                    d[3]=0;
-                }
-                for (int j=0;j<4;j++) grid[j][i]=d[j];
             }
         break;
         case 'A':
             for (int i=0;i<4;i++) {
-                vector<int> d(4,0);
-                int k=0;
-                for (int j=0;j<4;j++)
-                    if (grid[i][j])
-                        d[k++]=grid[i][j];
-                if (d[0]==d[1]&&d[1]) {
-                    d[0]*=2;
-                    ans+=d[0];
-                    d[1]=0;
-                    if (d[2]==d[3]&&d[3]) {
-                        d[1]=d[2]*2;
-                        ans+=d[1];
-                        d[2]=d[3]=0;
-                    }
-                    else {
-                        d[1]=d[2];
-                        d[2]=d[3];
-                    }
+                vector<int> tmp(grid[i]);
+                for (int j=0;j<3;j++) {
+                    if (!tmp[j]&&tmp[j+1]) return true;
+                    if (!index[i][j]&&tmp[j]&&tmp[j]==tmp[j+1]) return true;
                 }
-                else if (d[1]==d[2]&&d[2]) {
-                    d[1]*=2;
-                    ans+=d[1];
-                    d[2]=0;
-                    if (d[3]) swap(d[2],d[3]);
-                }
-                else if (d[2]==d[3]&&d[2]){
-                    d[2]*=2;
-                    ans+=d[2];
-                    d[3]=0;
-                }
-                for (int j=0;j<4;j++) grid[i][j]=d[j];
-            }
-        break;
-        case 'S':
-            for (int i=0;i<4;i++) {
-                vector<int> d(4,0);
-                int k=3;
-                for (int j=3;j>=0;j--)
-                    if (grid[j][i])
-                        d[k--]=grid[j][i];
-                if (d[3]==d[2]&&d[2]) {
-                    d[3]*=2;
-                    ans+=d[3];
-                    d[2]=0;
-                    if (d[1]==d[0]&&d[0]) {
-                        d[2]=d[1]*2;
-                        ans+=d[2];
-                        d[1]=d[0]=0;
-                    }
-                    else {
-                        d[2]=d[1];
-                        d[1]=d[0];
-                    }
-                }
-                else if (d[1]==d[2]&&d[1]) {
-                    d[2]*=2;
-                    ans+=d[2];
-                    d[1]=0;
-                    if (d[0]) swap(d[1],d[0]);
-                }
-                else if (d[1]==d[0]&&d[0]){
-                    d[1]*=2;
-                    ans+=d[1];
-                    d[0]=0;
-                }
-                for (int j=0;j<4;j++) grid[j][i]=d[j];
             }
         break;
         case 'D':
             for (int i=0;i<4;i++) {
-                vector<int> d(4,0);
-                int k=3;
-                for (int j=3;j>=0;j--)
-                    if (grid[i][j])
-                        d[k--]=grid[i][j];
-                if (d[3]==d[2]&&d[2]) {
-                    d[3]*=2;
-                    ans+=d[3];
-                    d[2]=0;
-                    if (d[1]==d[0]&&d[0]) {
-                        d[2]=d[1]*2;
-                        ans+=d[2];
-                        d[1]=d[0]=0;
-                    }
-                    else {
-                        d[2]=d[1];
-                        d[1]=d[0];
-                    }
+                vector<int> tmp(grid[i]);
+                for (int j=3;j>0;j--) {
+                    if (!tmp[j]&&tmp[j-1]) return true;
+                    if (!index[i][j]&&tmp[j]&&tmp[j]==tmp[j-1]) return true;
                 }
-                else if (d[1]==d[2]&&d[1]) {
-                    d[2]*=2;
-                    ans+=d[2];
-                    d[1]=0;
-                    if (d[0]) swap(d[1],d[0]);
-                }
-                else if (d[1]==d[0]&&d[0]){
-                    d[1]*=2;
-                    ans+=d[1];
-                    d[0]=0;
-                }
-                for (int j=0;j<4;j++) grid[i][j]=d[j];
             }
+        break;
+    }
+    return false;
+}
+
+int game::use2(char ops){
+    if (ops>96) ops-=32;
+    int ans=0;
+    index=vector<vector<bool>> (4,vector<bool>(4,false));
+    switch (ops) {
+        case 'W':
+            while (Move('W')){
+                for (int j=0;j<4;j++) {//扫描列
+                    for (int i=0;i<3;i++) {
+                        if (!index[i][j]&&grid[i][j]==grid[i+1][j]) {
+                            index[i][j]=1;
+                            grid[i][j]*=2;
+                            ans+=grid[i][j];
+                            grid[i+1][j]=0;
+                        }
+                        else if (!grid[i][j]&&grid[i+1][j]) {
+                            swap(grid[i][j],grid[i+1][j]);
+                            swap(index[i][j],index[i+1][j]);
+                        }
+                        else if (grid[i][j]&&grid[i+1][j]&&!index[i][j]&&grid[i][j]!=grid[i+1][j])
+                            index[i][j]=1;
+                    }
+                }
+                m.change(grid);
+                m.printmap();
+            }
+        break;
+        case 'S':
+            while (Move('S')){
+                for (int j=0;j<4;j++) {//扫描列
+                    for (int i=3;i>0;i--) {
+                        if (!index[i][j]&&grid[i][j]==grid[i-1][j]) {
+                            index[i][j]=1;
+                            grid[i][j]*=2;
+                            ans+=grid[i][j];
+                            grid[i-1][j]=0;
+                        }
+                        else if (!grid[i][j]&&grid[i-1][j]) {
+                            swap(grid[i][j],grid[i-1][j]);
+                            swap(index[i][j],index[i-1][j]);
+                        }
+                        else if (grid[i][j]&&grid[i-1][j]&&!index[i][j]&&grid[i][j]!=grid[i-1][j])
+                            index[i][j]=1;
+                    }
+                }
+                m.change(grid);
+                m.printmap();
+            }
+        break;
+        case 'A':
+            while (Move('A')){
+                for (int i=0;i<4;i++) {//扫描行
+                    for (int j=0;j<3;j++) {
+                        if (!index[i][j]&&grid[i][j]==grid[i][j+1]){
+                            index[i][j]=1;
+                            grid[i][j]*=2;
+                            ans+=grid[i][j];
+                            grid[i][j+1]=0;
+                        }
+                        else if (!grid[i][j]&&grid[i][j+1]) {
+                            swap(grid[i][j],grid[i][j+1]);
+                            swap(index[i][j],index[i][j+1]);
+                        }
+                        else if (grid[i][j]&&grid[i][j+1]&&!index[i][j]&&grid[i][j]!=grid[i][j+1])
+                            index[i][j]=1;
+                    }
+                }
+                m.change(grid);
+                m.printmap();
+            }
+        break;
+        case 'D':
+            while (Move('D')){
+                for (int i=0;i<4;i++) {//扫描行
+                    for (int j=3;j>0;j--) {
+                        if (!index[i][j]&&grid[i][j]==grid[i][j-1]){
+                            index[i][j]=1;
+                            grid[i][j]*=2;
+                            ans+=grid[i][j];
+                            grid[i][j-1]=0;
+                        }
+                        else if (!grid[i][j]&&grid[i][j-1]) {
+                            swap(grid[i][j],grid[i][j-1]);
+                            swap(index[i][j],index[i][j-1]);
+                        }
+                        else if (grid[i][j]&&grid[i][j-1]&&!index[i][j]&&grid[i][j]!=grid[i][j-1])
+                            index[i][j]=1;
+                    }
+                }
+                m.change(grid);
+                m.printmap();
+            }
+        break;
+        case 'T':
+            vector<char> temp;
+            for (auto x:operable)
+                if (x<91) temp.push_back(x);
+            Pos(37,19);
+            cout<<"当前可以使用的操作是:";
+            int i,n=temp.size();
+            for (i=0;i<n-1;i++)
+                cout<<"\'"<<temp[i]<<"\', ";
+            cout<<"\'"<<temp.back()<<"\'"<<endl;
+            system("pause");
+            m.printmap();
         break;
     }
     return ans;
 }
 
-void game::play(int &x){
+void game::play(int &x,char &opr){
     check();
     if (operable.empty()) {
-        system("cls");
         m.printmap();
         over();
-        x=3;
+        x=4;
         return;
     }
-    char c='1';
-    while (operable.find(c)==operable.end()) {
-        c=getch();
+    opr='1';
+    while (opr!='T'&&opr!='t'&&operable.find(opr)==operable.end()) {
+        opr=getch();
     }
-    int alter=use(c);
+    int alter=use2(opr);
     m.change(grid,score+alter);
     score+=alter;
-    Sleep(50);
-    system("cls");
-    m.printmap();
+    Sleep(5);
 }
 
 void game::check(){

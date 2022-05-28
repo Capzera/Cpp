@@ -1,0 +1,34 @@
+# Project: wenliyingshe
+# Makefile created by Red Panda C++ 1.0.6
+
+CPP      = g++.exe
+CC       = gcc.exe
+WINDRES  = windres.exe
+RES      = wenliyingshe_private.res
+OBJ      = main.o $(RES)
+LINKOBJ  = main.o $(RES)
+CLEANOBJ  =  main.o wenliyingshe_private.res wenliyingshe.exe
+LIBS     =  -mwindows
+INCS     =  
+CXXINCS  =  
+BIN      = wenliyingshe.exe
+CXXFLAGS = $(CXXINCS)  -Wall -Wextra -g3 -pipe -D__DEBUG__
+CFLAGS   = $(INCS)  -Wall -Wextra -g3 -pipe -D__DEBUG__
+RM       = del /q /f
+
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before $(BIN) all-after
+
+clean: clean-custom
+	${RM} $(CLEANOBJ) > NUL 2>&1
+
+$(BIN): $(OBJ)
+	$(CPP) $(LINKOBJ) -o $(BIN) $(LIBS)
+
+main.o: main.cpp
+	$(CPP) -c D:/Program/C++/Project/wenliyingshe/main.cpp -o main.o $(CXXFLAGS)  -finput-charset=UTF-8 -fexec-charset=gbk
+
+wenliyingshe_private.res: wenliyingshe_private.rc 
+	$(WINDRES) -i wenliyingshe_private.rc --input-format=rc -o wenliyingshe_private.res -O coff 
+
