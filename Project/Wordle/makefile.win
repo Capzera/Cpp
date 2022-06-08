@@ -1,0 +1,43 @@
+# Project: Wordle
+# Makefile created by Red Panda C++ 1.0.6
+
+CPP      = g++.exe
+CC       = gcc.exe
+WINDRES  = windres.exe
+RES      = Wordle_private.res
+OBJ      = main.o Map.o BLOCK.o game.o $(RES)
+LINKOBJ  = main.o Map.o BLOCK.o game.o $(RES)
+CLEANOBJ  =  main.o Map.o BLOCK.o game.o Wordle_private.res Wordle.exe
+LIBS     =  -s -mwindows -lgraphics -luuid -lmsimg32 -lgdi32 -limm32 -lole32 -loleaut32 -lwinmm -lgdiplus   -static
+INCS     =  
+CXXINCS  =  
+BIN      = Wordle.exe
+CXXFLAGS = $(CXXINCS)  -O2 -pipe
+CFLAGS   = $(INCS)  -O2 -pipe
+RM       = del /q /f
+
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before $(BIN) all-after
+
+clean: clean-custom
+	${RM} $(CLEANOBJ) > NUL 2>&1
+
+$(BIN): $(OBJ)
+	$(CPP) $(LINKOBJ) -o $(BIN) $(LIBS)
+
+main.o: main.cpp common.h Map.h game.h BLOCK.h
+	$(CPP) -c D:/Program/C++/Project/Wordle/main.cpp -o main.o $(CXXFLAGS) 
+
+Map.o: Map.cpp Map.h BLOCK.h common.h
+	$(CPP) -c D:/Program/C++/Project/Wordle/Map.cpp -o Map.o $(CXXFLAGS)  -finput-charset=UTF-8 -fexec-charset=gbk
+
+BLOCK.o: BLOCK.cpp BLOCK.h common.h
+	$(CPP) -c D:/Program/C++/Project/Wordle/BLOCK.cpp -o BLOCK.o $(CXXFLAGS) 
+
+game.o: game.cpp Map.h BLOCK.h game.h common.h
+	$(CPP) -c D:/Program/C++/Project/Wordle/game.cpp -o game.o $(CXXFLAGS) 
+
+Wordle_private.res: Wordle_private.rc 
+	$(WINDRES) -i Wordle_private.rc --input-format=rc -o Wordle_private.res -O coff 
+

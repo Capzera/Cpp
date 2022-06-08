@@ -1,16 +1,22 @@
 #include<bits/stdc++.h>
-
 using namespace std;
-
-
 int main(){
-    int bottom=20;
-    int score=20;
-    while (bottom>1) {
-        score+=bottom/2;
-        bottom/=2;
+    string s,tmp="";
+    vector<string> ans;
+    int i;
+    getline(cin,s);
+    for (i=0;i<=s.size();i++){
+        if (s[i]==' ') {
+            ans.push_back(tmp);
+            tmp="";
+            continue;
+        }
+        tmp+=s[i];
     }
-    cout<<score<<endl;
+    if (tmp!="") {
+        ans.push_back(tmp);
+    }
+    for (i=ans.size()-1;i>=0;i--) cout<<ans[i]<<" ";
     system("pause");
     return 0;
 }
