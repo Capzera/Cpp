@@ -1,13 +1,8 @@
 #include<bits/stdc++.h>
-
 using namespace std;
-
 vector<int> nums;
-
 int n;
-
-void QSort(int l,int r)
-{
+void QSort(int l,int r) {
     if (l>=r) return;
     int i=l,j=r,mid=nums[(l+r)/2];
     while(i<=j) {
@@ -19,7 +14,7 @@ void QSort(int l,int r)
     QSort(i,r);
     QSort(l,j);
 }
-int main(){
+int main() {
     cin>>n;
     nums=vector<int> (n);
     for(int i=0;i<n;i++) cin>>nums[i];
