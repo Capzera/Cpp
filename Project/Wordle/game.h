@@ -3,19 +3,25 @@
 
 #include "common.h"
 #include "Map.h"
-#define SUPERANSWER "SABIN"
+
 using namespace std;
+
+static string a="";
+
+void init();
 
 class Game{
 public:
-	Game();//æ„é€ å‡½æ•°
-	void Start();//æ¸¸æˆè¿è¡Œå‡½æ•°
-	void Play(char);//å¼€å§‹æ¸¸æˆ
-	void Judge(int);//åˆ¤å®šç­”æ¡ˆ
+	Game(){};//¹¹Ôìº¯Êı
+	void Init();//³õÊ¼»¯º¯Êı
+	void Start();//ÓÎÏ·ÔËĞĞº¯Êı
+	void Play(char);//¿ªÊ¼ÓÎÏ·
+	void Judge(int);//ÅĞ¶¨´ğ°¸
 	void succ();
 	void fail();
-	~Game();
+	~Game(){};
 private:
+	string Answer;
 	int raw,col;
 	int cnt;
 	graph G;

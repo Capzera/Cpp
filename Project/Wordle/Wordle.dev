@@ -1,7 +1,7 @@
 [Project]
 filename = Wordle.dev
 name = Wordle
-UnitCount = 14
+UnitCount = 19
 Type = 0
 Ver = 3
 ObjFiles = 
@@ -212,6 +212,66 @@ DetectEncoding = 1
 
 [Unit14]
 FileName = game.cpp
+CompileCpp = 1
+Folder = 源文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+
+
+[Unit15]
+FileName = Words/dictionary.txt
+CompileCpp = 1
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+
+
+[Unit16]
+FileName = Menu.h
+CompileCpp = 1
+Folder = 头文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+
+
+[Unit17]
+FileName = menu.cpp
+CompileCpp = 1
+Folder = 源文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+
+
+[Unit18]
+FileName = Button.h
+CompileCpp = 1
+Folder = 头文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+
+
+[Unit19]
+FileName = Button.cpp
 CompileCpp = 1
 Folder = 源文件
 Compile = 1

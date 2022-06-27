@@ -1,6 +1,11 @@
 #include<bits/stdc++.h>
+
 using namespace std;
+
 vector<int> nums;
+
+int n;
+
 void QSort(int l,int r)
 {
     if (l>=r) return;
@@ -8,22 +13,18 @@ void QSort(int l,int r)
     while(i<=j) {
         while(nums[i]<mid) i++;
         while(nums[j]>mid) j--;
-        if (i<=j) {
-            swap(nums[i],nums[j]);
-            i++;
-            j--;
-        }
+        if (i<=j)
+            swap(nums[i++],nums[j--]);
     }
     QSort(i,r);
     QSort(l,j);
 }
 int main(){
-    int n,i;
     cin>>n;
-    nums.resize(n);
-    for(i=0;i<n;i++) cin>>nums[i];
+    nums=vector<int> (n);
+    for(int i=0;i<n;i++) cin>>nums[i];
     QSort(0,n-1);
-    for(i=0;i<n;i++) cout<<nums[i]<<" ";
+    for(int i=0;i<n;i++) cout<<nums[i]<<" ";
     system("pause");
     return 0;
 }

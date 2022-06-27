@@ -1,14 +1,27 @@
-#include<bits/stdc++.h>
+#include <fstream>
+#include <bits/stdc++.h>
+
 using namespace std;
-int gcd(int m,int n){
-	if (m%n==0) return n;
-	return gcd(n,m%n);
-}
+
 int main(){
-	int a,b;
-	cin>>a>>b;
-	if (a<b) swap(a,b);
-	cout<<gcd(a,b)<<endl;
-	system("pause");
+	srand(time(NULL));
+	cout<<1<<endl;
+	fstream f("D:\\Program\\C++\\Project\\Wordle\\Words\\dictionary.txt");
+	vector<string> data;
+	string Answer;
+	string tmp;
+	while (getline(f,tmp)){
+		data.push_back(tmp);
+	}
+	f.close();
+	int n=data.size();
+	int ran=rand()%n;
+	Answer=data[ran];
+	fstream file;
+	file.open("C:\\Users\\96987\\Desktop\\Cache.txt",ios::out);
+	file<<Answer<<endl;
+	file.close();
 	return 0;
 }
+
+

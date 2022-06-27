@@ -8,13 +8,13 @@ using namespace std;
 
 class graph{
 public:
-	graph();//æ„é€ å‡½æ•°
-	void initlocation(int,int);//åˆå§‹åŒ–åœ°å›¾ä½ç½®(æ°´å¹³é—´è·ï¼Œå‚ç›´é—´è·)
-	void showmap();//æ‰“å°åœ°å›¾
-	void changechar(char,int);//æ”¹å˜æ–¹æ ¼å†…å…ƒç´ 
-	void changestate(int,int);//æ”¹å˜æ–¹æ ¼å†…å…ƒç´ çš„é¢œè‰²
-	char whattext(int cnt);//è¿”å›æ–¹æ ¼å†…å­—ç¬¦
-	~graph();//ææ„å‡½æ•°
+	graph(){};//¹¹Ôìº¯Êı
+	void initlocation(int,int);//³õÊ¼»¯µØÍ¼Î»ÖÃ(Ë®Æ½¼ä¾à£¬´¹Ö±¼ä¾à)
+	void showmap();//´òÓ¡µØÍ¼
+	void changechar(char,int);//¸Ä±ä·½¸ñÄÚÔªËØ
+	void changestate(int,int);//¸Ä±ä·½¸ñÄÚÔªËØµÄÑÕÉ«
+	char whattext(int cnt);//·µ»Ø·½¸ñÄÚ×Ö·û
+	~graph(){};//Îö¹¹º¯Êı
 private:
 	int raw=6;
 	int len=5;

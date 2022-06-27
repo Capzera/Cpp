@@ -8,16 +8,16 @@ using namespace std;
 
 class Block{
 public:
-	Block();//æ„é€ å‡½æ•°ï¼Œå»ºç«‹ä¸€ä¸ªæ–¹æ ¼
-	void setstate(int);//æ”¹å˜æ–¹æ ¼çŠ¶æ€
-	void show();//æ˜¾ç¤ºæ–¹æ ¼
-	void setloc(int ,int);//æ”¹å˜æ–¹æ ¼çš„ä½ç½®â€”â€”å†…ç½®å‡½æ•°
-	void setchar(char);//æ”¹å˜æ–¹æ ¼å†…å­—ç¬¦
-	char whattext();//è¿”å›å­—ç¬¦æ¥å£
+	Block();//¹¹Ôìº¯Êı£¬½¨Á¢Ò»¸ö·½¸ñ
+	void setstate(int);//¸Ä±ä·½¸ñ×´Ì¬
+	void show();//ÏÔÊ¾·½¸ñ
+	void setloc(int ,int);//¸Ä±ä·½¸ñµÄÎ»ÖÃ¡ª¡ªÄÚÖÃº¯Êı
+	void setchar(char);//¸Ä±ä·½¸ñÄÚ×Ö·û
+	char whattext();//·µ»Ø×Ö·û½Ó¿Ú
 private:
-	char text;
-	int state;
-	int x;
+	char text;//±£´æ·½¸ñÄÚÎÄ×Ö
+	int state;//±£´æ·½¸ñ×´Ì¬
+	int x;//±£´æ·½¸ñ×ø±ê£¬ÏÂÍ¬
 	int y;
 };
 
