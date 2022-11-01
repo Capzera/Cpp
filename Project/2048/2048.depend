@@ -1,0 +1,47 @@
+# depslib dependency file v1.0
+1652324775 source:d:\program\c++\project\2048\main.cpp
+	<bits/stdc++.h>
+	<stdlib.h>
+	"Menu.h"
+	"game.h"
+
+1652324608 d:\program\c++\project\2048\map.h
+	<iostream>
+	<vector>
+
+1652325007 source:d:\program\c++\project\2048\map.cpp
+	<iostream>
+	"map.h"
+	"color.h"
+
+1650337832 source:d:\program\c++\project\2048\begin.cpp
+	"begin.h"
+
+1650354067 d:\program\c++\project\2048\begin.h
+	<bits/stdc++.h>
+	"game.h"
+
+1652324654 d:\program\c++\project\2048\game.h
+	"map.h"
+	<vector>
+	<set>
+	<iostream>
+	<stdio.h>
+
+1652324805 source:d:\program\c++\project\2048\game.cpp
+	"game.h"
+	"time.h"
+	"windows.h"
+	<conio.h>
+
+1650339522 source:d:\program\c++\project\2048\menu.cpp
+	"Menu.h"
+
+1652324936 d:\program\c++\project\2048\menu.h
+	<windows.h>
+	<stdio.h>
+	<conio.h>
+
+1652324682 d:\program\c++\project\2048\color.h
+	<windows.h>
+

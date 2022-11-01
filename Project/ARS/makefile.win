@@ -1,0 +1,46 @@
+# Project: ARS
+# Makefile created by Red Panda C++ 1.0.6
+
+CPP      = g++.exe
+CC       = gcc.exe
+WINDRES  = windres.exe
+RES      = ARS_private.res
+OBJ      = main.o menu.o passenger.o pw.o flight.o $(RES)
+LINKOBJ  = main.o menu.o passenger.o pw.o flight.o $(RES)
+CLEANOBJ  =  main.o menu.o passenger.o pw.o flight.o ARS_private.res ARS.exe
+LIBS     =  -s -static
+INCS     =  
+CXXINCS  =  
+BIN      = ARS.exe
+CXXFLAGS = $(CXXINCS)  -O2 -pipe
+CFLAGS   = $(INCS)  -O2 -pipe
+RM       = del /q /f
+
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before $(BIN) all-after
+
+clean: clean-custom
+	${RM} $(CLEANOBJ) > NUL 2>&1
+
+$(BIN): $(OBJ)
+	$(CPP) $(LINKOBJ) -o $(BIN) $(LIBS)
+
+main.o: main.cpp menu.h passenger.h construct.h pw.h flight.h common.h
+	$(CPP) -c D:/Program/C++/Project/ARS/main.cpp -o main.o $(CXXFLAGS) 
+
+menu.o: menu.cpp menu.h common.h
+	$(CPP) -c D:/Program/C++/Project/ARS/menu.cpp -o menu.o $(CXXFLAGS) 
+
+passenger.o: passenger.cpp passenger.h common.h
+	$(CPP) -c D:/Program/C++/Project/ARS/passenger.cpp -o passenger.o $(CXXFLAGS) 
+
+pw.o: pw.cpp passenger.h pw.h flight.h common.h
+	$(CPP) -c D:/Program/C++/Project/ARS/pw.cpp -o pw.o $(CXXFLAGS)  -finput-charset=UTF-8 -fexec-charset=gbk
+
+flight.o: flight.cpp flight.h common.h
+	$(CPP) -c D:/Program/C++/Project/ARS/flight.cpp -o flight.o $(CXXFLAGS) 
+
+ARS_private.res: ARS_private.rc 
+	$(WINDRES) -i ARS_private.rc --input-format=rc -o ARS_private.res -O coff 
+

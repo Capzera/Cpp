@@ -1,0 +1,25 @@
+<RCC>
+    <qresource prefix="/myimage">
+        <file>icon/0.png</file>
+        <file>icon/1.png</file>
+        <file>icon/2.png</file>
+        <file>icon/3.png</file>
+        <file>icon/4.png</file>
+        <file>icon/6.png</file>
+        <file>icon/7.png</file>
+        <file>icon/8.png</file>
+        <file>icon/9.png</file>
+        <file>icon/backgroundday.png</file>
+        <file>icon/backgroundnight.png</file>
+        <file>icon/bird1.png</file>
+        <file>icon/bird2.png</file>
+        <file>icon/bird3.png</file>
+        <file>icon/gameover.png</file>
+        <file>icon/getready.png</file>
+        <file>icon/land.png</file>
+        <file>icon/pause.png</file>
+        <file>icon/pipe.png</file>
+        <file>icon/play.png</file>
+        <file>icon/title.png</file>
+    </qresource>
+</RCC>

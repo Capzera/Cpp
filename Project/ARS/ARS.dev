@@ -1,0 +1,334 @@
+[Project]
+filename = ARS.dev
+name = ARS
+UnitCount = 22
+Type = 1
+Ver = 3
+ObjFiles = 
+Includes = 
+Libs = 
+PrivateResource = ARS_private.rc
+ResourceIncludes = 
+MakeIncludes = 
+Compiler = 
+CppCompiler = 
+Linker = 
+IsCpp = 1
+Icon = app.ico
+ExeOutput = 
+ObjectOutput = 
+LogOutput = 
+LogOutputEnabled = 0
+OverrideOutput = 0
+OverrideOutputName = 
+HostApplication = 
+UseCustomMakefile = 0
+CustomMakefile = 
+UsePrecompiledHeader = 0
+PrecompiledHeader = 
+CommandLine = 
+Folders = 
+IncludeVersionInfo = 0
+SupportXPThemes = 0
+CompilerSet = 0
+CompilerSetType = 0
+CompilerSettings = 000000a000000000000010001
+StaticLink = 1
+AddCharset = 1
+Encoding = SYSTEM
+ModelType = 0
+UseUTF8 = 0
+
+
+[Unit1]
+FileName = common.h
+CompileCpp = 0
+Folder = 头文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 0
+FileEncoding = UTF-8
+
+
+[VersionInfo]
+Major = 1
+Minor = 0
+Release = 0
+Build = 0
+LanguageID = 1033
+CharsetID = 1252
+CompanyName = 
+FileVersion = 
+FileDescription = Developed using the Red Panda C++ IDE
+InternalName = 
+LegalCopyright = 
+LegalTrademarks = 
+OriginalFilename = 
+ProductName = 
+ProductVersion = 
+AutoIncBuildNr = 0
+SyncProduct = 1
+
+
+[Unit2]
+FileName = construct.h
+CompileCpp = 0
+Folder = 头文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 0
+FileEncoding = SYSTEM
+
+
+[Unit3]
+FileName = menu.h
+CompileCpp = 0
+Folder = 头文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 0
+FileEncoding = AUTO
+
+
+[Unit4]
+FileName = passenger.h
+CompileCpp = 0
+Folder = 头文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 0
+FileEncoding = AUTO
+
+
+[Unit5]
+FileName = pw.h
+CompileCpp = 0
+Folder = 头文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 0
+FileEncoding = SYSTEM
+
+
+[Unit6]
+FileName = main.cpp
+CompileCpp = 1
+Folder = 源文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 0
+FileEncoding = AUTO
+
+
+[Unit7]
+FileName = menu.cpp
+CompileCpp = 1
+Folder = 源文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 0
+FileEncoding = AUTO
+
+
+[Unit8]
+FileName = passenger.cpp
+CompileCpp = 1
+Folder = 源文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 0
+FileEncoding = AUTO
+
+
+[Unit9]
+FileName = pw.cpp
+CompileCpp = 1
+Folder = 源文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+FileEncoding = AUTO
+
+
+[Unit10]
+FileName = addb.txt
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+FileEncoding = AUTO
+
+
+[Unit11]
+FileName = menu1.txt
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+FileEncoding = AUTO
+
+
+[Unit12]
+FileName = menu2.txt
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+FileEncoding = AUTO
+
+
+[Unit13]
+FileName = menu3.txt
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+FileEncoding = AUTO
+
+
+[Unit14]
+FileName = menu4.txt
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+FileEncoding = AUTO
+
+
+[Unit15]
+FileName = menu5.txt
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+FileEncoding = AUTO
+
+
+[Unit16]
+FileName = menu6.txt
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+FileEncoding = AUTO
+
+
+[Unit17]
+FileName = menu7.txt
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+FileEncoding = AUTO
+
+
+[Unit18]
+FileName = menu8.txt
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+FileEncoding = AUTO
+
+
+[Unit19]
+FileName = padb.txt
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 1
+FileEncoding = AUTO
+
+
+[Unit20]
+FileName = flight.h
+Folder = 头文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 0
+CompileCpp = 1
+FileEncoding = AUTO
+
+
+[Unit21]
+FileName = flight.cpp
+CompileCpp = 1
+Folder = 源文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 0
+FileEncoding = AUTO
+
+
+[Unit22]
+FileName = app.ico
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+DetectEncoding = 0

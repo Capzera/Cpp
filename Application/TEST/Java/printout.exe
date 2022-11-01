@@ -1,0 +1,21 @@
+# 1 "D:\\Program\\C++\\Application\\TEST\\Java\\printout.cpp"
+
+
+using namespace std;
+
+int main(){
+    cout<<"Area=19.04"<<endl;
+    cout<<"Perimeter=18.0"<<endl;
+    cout<<"Area=78.5"<<endl;
+    cout<<"Perimeter=31.400000000000002"<<endl;
+    system("pause");
+    return 0;
+}
+
+
+ 
+
+
+
+
+
