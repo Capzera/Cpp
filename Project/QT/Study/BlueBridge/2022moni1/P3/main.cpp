@@ -1,8 +1,12 @@
-#include <QCoreApplication>
-
-int main(int argc, char *argv[])
-{
-    QCoreApplication a(argc, argv);
-
-    return a.exec();
+#include <bits/stdc++.h>
+using namespace std;
+int main(){
+    double sum = 0, i = 1;
+    for (; ; i++) {
+        double tmp = 1 / (double)i;
+        sum += tmp;
+        if (sum > 12) break;
+    }
+    cout << i << endl;
+    return 0;
 }
