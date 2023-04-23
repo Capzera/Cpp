@@ -25,7 +25,18 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
         main.cpp \
-        widget.cpp
+        widget.cpp \
+    map.cpp \
+    block.cpp \
+    barrier.cpp
 
 HEADERS += \
-        widget.h
+        widget.h \
+    map.h \
+    block.h \
+    barrier.h
+
+DISTFILES += \
+    level/level1.txt \
+    level/level2.txt \
+    level/level1-1.txt

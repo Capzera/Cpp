@@ -31,7 +31,7 @@ int PopStack(LStack S)
     S->next=r->next;
     free(r);
     return (TRUE);
-}
+}0
 void CreateStack(LStack S)
 {
     Node *p;
