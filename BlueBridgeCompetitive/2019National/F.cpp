@@ -8,7 +8,6 @@ using namespace std;
 #define umll unordered_map<long long, long long>
 #define umsi unordered_map<string, int>
 #define ll long long
-#define mod 1000000007
 #define vi vector<int>
 #define vll vector<long long>
 #define vvi vector<vector<int>>
@@ -22,7 +21,7 @@ void read(vector<T> &a) {
     for (int i = 0; i < a.size(); i++) cin >> a[i];
 }
 template <class T>
-void read(T &a) {
+void read(int &a) {
     cin >> a;
 }
 template <class T>
@@ -38,15 +37,15 @@ void read(vector<vector<T>> &a) {
         for (int j = 0; j < n; j++) cin >> a[i][j];
 }
 template <class T>
-void print(T n) {
+void print(T &n) {
     cout << n << endl;
 }
 template <class T>
-void print(T m, T n) {
+void print(T &m, T &n) {
     cout << m << " " << n << endl;
 }
 template <class T>
-void print(vector<T> num) {
+void print(vector<T>& num) {
     for (auto& x : num) cout << x << " ";
     cout << endl;
 }
@@ -73,16 +72,29 @@ T max(T &a, T &b, T &c) {
     return a > b && a > c ? a : (b > a && b > c ? b : c);
 }
 void solve() {
-    
+    string s, p;
+    read(s, p);
+    int m = s.size(), n = p.size();
+    int dp, dpi, tmp = inf, tmp1 = 0;
+    for (int i = 1; i <= m; i++) {
+        for (int j = 1; j <= n; j++) {
+            if (s[i - 1] == p[j - 1]) dp = min(tmp, tmp1);
+            else dp = min(tmp, tmp1 + 1);
+        }
+        tmp = dp;
+    }
+    print(dp[n]);
 }
-
+/*
+dp[i][j] 表示 s前i个字符，p前j个字符需要修改的最少字符个数
+*/
 int main() {
     cin.tie(nullptr)->sync_with_stdio(0);
     clock_t st, ed;
     st = clock();
     int t = 1;
     
-    cin >> t;
+    //cin >> t;
     while (t--){
         
         solve();

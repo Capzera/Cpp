@@ -73,26 +73,36 @@ T max(T &a, T &b, T &c) {
     return a > b && a > c ? a : (b > a && b > c ? b : c);
 }
 void solve() {
-    
+    int n, m, k, put;
+    cin >> n >> m >> k;
+    int state = 1 << m;
+    vi candy(n);
+    vi dp(state, inf);
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < k; j++) {
+            cin >> put;
+            candy[i] |= 1 << put - 1;
+        }
+    }
+    dp[0] = 0;
+    for (int mask = 0; mask < 1 << m; ++mask) {
+        for (int i = 0; i < n; ++i) {
+            int st = mask | candy[i];
+            dp[st] = min(dp[st], dp[mask] + 1);
+        }
+    }
+    print(dp.back() == inf ? -1 : dp.back());
 }
 
 int main() {
     cin.tie(nullptr)->sync_with_stdio(0);
-    clock_t st, ed;
-    st = clock();
     int t = 1;
-    
-    cin >> t;
     while (t--){
-        
         solve();
     }
-    ed = clock();
-    double dur = (double) (ed - st) / CLOCKS_PER_SEC;
-    //cout << "Running is during " << dur << " seconds" << endl;
     system("pause");
     return 0;
 }
 /*
-
+лг╧Ш
 */

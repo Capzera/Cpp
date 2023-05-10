@@ -8,7 +8,6 @@ using namespace std;
 #define umll unordered_map<long long, long long>
 #define umsi unordered_map<string, int>
 #define ll long long
-#define mod 1000000007
 #define vi vector<int>
 #define vll vector<long long>
 #define vvi vector<vector<int>>
@@ -16,17 +15,16 @@ using namespace std;
 #define vs vector<string>
 #define yn(ans) printf("%s\n", (ans)? "Yes" : "No")
 #define YN(ans) printf("%s\n", (ans)? "YES" : "NO")
-int dx[] = {0, 0, 1, -1, -1, -1, 1, 1}, dy[] = {1, -1, 0, 0, -1, 1, -1, 1};
 template <class T>
 void read(vector<T> &a) {
     for (int i = 0; i < a.size(); i++) cin >> a[i];
 }
 template <class T>
-void read(T &a) {
+void read(int &a) {
     cin >> a;
 }
 template <class T>
-void read(T &a, T &b) {
+void read(int &a, int &b) {
     cin >> a >> b;
 }
 template <class T>
@@ -38,15 +36,15 @@ void read(vector<vector<T>> &a) {
         for (int j = 0; j < n; j++) cin >> a[i][j];
 }
 template <class T>
-void print(T n) {
+void print(T &n) {
     cout << n << endl;
 }
 template <class T>
-void print(T m, T n) {
+void print(T &m, T &n) {
     cout << m << " " << n << endl;
 }
 template <class T>
-void print(vector<T> num) {
+void print(vector<T>& num) {
     for (auto& x : num) cout << x << " ";
     cout << endl;
 }
@@ -73,7 +71,15 @@ T max(T &a, T &b, T &c) {
     return a > b && a > c ? a : (b > a && b > c ? b : c);
 }
 void solve() {
-    
+    ll base = 2019 * 2019;
+    for (ll y = 2021; ; y += 2) {
+        ll sum = y * y + base;
+        ll x = sqrt(sum / 2);
+        if (x * x == sum / 2) {
+            cout << x + y << endl;
+            return;
+        }
+    }
 }
 
 int main() {
@@ -82,7 +88,7 @@ int main() {
     st = clock();
     int t = 1;
     
-    cin >> t;
+    //cin >> t;
     while (t--){
         
         solve();

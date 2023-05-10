@@ -72,8 +72,19 @@ template <class T>
 T max(T &a, T &b, T &c) {
     return a > b && a > c ? a : (b > a && b > c ? b : c);
 }
-void solve() {
-    
+int solve() {
+    int n;
+    read(n);
+    if (n == 1) return 1;
+    if (n == 2) return 2;
+    if (n == 3) return 5;
+    vll dp(n + 1);
+    dp[0] = dp[1] = 1;
+    dp[2] = 2, dp[3] = 5;
+    for (int i = 4; i <= n; i++) {
+        dp[i] = (2 * dp[i - 1] + dp[i - 3]) % mod;
+    }
+    return dp[n];
 }
 
 int main() {
@@ -82,10 +93,10 @@ int main() {
     st = clock();
     int t = 1;
     
-    cin >> t;
+    //cin >> t;
     while (t--){
         
-        solve();
+        print(solve());
     }
     ed = clock();
     double dur = (double) (ed - st) / CLOCKS_PER_SEC;

@@ -5,6 +5,7 @@ using namespace std;
 #define pii pair<int, int>
 #define ll long long
 #define vi vector<int>
+#define vll vector<long long>
 #define yn(ans) printf("%s\n", (ans)? "Yes" : "No")
 #define YN(ans) printf("%s\n", (ans)? "YES" : "NO")
 template <class T>
@@ -35,24 +36,46 @@ template <class T>
 T max(T &a, T &b, T &c) {
     return a > b && a > c ? a : (b > a && b > c ? b : c);
 }
-void solve() {
+ll solve() {
     int n;
-    cin >> n;
-    vi n1(n), n2(n);
-    read(n1), read(n2);
     ll ans = 0;
-    for (int i = 1; i < n; i++) {
-        ans += min(abs(n1[i] - n1[i - 1]) + abs(n2[i] - n2[i - 1]), abs(n1[i] - n2[i - 1]) + abs(n2[i] - n1[i - 1]));
+    cin >> n;
+    vll nums(n);
+    read(nums);
+    if (n == 2) {
+        ans = 1LL * nums[0] * nums[1];
+        return ans;
     }
-    print(ans);
+    vll pos, neg;
+    for (auto& num : nums) {
+        if (num > 0) pos.push_back(num);
+        else neg.push_back(num);
+    }
+    sort(pos.begin(), pos.end(), greater<ll>());
+    sort(neg.begin(), neg.end());
+    int l1 = pos.size(), l2 = neg.size();
+    if (l1 < 2 && l2 < 2) return ans;
+    if (l1 > 1) {
+        ans = 1LL * pos[0] * pos[1];
+    }
+    if (l2 > 1) {
+        ll sum = 1LL * neg[0] * neg[1];
+        if (sum > ans) ans = sum;
+    }
+    return ans;
 }
 
 int main() {
     int t = 1;
+    
     cin >> t;
     while (t--){
-        solve();
+        
+        cout << solve() << endl;
     }
     system("pause");
     return 0;
 }
+/*
+
+*/

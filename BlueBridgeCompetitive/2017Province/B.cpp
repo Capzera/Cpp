@@ -72,27 +72,50 @@ template <class T>
 T max(T &a, T &b, T &c) {
     return a > b && a > c ? a : (b > a && b > c ? b : c);
 }
-void solve() {
-    
+int di[] = {-2, -1, 1, 2};
+int solve() {
+    string st = "*12345678", ed = "*87654321";
+    unordered_set<string> s = {st};
+    queue<string> q;
+    q.push(st);
+    int depth = 0;
+    while (q.size()) {
+        int size = q.size();
+        while (size--) {
+            string top = q.front();
+            int pos = top.find('*');
+            q.pop();
+            if (top == ed) {
+                return depth;
+            }
+            for (int d = 0; d < 4; d++) {
+                int nPos = (pos + di[d] + 9) % 9;
+                swap(top[pos], top[nPos]);
+                if (!s.count(top)) {
+                    q.push(top);
+                    s.insert(top);
+                }
+                
+                swap(top[pos], top[nPos]);
+            }
+        }
+        depth++;
+    }
+    return -1;
 }
 
 int main() {
     cin.tie(nullptr)->sync_with_stdio(0);
-    clock_t st, ed;
-    st = clock();
     int t = 1;
-    
-    cin >> t;
+    //cin >> t;
     while (t--){
         
-        solve();
+        print(solve());
     }
-    ed = clock();
-    double dur = (double) (ed - st) / CLOCKS_PER_SEC;
-    //cout << "Running is during " << dur << " seconds" << endl;
     system("pause");
     return 0;
 }
 /*
-
+*12345678
+*87654321
 */

@@ -36,23 +36,32 @@ T max(T &a, T &b, T &c) {
     return a > b && a > c ? a : (b > a && b > c ? b : c);
 }
 void solve() {
-    int n;
-    cin >> n;
+    int n, t;
+    cin >> n >> t;
     vi n1(n), n2(n);
     read(n1), read(n2);
-    ll ans = 0;
-    for (int i = 1; i < n; i++) {
-        ans += min(abs(n1[i] - n1[i - 1]) + abs(n2[i] - n2[i - 1]), abs(n1[i] - n2[i - 1]) + abs(n2[i] - n1[i - 1]));
+    int maxe = 0, ans = -1;
+    for (int i = 0; i < n; i++) {
+        if (i + n1[i] > t) continue;
+        if (n2[i] > maxe) {
+            maxe = n2[i];
+            ans = i + 1;
+        }
     }
-    print(ans);
+    cout << ans << endl;
 }
 
 int main() {
     int t = 1;
+    
     cin >> t;
     while (t--){
+        
         solve();
     }
     system("pause");
     return 0;
 }
+/*
+
+*/

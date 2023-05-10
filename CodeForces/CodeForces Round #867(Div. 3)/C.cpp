@@ -38,21 +38,21 @@ T max(T &a, T &b, T &c) {
 void solve() {
     int n;
     cin >> n;
-    vi n1(n), n2(n);
-    read(n1), read(n2);
-    ll ans = 0;
-    for (int i = 1; i < n; i++) {
-        ans += min(abs(n1[i] - n1[i - 1]) + abs(n2[i] - n2[i - 1]), abs(n1[i] - n2[i - 1]) + abs(n2[i] - n1[i - 1]));
-    }
-    print(ans);
+    long long ans = 1LL * n * n + 2 * n + 2;
+    cout << ans << endl;
 }
 
 int main() {
     int t = 1;
+    
     cin >> t;
     while (t--){
+        
         solve();
     }
     system("pause");
     return 0;
 }
+/*
+
+*/

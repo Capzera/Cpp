@@ -8,7 +8,6 @@ using namespace std;
 #define umll unordered_map<long long, long long>
 #define umsi unordered_map<string, int>
 #define ll long long
-#define mod 1000000007
 #define vi vector<int>
 #define vll vector<long long>
 #define vvi vector<vector<int>>
@@ -22,11 +21,11 @@ void read(vector<T> &a) {
     for (int i = 0; i < a.size(); i++) cin >> a[i];
 }
 template <class T>
-void read(T &a) {
+void read(int &a) {
     cin >> a;
 }
 template <class T>
-void read(T &a, T &b) {
+void read(int &a, int &b) {
     cin >> a >> b;
 }
 template <class T>
@@ -38,15 +37,15 @@ void read(vector<vector<T>> &a) {
         for (int j = 0; j < n; j++) cin >> a[i][j];
 }
 template <class T>
-void print(T n) {
+void print(T &n) {
     cout << n << endl;
 }
 template <class T>
-void print(T m, T n) {
+void print(T &m, T &n) {
     cout << m << " " << n << endl;
 }
 template <class T>
-void print(vector<T> num) {
+void print(vector<T>& num) {
     for (auto& x : num) cout << x << " ";
     cout << endl;
 }
@@ -73,7 +72,29 @@ T max(T &a, T &b, T &c) {
     return a > b && a > c ? a : (b > a && b > c ? b : c);
 }
 void solve() {
-    
+    int n = 7;
+    ll ans = 0;
+    vvi grid (n + 1, vi(n + 1));
+    function<void(int, int, vvi)> dfs = [&](int x, int y, vvi grid) {
+        if (x == 0 || y == n) {
+            ans++;
+            return;
+        }
+        for (int d = 0; d < 4; d++) {
+            int mx = x + dx[d], my = y + dy[d];
+            if (mx < 0 || mx > n || my < 0 || my > n) continue;
+            if (grid[mx][my] || mx == my) continue;
+            grid[mx][my] = grid[my][mx] = 1;
+            dfs(mx, my, grid);
+            grid[mx][my] = grid[my][mx] = 0;
+        }
+    };
+    for (int i = 0; i <= n; i++) {
+        grid[i][i] = 1;
+        dfs(i, i, grid);
+        grid[i][i] = 0;
+    }
+    print(ans);
 }
 
 int main() {
@@ -82,14 +103,14 @@ int main() {
     st = clock();
     int t = 1;
     
-    cin >> t;
+    //cin >> t;
     while (t--){
         
         solve();
     }
     ed = clock();
     double dur = (double) (ed - st) / CLOCKS_PER_SEC;
-    //cout << "Running is during " << dur << " seconds" << endl;
+    cout << "Running is during " << dur << " seconds" << endl;
     system("pause");
     return 0;
 }
