@@ -25,7 +25,6 @@ long long solve(int m, int n) {
 }
 
 int main() {
-    cin.tie(nullptr)->sync_with_stdio(0);
     int m, n;
     while (cin >> m >> n, m || n){
         cout << solve(m, n) << endl;
