@@ -13,7 +13,7 @@ long long solve(int m, int n) {
         }
         if (cnt & 1) st[mask] = 0;
     }
-    vector<vector<long long>> dp(n + 1, vector<long long>(1 << m));
+    vector<vector<long long> > dp(n + 1, vector<long long>(1 << m));
     dp[0][0] = 1;
     for (int i = 1; i <= n; ++i)
         for (int j = 0; j < 1 << m; ++j)
