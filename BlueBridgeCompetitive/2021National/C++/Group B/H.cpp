@@ -10,10 +10,7 @@ int main() {
             dp[i][j] = dp[i - 1][j] + dp[i - 1][j - 1];
     }
     vector<int> nums;
-    while (n) {
-        nums.push_back(n % 2);
-        n /= 2;
-    }
+    while (n) nums.push_back(n % 2), n /= 2;
     for (int i = nums.size() - 1, last = 0; i >= 0; --i) {
         if (nums[i]) {
             ans += dp[i][k - last];

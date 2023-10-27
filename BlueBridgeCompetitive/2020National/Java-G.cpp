@@ -10,14 +10,10 @@ int main() {
     double half = 0.25 * w * w;
     dp[1][0][0] = sqrt(l[1] * l[1] + half);
     dp[0][1][1] = sqrt(r[1] * r[1] + half);
-    for (int i = 1; i <= m; i++) {
-        dp[i][0][0] = dp[1][0][0] + l[i] - l[1];
-        dp[i][0][1] = DBL_MAX;
-    }
-    for (int j = 1; j <= n; j++) {
-        dp[0][j][1] = dp[0][1][1] + r[j] - r[1];
-        dp[0][j][0] = DBL_MAX;
-    }
+    for (int i = 1; i <= m; i++)
+        dp[i][j] = {dp[1][0][0] + l[i] - l[1], DBL_MAX};
+    for (int j = 1; j <= n; j++)
+        dp[0][j] = {DBL_MAX, dp[0][1][1] + r[j] - r[1]};
     for (int i = 1; i <= m; i++) {
         for (int j = 1; j <= n; j++) {
             double dis = sqrt(1.0 * (l[i] - r[j]) * (l[i] - r[j]) + w * w);

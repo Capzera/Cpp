@@ -14,15 +14,12 @@ int main() {
         if (!num) return 0;
         int last = 0, ans = 0;
         vector<int> nums;
-        while (num) {
-            nums.emplace(num % b);
-            num /= b;
-        }
+        while (num) nums.emplace(num % b), num /= b;
         for (int i = nums.size() - 1; i >= 0; i--) {
             if (nums[i]) {
                 ans += c[i][k - last];
                 if (nums[i] > 1) {
-                    if (k - last - 1 >= 0) ans += c[i][k - last - 1];
+                    if (last + 1 <= k) ans += c[i][k - last - 1];
                     break;
                 }
                 else if (++last > k) break;

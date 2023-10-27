@@ -1,7 +1,7 @@
 #include <bits/stdc++.h>
 using namespace std;
 int solve() {
-    int n;
+    int n, mod = 1e9 + 7;
     cin >> n;
     if (n == 1) return 1;
     if (n == 2) return 2;

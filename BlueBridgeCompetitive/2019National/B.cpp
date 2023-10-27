@@ -1,117 +1,20 @@
-#pragma GCC optimize(2)
 #include <bits/stdc++.h>
 using namespace std;
-#define inf 0x3f3f3f3f
-#define pii pair<int, int>
-#define pll pair<long long, long long>
-#define umii unordered_map<int, int>
-#define umll unordered_map<long long, long long>
-#define umsi unordered_map<string, int>
-#define ll long long
-#define vi vector<int>
-#define vll vector<long long>
-#define vvi vector<vector<int>>
-#define vvl vector<vector<long long>>
-#define vs vector<string>
-#define yn(ans) printf("%s\n", (ans)? "Yes" : "No")
-#define YN(ans) printf("%s\n", (ans)? "YES" : "NO")
-template <class T>
-void read(vector<T> &a) {
-    for (int i = 0; i < a.size(); i++) cin >> a[i];
-}
-template <class T>
-void read(int &a) {
-    cin >> a;
-}
-template <class T>
-void read(int &a, int &b) {
-    cin >> a >> b;
-}
-template <class T>
-void read(vector<vector<T>> &a) {
-    int m = a.size();
-    if (!m) return;
-    int n = a[0].size();
-    for (int i = 0; i < m; i++)
-        for (int j = 0; j < n; j++) cin >> a[i][j];
-}
-template <class T>
-void print(T &n) {
-    cout << n << endl;
-}
-template <class T>
-void print(T &m, T &n) {
-    cout << m << " " << n << endl;
-}
-template <class T>
-void print(vector<T>& num) {
-    for (auto& x : num) cout << x << " ";
-    cout << endl;
-}
-template <class T>
-void print(vector<vector<T>> grid) {
-    for (auto& i : grid) {
-        for (auto& j : i) cout << j << " ";
-        cout << endl;
-    }
-}
-int MOD (int x, int y) {
-    return x - y * (x / y);
-}
-ll Abs(ll a) {
-    ll b = a >> 31;
-    return (a + b) ^ b;
-}
-template <class T>
-T max(T &a, T &b) {
-    return a > b ? a : b;
-}
-template <class T>
-T max(T &a, T &b, T &c) {
-    return a > b && a > c ? a : (b > a && b > c ? b : c);
-}
-template <class T>
-bool prime(T x) {
-    if (x < 2) return 0;
-    if (x == 2 || x == 3) return 1;
-    if (x % 6 != 5 && x % 6 != 1) return 0;
-    for (ll i = 5; i <= sqrt(x); i += 6) {
-        if (x % i == 0 || x % (i + 2) == 0) return 0;
-    }
-    return 1;
-}
-void solve() {
-    vi pri;
-    vll dp(2020, 0);
-    for (int i = 2; i < 2020; ++i) {
-        if (prime(i)) pri.push_back(i);
-    }
-    dp[0] = 1;
-    for (int i = 0; i < pri.size(); ++i) {
-        for (int j = 2019; j >= pri[i]; --j) {
-            dp[j] += dp[j - pri[i]];
-        }
-    }
-    print(dp[2019]);
-}
-
 int main() {
-    cin.tie(nullptr)->sync_with_stdio(0);
-    clock_t st, ed;
-    st = clock();
-    int t = 1;
-    
-    //cin >> t;
-    while (t--){
-        
-        solve();
+    int n = 2019;
+    vector<int> prime, st(n + 1);
+    vector<long long> dp(n + 1);
+    dp[0] = 1;
+    for (int i = 2; i <= n; ++i) {
+        if (!st[i]) {
+            prime.emplace_back(i);
+            for (int j = n; j >= i; --j)
+                dp[j] += dp[j - i];
+        }
+        for (int j = 0; j < prime.size() && prime[j] * i <= n; j++)
+            st[prime[j] * i] = 1;
     }
-    ed = clock();
-    double dur = (double) (ed - st) / CLOCKS_PER_SEC;
-    //cout << "Running is during " << dur << " seconds" << endl;
+    cout << dp[n] << endl;
     system("pause");
     return 0;
 }
-/*
-
-*/

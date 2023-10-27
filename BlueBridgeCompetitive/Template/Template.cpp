@@ -1,5 +1,22 @@
 #pragma GCC optimize(2)
-#include <bits/stdc++.h>
+#include <iostream>
+#include <stdio.h>
+#include <vector>
+#include <map>
+#include <stack>
+#include <iomanip>
+#include <string>
+#include <math.h>
+#include <algorithm>
+#include <queue>
+#include <windows.h>
+#include <cctype>
+#include <deque>
+#include <functional>
+#include <list>
+#include <set>
+#include <bitset>
+#include <complex>
 using namespace std;
 #define inf 0x3f3f3f3f
 #define pii pair<int, int>
@@ -78,18 +95,12 @@ void solve() {
 
 int main() {
     cin.tie(nullptr)->sync_with_stdio(0);
-    clock_t st, ed;
-    st = clock();
     int t = 1;
-    
     //cin >> t;
     while (t--){
         
         solve();
     }
-    ed = clock();
-    double dur = (double) (ed - st) / CLOCKS_PER_SEC;
-    //cout << "Running is during " << dur << " seconds" << endl;
     system("pause");
     return 0;
 }
