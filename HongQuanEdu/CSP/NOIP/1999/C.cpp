@@ -10,6 +10,7 @@ int main() {
     for (auto x : missile) {
         if (pipe.empty() || x <= pipe.back()) pipe.emplace_back(x);
         else *upper_bound(pipe.begin(), pipe.end(), x, greater<int>()) = x;
+        cout << pipe.size() << endl;
         if (cnt.empty() || x > cnt.back()) cnt.emplace_back(x);
         else *lower_bound(cnt.begin(), cnt.end(), x) = x;
     }
