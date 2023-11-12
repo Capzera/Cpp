@@ -1,6 +1,32 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+void MainWindow::drawHexH(QPainter& paint, int x, int y, int w, int h) {
+    int k = 2;
+    static const QPointF points[6] = {
+        QPointF(x, y + h / 2),
+        QPointF(x + h / k, y),
+        QPointF(x + w - h / k, y),
+        QPointF(x + w, y + h / 2),
+        QPointF(x + w - h / k, y + h),
+        QPointF(x + h / k, y + h)
+    };
+    paint.drawPolygon(points, 6);
+}
+
+void MainWindow::drawHexV(QPainter &paint, int x, int y, int w, int h) {
+    int k = 2;
+    static const QPointF points[6] = {
+        QPointF(x + w / 2, y),
+        QPointF(x + w, y + w / k),
+        QPointF(x + w, y + h - w / k),
+        QPointF(x + w / 2, y + h),
+        QPointF(x, y + h - w / k),
+        QPointF(x, y + w / k)
+    };
+    paint.drawPolygon(points, 6);
+}
+
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     this->setWindowTitle("Clock");
@@ -19,18 +45,15 @@ MainWindow::~MainWindow() {
 
 void MainWindow::paintEvent(QPaintEvent *event) {
     QPen pen(Qt::black, 3);
-    int x = 40 , y = 100;
     QPoint center(this->width() / 2, this->height() / 2);
     QPainter pt(this);
-
+    pt.setRenderHint( QPainter::Antialiasing, true);
     pt.setPen(pen);
-    pt.translate(x, y);
-    QGraphicsScene *qg = new QGraphicsScene();
-    MyItem *it = new MyItem();
-    it->setPos(0, 0);
-    qg.addItem(it);
-    ui->graphicsView->setSceneRect(-100,-100,100,100);
-    ui->graphicsView->setScene(qg);
+    pt.translate(center);
+    QPainter pt2(this);
+    pt2.setRenderHint(QPainter::Antialiasing, true);
+    pt2.setPen(pen);
+    drawHexV(pt2, 100, 100, 100, 500);
     update();
 }
 

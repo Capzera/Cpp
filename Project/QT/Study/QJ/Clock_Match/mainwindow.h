@@ -7,8 +7,6 @@
 #include <QTime>
 #include <QString>
 #include <QDebug>
-#include <QGraphicsRectItem>
-#include "match.h"
 
 using namespace std;
 
@@ -21,6 +19,8 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     void paintEvent(QPaintEvent *event);
     void timerEvent(QTimerEvent *event);
+    void drawHexH(QPainter&, int, int, int, int);
+    void drawHexV(QPainter&, int, int, int, int);
     ~MainWindow();
 private:
     int hh = 0, mm = 0, ss = 0;
