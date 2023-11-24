@@ -1,49 +1,39 @@
-/*
-    By:Capzera QQ:1786126188 E-Mail:1786126188@qq.com
-    归并排序标准算法，本人编写，用于以后题目的算法调用
-*/
-#include<bits/stdc++.h>
+#include <bits/stdc++.h>
 using namespace std;
-void Merge(vector<int>& nums,int l,int mid,int r)//合并函数
-{
-    int n=r-l+1;//待合并区间长度为r-l+1
-    int i=0,left=l,right=mid+1;//left指向左半区间，right指向右半区间，i为temp指针
-    int* temp=new int[n];//temp临时储存合并好的序列
-    while(left<=mid && right<=r)//先将左半或右半取尽
-    {
-        if (nums[left]<=nums[right]) temp[i++]=nums[left++];
-        else temp[i++]=nums[right++];
+void MergeSort(vector<int>& nums, int l, int r) {
+    if (l >= r) return;
+    int mid = l + (r - l) / 2;
+    MergeSort(nums, l, mid);
+    MergeSort(nums, mid + 1, r);
+    vector<int> vec(r - l + 1);
+    int i = l, j = mid + 1, k = 0;
+    while (i <= mid && j <= r) {
+        if (nums[i] <= nums[j]) vec[k++] = nums[i++];
+        else vec[k++] = nums[j++];
     }
-    while (left<=mid) temp[i++]=nums[left++];//将剩余的数压入temp中
-    while (right<=r) temp[i++]=nums[right++];
-    for(i=0;i<n;i++) nums[l+i]=temp[i];//将temp的元素拷贝进原nums
-    delete [] temp;
+    while (i <= mid) vec[k++] = nums[i++];
+    while (j <= r) vec[k++] = nums[j++];
+    copy(vec.begin(), vec.end(), nums.begin() + l);
 }
-void MergeSort(vector<int>& nums,int l,int r)
-{
-    int mid=l+(r-l)/2;
-    if (l==r) return;
-    MergeSort(nums,l,mid);//划分左半个序列
-    MergeSort(nums,mid+1,r);//划分右半个序列
-    Merge(nums,l,mid,r);
-}
-void print(vector<int> nums)
-{
-    for(int i=0;i<nums.size();i++) cout<<nums[i]<<" ";
-    cout<<endl;
-}
-int main()
-{
-    int n,i,put;
-    cin>>n;
+int main() {
+    int n;
+    cin >> n;
     vector<int> nums(n);
-    for(i=0;i<n;i++)
-    {
-        cin>>put;
-        nums[i]=put;
-    }
-    MergeSort(nums,0,n-1);
-    print(nums);
+    for (auto& x : nums) cin >> x;
+    MergeSort(nums, 0, n - 1);
+    for (auto& x : nums) cout << x << " ";
     system("pause");
     return 0;
 }
+/*
+1 2 3 4 5 6 7 8 9 10 11 12
+(b - 1) * a - b
+3x - 7
+21 3 * 7 + 7 * 0
+22 3 * 5 + 7 * 1
+23 3 * 3 + 7 * 2
+24 3 * 1 + 7 * 3
+25 3 * 6 + 7 * 1
+26 3 * 4 + 7 * 2
+27 3 * 5 + 7 * 3
+*/
