@@ -1,6 +1,6 @@
 #include <bits/stdc++.h>
 using namespace std;
-string HAminus(string s1, string s2, int minus) {
+string HAMinus(string s1, string s2, int minus) {
     string ans;
     int l = s1.size() - 1, r = s2.size() - 1, carry = 0;
     if (l < r || l == r && s1 < s2) return HAminus(s2, s1, 1);
@@ -19,7 +19,7 @@ string HAminus(string s1, string s2, int minus) {
 int main() {
     string s1, s2;
     cin >> s1 >> s2;
-    cout << HAminus(s1, s2, 0) << endl;
+    cout << HAMinus(s1, s2, 0) << endl;
     system("pause");
     return 0;
 }

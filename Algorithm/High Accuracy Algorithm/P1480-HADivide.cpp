@@ -1,47 +1,26 @@
 #include <bits/stdc++.h>
 using namespace std;
-
-string HAminus(string s1, string s2, int minus) {
-    string ans;
-    int l = s1.size() - 1, r = s2.size() - 1, carry = 0;
-    if (l < r || l == r && s1 < s2) return HAminus(s2, s1, 1);
-    if (minus) cout << '-';
-    while (l >= 0 || r >= 0) {
-        int a = l < 0 ? 0 : s1[l--] - '0';
-        int b = r < 0 ? 0 : s2[r--] - '0';
-        carry = a + 10 - b - carry;
-        ans += carry % 10 + '0';
-        carry = carry / 10 ^ 1;
-    }
-    while (ans.size() > 1 && ans.back() == '0') ans.pop_back();
-    reverse(ans.begin(), ans.end());
-    return ans;
-}
-
-string HAMulti(string s1, string s2) {
-    if (s1 == "0" || s2 == "0") return "0";
-    int l1 = s1.size(), l2 = s2.size(), carry;
-    string ans(l1 + l2 - 1, '0');
-    for (int i = l1 - 1; i >= 0; i--) {
-        carry = 0;
-        for (int j = l2 - 1; j >= 0; j--) {
-            carry += ans[i + j] - '0' + (s1[i] - '0') * (s2[j] - '0');
-            ans[i + j] = carry % 10 + '0';
-            carry /= 10;
-        }
-        if (carry && i) ans[i - 1] = carry + '0';
-    }
-    if (carry) ans = to_string(carry) + ans;
-    return ans;
-}
-
-string HADivide(stirng s1, string s2) {
+string HADivide(string s1, string s2) {
     int l1 = s1.size(), l2 = s2.size();
-    string ans;
-    
+    if (l1 < l2 || l1 == l2 && s1 < s2) return "0";
+    string ans, div = s1.substr(0, l2 - 1);
+    for (int i = l2 - 1, j; i < l1; i++) {
+        div += s1[i];
+        for (j = 0; j <= 9; j++) {
+            int l = div.size() - 1, r = l2 - 1, carry = 0;
+            if (l < r || l == r && div < s2) break;
+            while (r >= 0) {
+                carry = 10 + div[l] - s2[r--] - carry;
+                div[l--] = carry % 10 + '0';
+                carry = carry / 10 ^ 1;
+            }
+            if (carry && div[0] != '0') div[0]--;
+            while (div[0] == '0') div = div.substr(1);
+        }
+        if (j || ans.size()) ans += '0' + j;
+    }
     return ans;
 }
-
 int main() {
     string s1, s2;
     cin >> s1 >> s2;
