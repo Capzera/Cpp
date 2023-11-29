@@ -9,7 +9,7 @@ QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-TARGET = Reverse_Ball
+TARGET = Cross_Bubble
 TEMPLATE = app
 
 # The following define makes your compiler emit warnings if you use
