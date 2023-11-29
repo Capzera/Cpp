@@ -6,6 +6,7 @@
 
 QT       += core gui
 
+
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 TARGET = Reverse_Ball
@@ -26,9 +27,15 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         main.cpp \
         mainwindow.cpp
+        qss.qrc
+        #RC_ICONS = logo.ico
 
 HEADERS += \
         mainwindow.h
 
 FORMS += \
         mainwindow.ui
+
+DISTFILES += \
+    logo.rc
+    RC_FILE += logo.rc
