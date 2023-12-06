@@ -5,19 +5,26 @@ string HADivide(string s1, string s2) {
     if (l1 < l2 || l1 == l2 && s1 < s2) return "0";
     string ans, div = s1.substr(0, l2 - 1);
     for (int i = l2 - 1, j; i < l1; i++) {
+        if (div == "0") div = "";
         div += s1[i];
         for (j = 0; j <= 9; j++) {
-            int l = div.size() - 1, r = l2 - 1, carry = 0;
-            if (l < r || l == r && div < s2) break;
-            while (r >= 0) {
-                carry = 10 + div[l] - s2[r--] - carry;
-                div[l--] = carry % 10 + '0';
+            int l = div.size(), r = l2 - 1, carry = 0;
+            string ret;
+            if (l < l2 || l == l2 && div < s2) break;
+            l--;
+            while (l >= 0 || r >= 0) {
+                int a = l < 0 ? 0 : div[l--] - '0';
+                int b = r < 0 ? 0 : s2[r--] - '0';
+                carry = 10 + a - b - carry;
+                ret += carry % 10 + '0';
                 carry = carry / 10 ^ 1;
             }
-            if (carry && div[0] != '0') div[0]--;
-            while (div[0] == '0') div = div.substr(1);
+            while (ret.size() > 1 && ret.back() == '0') ret.pop_back();
+            reverse(ret.begin(), ret.end());
+            div = ret;
         }
-        if (j || ans.size()) ans += '0' + j;
+        if (!j && ans.empty()) continue;
+        ans.push_back(j + '0');
     }
     return ans;
 }

@@ -122,7 +122,10 @@ void MainWindow::init() {
         levels[i]->setGeometry(50 + y * 145, 50 + x * 145, 120, 120);
         levels[i]->changeToGreyRect();
         levels[i]->setFont(ft);
-        if (MyStep[i] != -1) levels[i]->changeToGreenRect();
+        if (MyStep[i] != -1) {
+            if (MyStep[i] == BestStep[i + 1]) levels[i]->changeToGreenRect();
+            else levels[i]->changeToBlueRect();
+        }
         connect(levels[i], SIGNAL(clicked(bool)), this, SLOT(GameStart()));
     }
 
@@ -168,6 +171,7 @@ void MainWindow::FileRead() {
     QTextStream ts(&file);
     for (int i = 0; i < MAX_LEVEL; i++) {
         QString line = ts.readLine();
+        if (line != "-1") CurMaxLevel = max(CurMaxLevel, i + 1);
         MyStep[i] = line.toInt();
     }
     file.close();
@@ -194,6 +198,7 @@ void MainWindow::FileReset() {
     for (int i = 0; i < MAX_LEVEL; i++) {
         levels[i]->changeToGreyRect();
     }
+    CurMaxLevel = 0;
 }
 
 void MainWindow::Menu() {
@@ -243,7 +248,11 @@ void MainWindow::SelectLevel() {
     else lastPage->changeToWhiteRect();
     if (Page < MAX_LEVEL / 25 - 1) nextPage->changeToWhiteRect();
     else nextPage->changeToGreyRect();
-    for (int i = 0; i < 25; i++) openButton(levels[i]);
+    levels[CurMaxLevel]->changeToOrangeRect();
+    for (int i = 0; i < 25; i++) {
+        openButton(levels[i]);
+    }
+
 }
 
 void MainWindow::Help() {
@@ -261,6 +270,9 @@ void MainWindow::Help() {
 }
 
 void MainWindow::GameStart() {
+    QPushButton *btn = qobject_cast<QPushButton *>(sender());
+    int level = btn->text().toInt();
+    if (level - 1 > CurMaxLevel) return;
     closeButton(btm);
     closeButton(lastPage);
     closeButton(nextPage);
@@ -271,8 +283,6 @@ void MainWindow::GameStart() {
     openLabel(curStep);
     openLabel(minStep);
     openLabel(MybestStep);
-    QPushButton *btn = qobject_cast<QPushButton *>(sender());
-    int level = btn->text().toInt();
     for (int i = 0; i < 25; i++) openButton(buttons[i]);
     for (int i = 0; i < MAX_LEVEL; i++) closeButton(levels[i]);
     GameInit(level);
@@ -353,7 +363,8 @@ void MainWindow::pushed() {
 }
 
 void MainWindow::GameWin(int level) {
-    levels[level - 1]->changeToGreenRect();
+
+    if (level > CurMaxLevel) CurMaxLevel = level;
     if (MyStep[level - 1] == -1) MyStep[level - 1] = Step;
     else MyStep[level - 1] = min(MyStep[level - 1], Step);
     QString tmp;
@@ -361,6 +372,12 @@ void MainWindow::GameWin(int level) {
     else tmp = "历史最佳步数: " + QString::number(MyStep[level - 1]);
     MybestStep->setText(tmp);
     FileWrite();
+    if (MyStep[level - 1] == BestStep[level]) {
+        levels[level - 1]->changeToGreenRect();
+    }
+    else {
+        levels[level - 1]->changeToBlueRect();
+    }
     QMessageBox *mb = new QMessageBox;
     mb->setWindowTitle("挑战成功");
     mb->setText("是否进入下一关");

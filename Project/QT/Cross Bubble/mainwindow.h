@@ -3,7 +3,7 @@
 #define MAX_LEVEL 75
 #define MAIN_VERSION 1
 #define SECOND_VERSION 10
-#define LAST_VERSION 1
+#define LAST_VERSION 4
 
 #include <QMainWindow>
 #include <QDebug>
@@ -56,8 +56,15 @@ public:
         state = 0;
     }
     void changeToGreenRect() {  //设置绿色矩形按钮
-        this->setStyleSheet("QPushButton {background-color: Green;font: bold 28px;border-width: 2px;color: white;}");
+        this->setStyleSheet("QPushButton {background-color: green;font: bold 28px;border-width: 2px;color: white;}");
         state = 1;
+    }
+    void changeToBlueRect() {  //设置蓝色矩形按钮
+        this->setStyleSheet("QPushButton {background-color: blue;font: bold 28px;border-width: 2px;color: white;}");
+        state = 1;
+    }
+    void changeToOrangeRect() {//设置橙色矩形按钮
+        this->setStyleSheet("QPushButton {background-color: orange;font: bold 28px;border-width: 2px;color: white;}");
     }
     int getNum() {return number;}   //获取按钮编号
     int getState() {return state;}  //获取按钮状态
@@ -103,9 +110,10 @@ private:
     double dpi; //获取屏幕的缩放比例
     QString VersionNumber = "V" + QString::number(MAIN_VERSION) + "." + QString::number(SECOND_VERSION) + "." + QString::number(LAST_VERSION);
     Ui::MainWindow *ui;
-    int NowLevel;  //记录当前的关卡号
-    int Page;      //记录当前的页号
-    int Step;      //记录当前的步数
+    int NowLevel;       //记录当前的关卡号
+    int Page;           //记录当前的页号
+    int Step;           //记录当前的步数
+    int CurMaxLevel = 0;    //记录当前通过的最大关卡
     QVector<QVector<int> > LEVEL;   //记录每关的内容
     QVector<int> BestStep; //记录每关的最佳步数
     QVector<int> MyStep;   //记录玩家每关的最佳步数，联系文件读取
@@ -161,7 +169,10 @@ private:
                         QString("* 1.9.4  更改了选择关卡的字体，关卡上限提高到75关\n") +
                         QString("* 1.9.5  修改了返回按钮的样式，使之与其他按钮看起来更不违和\n") +
                         QString("* 1.10.0 新增清除存档功能，玩家可以从头体验游戏\n") +
-                        QString("* 1.10.1 修复了一个Bug，可能导致异常的撤回上一步");
+                        QString("* 1.10.1 修复了一个Bug，可能导致异常的撤回上一步\n") +
+                        QString("* 1.10.2 现在最大的未通过关卡将被标记为橙色\n") +
+                        QString("* 1.10.3 从该版本开始，将不可以跳关了，只有通过橙色的关卡才可以继续挑战\n") +
+                        QString("* 1.10.4 新增“完美挑战”，如果该关所用步数为最佳将被标记为绿色，反之蓝色\n");
 };
 
 #endif // MAINWINDOW_H
