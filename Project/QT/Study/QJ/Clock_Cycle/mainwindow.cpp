@@ -5,7 +5,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->setupUi(this);
     this->setWindowTitle("Clock");
     this->setFixedSize(1024, 768);
-    timer = startTimer(6);
+    timer = startTimer(1000);
     QTime time = QTime::currentTime();
     hh = time.hour();
     mm = time.minute();
