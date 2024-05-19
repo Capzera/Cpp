@@ -30,26 +30,32 @@ CommandLine =
 Folders = 
 IncludeVersionInfo = 0
 SupportXPThemes = 0
-CompilerSet = 6
+CompilerSet = 3
 CompilerSetType = 0
-CompilerSettings = 000000a000000000000010001
-StaticLink = 1
+StaticLink = 0
 AddCharset = 1
-Encoding = AUTO
+Encoding = UTF-8
 ModelType = 0
-UseUTF8 = 0
+UseUTF8 = 1
+Bins = 
+ResourceCommand = 
+ExecEncoding = SYSTEM
+ClassBrowserType = 0
+AllowParallelBuilding = false
+ParellelBuildingJobs = 0
 
 
 [Unit1]
-FileName = main.cpp
+FileName = icon/bk.png
 CompileCpp = 1
-Folder = 
-Compile = 1
-Link = 1
+Folder = 其他文件
+Compile = 0
+Link = 0
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+FileEncoding = PROJECT
+RealEncoding = ASCII
 
 
 [VersionInfo]
@@ -60,19 +66,45 @@ Build = 0
 LanguageID = 1033
 CharsetID = 1252
 CompanyName = 
-FileVersion = 
+FileVersion = 0.1
 FileDescription = Developed using the Red Panda C++ IDE
 InternalName = 
 LegalCopyright = 
 LegalTrademarks = 
-OriginalFilename = 
-ProductName = 
-ProductVersion = 
+OriginalFilename = Chess.exe
+ProductName = Chess
+ProductVersion = 0.1.1.1
 AutoIncBuildNr = 0
 SyncProduct = 1
 
 
 [Unit2]
+FileName = icon/bn.png
+CompileCpp = 1
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+FileEncoding = PROJECT
+RealEncoding = ASCII
+
+
+[Unit3]
+FileName = icon/wb.png
+CompileCpp = 1
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+FileEncoding = PROJECT
+RealEncoding = ASCII
+
+
+[Unit4]
 FileName = init.h
 CompileCpp = 1
 Folder = 头文件
@@ -81,115 +113,76 @@ Link = 1
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
-
-
-[Unit3]
-FileName = init.cpp
-CompileCpp = 1
-Folder = 源文件
-Compile = 1
-Link = 1
-Priority = 1000
-OverrideBuildCmd = 0
-BuildCmd = 
-DetectEncoding = 1
-
-
-[Unit4]
-FileName = common.h
-CompileCpp = 1
-Folder = 头文件
-Compile = 1
-Link = 1
-Priority = 1000
-OverrideBuildCmd = 0
-BuildCmd = 
-DetectEncoding = 1
+FileEncoding = PROJECT
+RealEncoding = UTF-8
 
 
 [Unit5]
-FileName = game.h
+FileName = icon/wp.png
 CompileCpp = 1
-Folder = 头文件
-Compile = 1
-Link = 1
+Folder = 其他文件
+Compile = 0
+Link = 0
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+FileEncoding = PROJECT
+RealEncoding = ASCII
 
 
 [Unit6]
-FileName = game.cpp
+FileName = icon/wk.png
 CompileCpp = 1
-Folder = 源文件
-Compile = 1
-Link = 1
+Folder = 其他文件
+Compile = 0
+Link = 0
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+FileEncoding = PROJECT
+RealEncoding = ASCII
 
 
 [Unit7]
-FileName = piece.h
+FileName = icon/wn.png
 CompileCpp = 1
-Folder = 头文件
-Compile = 1
-Link = 1
+Folder = 其他文件
+Compile = 0
+Link = 0
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+FileEncoding = PROJECT
+RealEncoding = ASCII
 
 
 [Unit8]
-FileName = piece.cpp
+FileName = icon/wq.png
 CompileCpp = 1
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+FileEncoding = PROJECT
+RealEncoding = ASCII
+
+
+[Unit9]
+FileName = piece.cpp
 Folder = 源文件
 Compile = 1
 Link = 1
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
-
-
-[Unit9]
-FileName = icon/bb.png
-Folder = 其他文件
-Compile = 0
-Link = 0
-Priority = 1000
-OverrideBuildCmd = 0
-BuildCmd = 
-DetectEncoding = 1
+CompileCpp = 1
+FileEncoding = PROJECT
+RealEncoding = UTF-8
 
 
 [Unit10]
-FileName = icon/bk.png
-Folder = 其他文件
-Compile = 0
-Link = 0
-Priority = 1000
-OverrideBuildCmd = 0
-BuildCmd = 
-DetectEncoding = 1
-
-
-[Unit11]
-FileName = icon/bn.png
-Folder = 其他文件
-Compile = 0
-Link = 0
-Priority = 1000
-OverrideBuildCmd = 0
-BuildCmd = 
-DetectEncoding = 1
-
-
-[Unit12]
 FileName = icon/bp.png
 Folder = 其他文件
 Compile = 0
@@ -197,7 +190,35 @@ Link = 0
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+CompileCpp = 1
+FileEncoding = PROJECT
+RealEncoding = ASCII
+
+
+[Unit11]
+FileName = icon/bb.png
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+FileEncoding = PROJECT
+RealEncoding = ASCII
+CompileCpp = 1
+
+
+[Unit12]
+FileName = init.cpp
+Folder = 源文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+CompileCpp = 1
+FileEncoding = PROJECT
+RealEncoding = UTF-8
 
 
 [Unit13]
@@ -208,7 +229,9 @@ Link = 0
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+FileEncoding = PROJECT
+RealEncoding = ASCII
+CompileCpp = 1
 
 
 [Unit14]
@@ -219,62 +242,74 @@ Link = 0
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+CompileCpp = 1
+FileEncoding = PROJECT
+RealEncoding = ASCII
 
 
 [Unit15]
-FileName = icon/wb.png
-Folder = 其他文件
-Compile = 0
-Link = 0
+FileName = game.h
+Folder = 头文件
+Compile = 1
+Link = 1
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+FileEncoding = PROJECT
+RealEncoding = UTF-8
+CompileCpp = 1
 
 
 [Unit16]
-FileName = icon/wk.png
-Folder = 其他文件
-Compile = 0
-Link = 0
+FileName = main.cpp
+Folder = 
+Compile = 1
+Link = 1
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+CompileCpp = 1
+FileEncoding = PROJECT
+RealEncoding = UTF-8
 
 
 [Unit17]
-FileName = icon/wn.png
-Folder = 其他文件
-Compile = 0
-Link = 0
+FileName = game.cpp
+Folder = 源文件
+Compile = 1
+Link = 1
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+FileEncoding = PROJECT
+RealEncoding = UTF-8
+CompileCpp = 1
 
 
 [Unit18]
-FileName = icon/wp.png
-Folder = 其他文件
-Compile = 0
-Link = 0
+FileName = piece.h
+Folder = 头文件
+Compile = 1
+Link = 1
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+FileEncoding = PROJECT
+RealEncoding = UTF-8
+CompileCpp = 1
 
 
 [Unit19]
-FileName = icon/wq.png
-Folder = 其他文件
-Compile = 0
-Link = 0
+FileName = common.h
+Folder = 头文件
+Compile = 1
+Link = 1
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+FileEncoding = PROJECT
+RealEncoding = UTF-8
+CompileCpp = 1
 
 
 [Unit20]
@@ -285,4 +320,16 @@ Link = 0
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-DetectEncoding = 1
+CompileCpp = 1
+FileEncoding = PROJECT
+RealEncoding = ASCII
+
+
+[CompilerSettings]
+c_cmd_opt_std = gnu17
+cc_cmd_opt_debug_info = on
+cc_cmd_opt_optimize = 2
+cc_cmd_opt_pointer_size = 64
+cc_cmd_opt_std = gnu++2b
+cc_cmd_opt_use_pipe = on
+cc_cmd_opt_warning_all = on

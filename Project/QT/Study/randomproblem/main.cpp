@@ -9,74 +9,74 @@ using namespace std;
 int main() {
     int cor = 0, tot = 0;
     srand(time(NULL));
-    unordered_set<int> ps;
+    unordered_set<int> ps;  
     vector<string> pro = {
-        "���������MVC���ģʽ��Ŀ��( )",
-        "�����������Ͳ���Spring��֧�ֵ�����ע������( )",
-        "JEE �У�HtttpServletRequest���( )�������ڴ����Ի�",
-        "����( )�����ڼ���session����userid��ֵ",
-        "�������ORM������ȷ����( )",
-        "����AOP������ȷ����( )",
-        "AOP���������̣���Ҫ�����������棬��ȷ����( )",
-        "���·����У��ĸ�����HttpServlet��ķ���( )",
-        "Tomcat��Ĭ�϶˿���( )",
-        "���в���JSP�������ͨ�Ŷ������( )"
+        "数据清洗方法不包括（）",
+        "智能手环的应用开发，主要应用（）的数据采集技术。",
+        "强关联规则，即这些规则必须满足最小支持度和（）。",
+        "噪声数据处理的方法主要有（）。",
+        "大数据环境下的隐私担忧，主要表现为（）。",
+        "对线下零售而言，做好大数据分析应用的前提是（）",
+        "（）是一个观测值，它与其他观测值的差别如此之大，以至于怀疑它是由不同的机制产生的。",
+        "下面例子中不属于分类的是（）",
+        "k近邻法的基本要素不包括（）。",
+        "建立一个模型，并通过该模型根据已知的变量值来预测其他某个变量值，属于数据挖掘的哪一类任务？（）"
     }, sa = {
-        "ʹ����ṹ������",
-        "�������ע��",
-        "getSession ",
-        "session. getAttribute (\"userid\")",
-        "ORM����ͨ�����������ֶβ����κ��������ݿ�",
-        "AOP�����õ����ģʽ�Ǿ�̬����",
-        "���棬���ܣ������߼�",
-        "doGet",
-        "7001",
-        "session"
+        "噪声数据清除",
+        "网络爬虫",
+        "最小兴趣度",
+        "分类",
+        "个人信息的被识别与暴露",
+        "增加统计种类 ",
+        "边界点",
+        "检测图像中是否有人脸出现 ",
+        "距离度量",
+        "根据内容检索"
     }, sb = {
-        "ʹ�������ά��",
-        "ͨ���κη�������ע��",
-        "newSession",
-        "session. setAttribute (\"userid\")",
-        "ORM��hibernate���е�һ�����˼��",
-        "Java�ķ��������AOP��û���õ�",
-        "���棬֯�룬�����߼�",
-        "service",
-        "8080",
-        "application"
+        "一致性检查 ",
+        "API接口",
+        "最大置信度",
+        "聚类",
+        "用户画像的生成",
+        "扩大营业面积",
+        "质心",
+        "对客户按照贷款风险大小进行分类",
+        "k值的选择",
+        "建模描述"
     }, sc = {
-        "��֤��ͼ��ģ�͵ĸ���",
-        "ͨ��set����ע������",
-        "newInstance",
-        "request. getParameter (\"userid\")",
-        "ORMר���ڲ��������������ݿ�",
-        "��̬������ʵ��AOP�����ģʽ",
-        "���棬����㣬�����߼�",
-        "doPost",
-        "80",
-        "pageContext"
+        "重复数据记录处理",
+        "传感器",
+        "最大支持度",
+        "回归",
+        "恶意广告的推送",
+        "增加数据来源 ",
+        "离群点",
+        "识别手写的数字",
+        "样本大小",
+        "预测建模"
     }, sd = {
-        "���߼���ʵ����ͼ��ģ�ͺͿ������������κι�ϵ",
-        "��ͨ���κη�����ֱ��ע������ֵ",
-        "getAttribute",
-        "request. getAttribute (\"userid\")",
-        "ORM��ͨ���������ķ�ʽ������ϵ�����ݿ�",
-        "���϶���",
-        "���϶���",
-        "doDelete",
-        "112",
-        "out"
+        "缺失值处理",
+        "统计报表",
+        "最小置信度",
+        "以上都有",
+        "病毒入侵",
+        "开展优惠促销",
+        "核心点",
+        "估计商场客流量",
+        "分类决策规则",
+        "寻找模式和规则"
     };
     vector<char> ans = {
+        'C',
+        'C',
         'D',
         'D',
-        'B',
         'A',
+        'C',
+        'C',
         'D',
         'C',
-        'C',
-        'B',
-        'B',
-        'D'
+        'C'
     };
     char ch = 'z';
     auto check = [&](string cur, int id) {
@@ -127,20 +127,19 @@ int main() {
         if (ch == 'Q') break;
         tot++;
         if (an == ch) {
-            cout << "��ȷ" << endl;
+            cout << "正确" << endl;
             cor++;
         }
         else {
-            cout << "����" << endl;
+            cout << "错误" << endl;
         }
         system("pause");
         system("cls");
     }
     system("cls");
-    cout << "���� " << tot << " �⣬ ";
+    cout << "正确 " << tot << " 题 ";
     double x = 100.0 * cor / tot;
-    printf("��ȷ�ʣ� %.2f", x);
-    cout << "%" << endl;
+    printf("正确率为 %.2f%\n", x);
     system("pause");
     return 0;
 }

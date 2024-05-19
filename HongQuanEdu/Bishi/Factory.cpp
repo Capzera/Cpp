@@ -10,6 +10,5 @@ int main() {
         ans += 1LL * mn * sum;
     }
     cout << ans << endl;
-    system("pause");
     return 0;
 }

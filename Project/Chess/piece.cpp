@@ -29,16 +29,16 @@ Piece::Piece(bool color, int type, char x, int y) {
 }
 
 void Piece::showpiece() {
-	if (dead) return;
-	int y = 880 - Pos.y * 100;
-	int x = 100 * (Pos.x - 'a' + 1) - 20;
+	if (dead) return;//如果棋子被吃，不显示
+	int y = 880 - Pos.y * 100;//计算竖坐标
+	int x = 100 * (Pos.x - 'a' + 1) - 20;//计算横坐标
 	if (isselect) {
-		setcolor(EGERGB(255, 255, 128));
-		setlinestyle(0,0,4);
+		setcolor(EGERGB(255, 255, 128));//
+		setlinestyle(0,0,4);//
 		int row = Pos.x - 'a' + 1;
 		int col = Pos.y;
-		int r1 = row * 100 - 20, c1 = 880 - 100 * col;
-		int r2 = r1 + 100, c2 = c1 + 100;
+		int r1 = row * 100 - 20, c1 = 880 - 100 * col;//
+		int r2 = r1 + 100, c2 = c1 + 100;//
 		line(r1, c1, r1 + 33, c1);
 		line(r1, c1, r1, c1 + 33);
 		line(r2 - 33, c1, r2, c1);
@@ -49,10 +49,10 @@ void Piece::showpiece() {
 		line(r2, c2 - 33, r2, c2);
 	}
 	if (ischeck) {
-		setfillcolor(EGERGB(245, 155, 146));
-		bar(x, y, x + 100, y + 100);
+		setfillcolor(EGERGB(245, 155, 146));//如果被将军，棋格标成淡红
+		bar(x, y, x + 100, y + 100);//
 	}
-	putimage_withalpha(NULL, image, x, y);
+	putimage_withalpha(NULL, image, x, y);//
 }
 
 void Piece::setpiece(string name, bool color, int type, char x, int y) {
@@ -76,7 +76,8 @@ bool Piece::getdead() {
 }
 
 pii Piece::getloc() {
-	return {this->Pos.x - 'a' + 1, this->Pos.y};
+	pii ret = make_pair(this->Pos.x - 'a' + 1, this->Pos.y);
+	return ret;
 }
 
 string Piece::getname() {

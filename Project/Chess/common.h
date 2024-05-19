@@ -1,6 +1,6 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
-
+#define SHOW_CONSOLE
 #include <graphics.h>
 #include <fstream>
 #include <bits/stdc++.h>

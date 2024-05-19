@@ -1,34 +1,28 @@
-/*
-    问题描述：给定一个长度为n的数列A，要求将它分为m段，要求每段连续，且每段和的最大值最小。
-    N<=10^5,m<=n,Ai之和不超过10^9
-*/
 #include<bits/stdc++.h>
 using namespace std;
 int main(){
-    int n,k;
-    long long mid,left,right=0;
-    int a[100001];
-    cin>>n>>k;
-    a[0]=100000001;
-    for(int i=1;i<=n;i++){
-        cin>>a[i];
-        if(a[i]<a[0])a[0]=a[i];
-        right+=a[i];
-    }
-    left=a[0];
-    while (right-left>1){
-        int tot=0,cot=1;
-        mid=(left+right)/2;
-        for(int i=1;i<=n;i++){
-            if (tot+a[i]<=mid) {
-                tot+=a[i];
+    int n, k, sum;
+    cin >> n >> k;
+    vector<int> nums(n);
+    for (auto& x : nums) cin >> x;
+    auto check = [&](int x) -> bool {
+        int cnt = 0, sum = 0;
+        for (auto& num : nums) {
+            if (num > x) return 1;
+            if (sum + num <= x) sum += num;
+            else {
+                sum = num, cnt++;
             }
-            else {tot=a[i];cot++;}
         }
-        if (cot>k) left=mid;
-        else right=mid;
+        return cnt >= k;
+    };
+    int l = 0, r = 1e9 + 1;
+    while (l < r) {
+        int x = l + (r - l) / 2;
+        if (check(x)) l = x + 1;
+        else r = x;
     }
-    cout<<left;
+    cout << r << endl;
     system("pause");
     return 0;
 }

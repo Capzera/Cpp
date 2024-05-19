@@ -115,7 +115,7 @@ void game::show() {
 	}
 }
 
-void game::getselect(string piece, Piece* &select) {
+void game::getselect(string piece, Piece* select) {
 	if (piece == "br1") select = &br1;
 	if (piece == "br2") select = &br2;
 	if (piece == "bn1") select = &bn1;
@@ -203,10 +203,10 @@ void game::start() {
 }
 
 bool game::checkcheck(bool white) {
-	Piece *p, *king;
+	Piece *p = nullptr, *king = nullptr;
 	string target;
-	if (white) getselect("wk", king);
-	else getselect("bk", king);
+	if (white) king = &wk;
+	else king = &bk;
 	int x = king->getloc().first, y = king->getloc().second, kx, ky;
 	int ndx[] = {-2, -2, -1, -1, 1, 1, 2, 2};
 	int ndy[] = {1, -1, 2, -2, 2, -2, 1, -1};
@@ -275,7 +275,7 @@ bool game::checkcheck(bool white) {
 	return 0;
 }
 
-set<pii> game::calloc(Piece* &select) {
+set<pii> game::calloc(Piece* select) {
 	set<pii> nextgrid;
 	if (select->getdead()) return nextgrid;
 	Piece* dead = nullptr;
@@ -528,7 +528,7 @@ set<pii> game::calloc(Piece* &select) {
 	return nextgrid;
 }
 
-string game::move(Piece* &select, int mx, int my, bool White) {
+string game::move(Piece* select, int mx, int my, bool White) {
 	int cx = select->getloc().first, cy = select->getloc().second;//记录初始格状态
 	if (cx == mx && cy == my) return "Cancel";
 	Piece* dead = nullptr;
@@ -598,7 +598,7 @@ string game::move(Piece* &select, int mx, int my, bool White) {
 
 int game::checkmate(bool white) {//检查当前!white方是否被将死，刚走完white棋
 	if (!checkcheck(white)) return 0;//如果对方目前未被将军，不考虑将死
-	Piece *king, *p;
+	Piece *king;
 	if (white) getselect("wk", king);//走完白棋，判断黑棋是否被将死
 	else getselect("bk", king);
 	set<pii> tmp = calloc(king);

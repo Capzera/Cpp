@@ -9,6 +9,5 @@ int main() {
         dp0 = dpt;
     }
     cout << dp << endl;
-    system("pause");
     return 0;
 }

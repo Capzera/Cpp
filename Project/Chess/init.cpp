@@ -4,7 +4,7 @@
 void init(){
 	initgraph(960, 960);
 	setrendermode(RENDER_MANUAL);
-	setcaption("Chess V1.0 By:机长大大");
+	setcaption("Chess");
 	/*
 	setbkmode(TRANSPARENT);
 	PIMAGE image = newimage();

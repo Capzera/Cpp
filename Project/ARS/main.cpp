@@ -2,8 +2,8 @@
 #include "construct.h"
 
 int main(){
-	system("title º½¿Õ¶©Æ±ÏµÍ³");
-	cout<<"»¶Ó­½øÈëº½¿Õ¶©Æ±ÏµÍ³";
+	system("title    Õ¶ Æ±ÏµÍ³");
+	cout<<"  Ó­   ëº½ Õ¶ Æ±ÏµÍ³";
 	getch();
 	init();
 	start(1);

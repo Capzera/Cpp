@@ -1,2 +1,78 @@
-[Editors]
-Order = 
+[
+    {
+        "caretX": 7,
+        "caretY": 8,
+        "filename": "D:/Program/C++/Project/Chess/init.h",
+        "focused": false,
+        "isOpen": false,
+        "leftChar": 1,
+        "topLine": 1
+    },
+    {
+        "caretX": 2,
+        "caretY": 81,
+        "filename": "D:/Program/C++/Project/Chess/piece.cpp",
+        "focused": true,
+        "isOpen": true,
+        "leftChar": 1,
+        "order": 3,
+        "topLine": 103
+    },
+    {
+        "caretX": 22,
+        "caretY": 7,
+        "filename": "D:/Program/C++/Project/Chess/init.cpp",
+        "focused": false,
+        "isOpen": true,
+        "leftChar": 1,
+        "order": 1,
+        "topLine": 1
+    },
+    {
+        "caretX": 31,
+        "caretY": 25,
+        "filename": "D:/Program/C++/Project/Chess/game.h",
+        "focused": false,
+        "isOpen": false,
+        "leftChar": 1,
+        "topLine": 7
+    },
+    {
+        "caretX": 9,
+        "caretY": 7,
+        "filename": "D:/Program/C++/Project/Chess/main.cpp",
+        "focused": false,
+        "isOpen": true,
+        "leftChar": 1,
+        "order": 2,
+        "topLine": 1
+    },
+    {
+        "caretX": 21,
+        "caretY": 650,
+        "filename": "D:/Program/C++/Project/Chess/game.cpp",
+        "focused": false,
+        "isOpen": true,
+        "leftChar": 1,
+        "order": 0,
+        "topLine": 634
+    },
+    {
+        "caretX": 8,
+        "caretY": 33,
+        "filename": "D:/Program/C++/Project/Chess/piece.h",
+        "focused": false,
+        "isOpen": false,
+        "leftChar": 1,
+        "topLine": 13
+    },
+    {
+        "caretX": 21,
+        "caretY": 3,
+        "filename": "D:/Program/C++/Project/Chess/common.h",
+        "focused": false,
+        "isOpen": false,
+        "leftChar": 1,
+        "topLine": 1
+    }
+]

@@ -1,2 +1,22 @@
-[Editors]
-Order = 
+[
+    {
+        "caretX": 2,
+        "caretY": 31,
+        "filename": "D:/Program/C++/Project/ARS/construct.h",
+        "focused": true,
+        "isOpen": true,
+        "leftChar": 1,
+        "order": 1,
+        "topLine": 16
+    },
+    {
+        "caretX": 1,
+        "caretY": 1,
+        "filename": "D:/Program/C++/Project/ARS/common.h",
+        "focused": false,
+        "isOpen": true,
+        "leftChar": 1,
+        "order": 0,
+        "topLine": 1
+    }
+]
