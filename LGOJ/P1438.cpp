@@ -2,8 +2,8 @@
 using namespace std;
 class SegmentTree {
 private:
-	vector<long long> Tree;//l,r的区间和
-	vector<long long> Lazy;//懒惰标记，对区间修改情况
+	vector<long long> Tree;//l,r鐨勫尯闂村拰
+	vector<long long> Lazy;//鎳掓儼鏍囪锛屽鍖洪棿淇敼鎯呭喌
 	int n;
 public:
 	SegmentTree(){};
@@ -46,10 +46,10 @@ public:
 		push_up(node);
 	}
 	
-	void change(int node, int l, int r, int inc, int left, int right) {//left right待操作，l,r当前结点
+	void change(int node, int l, int r, int inc, int left, int right) {//left right寰呮搷浣滐紝l,r褰撳墠缁撶偣
 		if (left <= l && right >= r) {
 			Tree[node] += (r - l + 1) * inc;
-			Lazy[node] += inc;//node的孩子待加inc的值，但是现在暂时不管
+			Lazy[node] += inc;//node鐨勫瀛愬緟鍔爄nc鐨勫�硷紝浣嗘槸鐜板湪鏆傛椂涓嶇
 			return;
 		}
 		push_down(node, l, r);
@@ -70,19 +70,27 @@ public:
 	~SegmentTree(){};
 };
 
+long long n, m, op, l, r, k, d, x;
 int main() {
-    int n, q;
-    cin >> n >> q;
-    vector<long long> nums(n);
-    for (int i = 0; i < n ; i++) cin >> nums[i];
-    SegmentTree T(nums);
-    while (q--) {
-        int x, y, o;
-        cin >> x >> y >> o;
-        if (o)
-            T.update(x, y, o);
-        else cout<< T.query(x, y) << endl;
-    }
-    system("pause");
-    return 0;
+	cin >> n >> m;
+	vector<long long> a(n + 1), diff(n + 1);
+	for (int i = 1; i <= n; i++) {
+		cin >> a[i];
+		diff[i] = a[i] - a[i - 1];
+	}
+	diff.push_back(0);
+	SegmentTree T(diff);
+	while (m--) {
+		cin >> op;
+		if (op == 1) {
+			cin >> l >> r >> k >> d;
+			T.update(l, l, k);
+			if (l + 1 <= r) T.update(l + 1, r, d);
+			if (r < n) T.update(r + 1, r + 1, -(k + d * (r - l)));
+		} else {
+			cin >> x;
+			cout << T.query(1, x) << endl;
+		}
+	}
+	return 0;
 }

@@ -1,28 +1,36 @@
 #include <bits/stdc++.h>
 using namespace std;
+const int N = 200010;
+long long n, m, s, sum, ans = LLONG_MAX, mx = LLONG_MIN, mn = LLONG_MAX;
+long long w[N], v[N], lt[N], rt[N], sw[N], sv[N];
+bool check(long long x) {
+	sum = 0;
+	for (int i = 1; i <= n; i++) {
+		sw[i] = sw[i - 1] + (w[i] >= x);
+		sv[i] = sv[i - 1] + v[i] * (w[i] >= x);
+	}
+	for (int i = 1; i <= m; i++) {
+		sum += (sw[rt[i]] - sw[lt[i] - 1]) * (sv[rt[i]] - sv[lt[i] - 1]);
+	}
+	return sum > s;
+}
 int main() {
-    long long n, m, s, ans = LLONG_MAX;
     cin >> n >> m >> s;
-    vector<int> w(n), v(n), left(m), right(m);
-    for (int i = 0; i < n; i++) cin >> w[i] >> v[i];
-    for (int i = 0; i < m; i++) cin >> left[i] >> right[i];
-    long long l = 0, r = 1e6 + 10;
-    while (l < r) {
-        long long W = l + (r - l) / 2, Y = -s;
-        vector<long long> sumw(n + 1), sumv(n + 1);
-        for (int i = 0; i < n; i++) {
-            sumw[i + 1] = sumw[i], sumv[i + 1] = sumv[i];
-            if (w[i] >= W) sumw[i + 1]++, sumv[i + 1] += v[i];
-        }
-        for (int i = 0; i < m; i++) {
-            int x = left[i], y = right[i];
-            Y += 1ll * (sumw[y] - sumw[x - 1]) * (sumv[y] - sumv[x - 1]);
-        }
-        if (Y > 0) l = W + 1;
-        else r = W;
-        ans = min(ans, abs(Y));
-    }
+	for (int i = 1; i <= n; i++) {
+		cin >> w[i] >> v[i];
+		mn = min(mn, w[i]);
+		mx = max(mx, w[i]);
+	}
+	for (int i = 1; i <= m; i++) {
+		cin >> lt[i] >> rt[i];
+	}
+	long long l = mn, r = mx + 1;
+	while (l < r) {
+		long long mid = l + (r - l) / 2;
+		if (check(mid)) l = mid + 1;
+		else r = mid;
+		ans = min(ans, abs(sum - s));
+	}
     cout << ans << endl;
-    system("pause");
     return 0;
 }
