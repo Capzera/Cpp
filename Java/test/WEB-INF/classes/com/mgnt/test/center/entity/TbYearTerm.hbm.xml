@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.mgnt.test.center.entity">
+	<class name="TbYearTerm" table="tb_year_term">
+					<id name="SID" column="SID" type="java.lang.Integer">
+						<generator class="identity" />
+					</id>
+				    <property name="STUDY_YEAR_TERM" column="STUDY_YEAR_TERM" not-null="false" />
+				    <property name="IS_NEW" column="IS_NEW" not-null="false" />
+				    <property name="C_TIME" column="C_TIME" not-null="false" />
+				    <property name="START_DATE" column="START_DATE" not-null="false" />
+				    <property name="LIMIT_DAY" column="LIMIT_DAY" not-null="false" />
+	</class>
+</hibernate-mapping>

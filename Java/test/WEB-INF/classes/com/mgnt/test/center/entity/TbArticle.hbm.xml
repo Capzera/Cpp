@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.mgnt.test.center.entity">
+	<class name="TbArticle" table="tb_article">
+					<id name="SID" column="SID" type="java.lang.Integer">
+						<generator class="identity" />
+					</id>
+				    <property name="TITILE" column="TITILE" not-null="false" />
+				    <property name="CONTENT" column="CONTENT" not-null="false" />
+				    <property name="C_TITLE" column="C_TITLE" not-null="false" />
+				    <property name="AUTHOR" column="AUTHOR" not-null="false" />
+				    <property name="SOURCE" column="SOURCE" not-null="false" />
+				    <property name="FILE_PATH" column="FILE_PATH" not-null="false" />
+				    <property name="KEY_WORDS" column="KEY_WORDS" not-null="false" />
+				    <property name="IMG_PATH" column="IMG_PATH" not-null="false" />
+				    <property name="ATTACHMENTS" column="ATTACHMENTS" not-null="false" />
+				    <many-to-one name="category" column="CATEGORY_SID" class="TbCategory"></many-to-one>
+	</class>
+</hibernate-mapping>

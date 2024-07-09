@@ -1,0 +1,358 @@
+/**
+ * 项目名称：SanXine.com善行网，“打造国内有车一族的第一社区”
+ * 版权申明：sanxine.com所有，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：DbExecutor.java
+ * 创建时间：2011-4-25-下午11:59:26
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.spring.beanmapper;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.PreparedStatementCreator;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+
+import com.rapidweb2.common.exception.Exceptions;
+import com.rapidweb2.common.util.LogUtil;
+import com.rapidweb2.common.util.StringUtil;
+import com.rapidweb2.db.SqlSentence;
+
+/**
+ * 针对BEAN的数据库删除、修改和插入操作
+ * 
+ * @author chis(chis123@qq.com)
+ */
+public class BeanUpdate<T extends Object> extends BeanExecutor<T, BeanUpdate<T>> {
+	/** 要操作的BEAN数组 */
+	private final List<T>		beans	= new ArrayList<T>();
+	/** 指定了要操作的属性，除此之外不要操作 */
+	private final List<String>	props	= new ArrayList<String>();
+	/** 被排除的属性 */
+	private final List<String>  excludes = new ArrayList<String>();
+
+	/**
+	 * 指定要操作的bean
+	 * 
+	 * @param bean
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public BeanUpdate<T> of(T bean) {
+		if (bean == null) return this;
+		if (this.entity == null) this.entity = TableEntityHelper.get((Class<T>) bean.getClass());
+		this.beans.add(bean);
+		return this;
+	}
+
+	/**
+	 * 指定要操作的BEAN数组
+	 * 
+	 * @param beans
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public BeanUpdate<T> of(Collection<T> beans) {
+		if (beans == null || beans.size() < 1) return this;
+
+		// 取一个找出类，进行实体类识别
+		if (this.entity == null) {
+			T o = beans.iterator().next();
+			this.entity = TableEntityHelper.get((Class<T>) o.getClass());
+		}
+
+		this.beans.addAll(beans);
+		return this;
+	}
+
+	/**
+	 * 指定要处理的BEAN数组
+	 * 
+	 * @param beans
+	 * @return
+	 */
+	public BeanUpdate<T> of(T[] beans) {
+		if (beans == null || beans.length < 1) return this;
+
+		List<T> bs = Arrays.asList(beans);
+		return of(bs);
+	}
+
+	/**
+	 * 设置UPDATE/INSERT所要关注的属性<BR/>
+	 * 注意：是BEAN的属性，不是对应表的字段
+	 * 
+	 * @param properties
+	 * @return
+	 */
+	public BeanUpdate<T> properties(Collection<String> properties) {
+		if (properties == null || properties.size() < 1) return this;
+
+		for( String p : properties ){
+			p = p.trim();
+			if( p.length()>0 ) this.props.add(p.toUpperCase());
+		}
+//		this.props.addAll(properties);
+		return this;
+	}
+
+	/**
+	 * 设置UPDATE/INSERT所要关注的属性<BR/>
+	 * 注意：是BEAN的属性，不是对应表的字段
+	 * 
+	 * @param properties
+	 * @return
+	 */
+	public BeanUpdate<T> properties(String[] properties) {
+		if (properties == null || properties.length < 1) return this;
+
+		for( String p : properties ){
+			p = p.trim();
+			if( p.length()>0 ) this.props.add(p.toUpperCase());
+		}
+		return this;
+	}
+
+	/**
+	 * 设置UPDATE/INSERT所要排除关注的属性<BR/>
+	 * 注意：是BEAN的属性，不是对应表的字段
+	 * 
+	 * @param properties
+	 * @return
+	 */
+	public BeanUpdate<T> exclude(Collection<String> properties) {
+		if (properties == null || properties.size() < 1) return this;
+
+		for( String p : properties ){
+			p = p.trim();
+			if( p.length()>0 ) this.excludes.add(p.toUpperCase());
+		}
+		return this;
+	}
+
+	/**
+	 * 设置UPDATE/INSERT所要排除关注的属性<BR/>
+	 * 注意：是BEAN的属性，不是对应表的字段
+	 * 
+	 * @param properties
+	 * @return
+	 */
+	public BeanUpdate<T> exclude(String[] properties) {
+		if (properties == null || properties.length < 1) return this;
+
+		for( String p : properties ){
+			p = p.trim();
+			if( p.length()>0 ) this.excludes.add(p.toUpperCase());
+		}
+		return this;
+	}
+	/**
+	 * 设置需要增加或者修改时候要排除的属性列表，用“,”分开
+	 * 
+	 * @param properties
+	 * @return 影响的记录行数目
+	 */
+	public BeanUpdate<T> exclude(String properties) {
+		if (StringUtil.isBlank(properties)) return this;
+
+		for (String o : properties.split(",")) {
+			o = o.trim();
+			if (o.length() < 1) continue;
+			this.excludes.add(o.toUpperCase());
+		}
+
+		return this;
+	}	/**
+	 * 设置需要增加或者修改的属性列表，用“,”分开
+	 * 
+	 * @param properties
+	 * @return 影响的记录行数目
+	 */
+	public BeanUpdate<T> properties(String properties) {
+		if (StringUtil.isBlank(properties)) return this;
+
+		for (String o : properties.split(",")) {
+			o = o.trim();
+			if (o.length() < 1) continue;
+			props.add(o.toUpperCase());
+		}
+
+		return this;
+	}
+
+	/**
+	 * 根据前面的定义，将记录新增到数据库
+	 * 
+	 * @return 影响的记录行数目
+	 * @throws DataAccessException
+	 */
+	public int insert() throws DataAccessException {
+		if (beans.size() < 1) return 0;
+		int cnt = 0;
+		
+		for (T bean : this.beans) {
+			SqlSentence sql = this.entity.getInsertSql(bean, props,excludes);
+			LogUtil.debug(BeanUpdate.class, "Beanupdate.INSERT指令：%s", sql.getSql());
+			cnt += jdbcTemplate.update(sql.getSql(), sql.getArguments());
+		}
+		return cnt;
+	}
+
+	/**
+	 * 新增一条记录，并自动从数据库获得该记录对应的BEAN<BR>
+	 * 目前只支持对自增量类型的BEAN自动返回
+	 * 
+	 * @return 新增的BEAN实例
+	 * @throws DataAccessException
+	 */
+	public T insertBean() throws DataAccessException {
+		if (beans.size() < 1) throw Exceptions.db("INSERT请求没有指定对应的BEAN");
+		T target = this.beans.get(0);
+
+		if (!entity.isAutoIncrementId()) throw Exceptions.db("目前不支持对非自增量类型的BEAN自动返回");
+
+		final String idColName = entity.getIdColumnName();
+
+		// 用来获得INSERT返回的KEY
+		KeyHolder generatedKeyHolder = new GeneratedKeyHolder();
+		final SqlSentence sql = this.entity.getInsertSql(target, props,excludes);
+		
+		// 获取BEAN的SELECT语句
+		String getSql = (new StringBuilder()).append("SELECT * FROM ").append(entity.getTableName()).append(" WHERE ").append(entity.getIdColumnName()).append("=?").toString();
+
+		return insertByKeyHold( sql.getSql(),sql.getArguments(),idColName,generatedKeyHolder,getSql );
+	}
+
+	/**
+	 * 内部方法，实现查询并返回结果的BEAN
+	 * @param sql
+	 * @param args
+	 * @param idColName
+	 * @param keyholder
+	 * @param getSql
+	 * @return
+	 */
+	private T insertByKeyHold( final String sql,final Object[] args,final String idColName,KeyHolder keyholder,final String getSql ){
+		jdbcTemplate.update(new PreparedStatementCreator() {
+			public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+				PreparedStatement ps = connection.prepareStatement(sql, new String[] { idColName });
+				if (args != null) for (int i = 0; i < args.length; i++)
+					ps.setObject(i + 1, args[i]);
+
+				return ps;
+			}
+		}, keyholder);
+		
+		List<T> list = jdbcTemplate.query(getSql, new Object[] { keyholder.getKey().longValue() }, entity.getRowMapper());
+		if (list != null && list.size() > 0) return list.get(0);
+		else throw Exceptions.db("新增记录后，无法从数据库中获得该内容");
+		
+	}
+	/**
+	 * 新增记录，并自动从数据库获得该记录对应的BEAN的数组
+	 * 
+	 * @return 新增加的对象LIST
+	 * @throws DataAccessException
+	 */
+	public List<T> insertBeans() throws DataAccessException {
+		if (beans.size() < 1) Exceptions.db("INSERT请求没有指定对应的BEAN");
+
+		if (!entity.isAutoIncrementId()) throw Exceptions.db("目前不支持对非自增量类型的BEAN自动返回");
+
+		final String idColName = entity.getIdColumnName();
+
+		// 用来获得INSERT返回的KEY
+		KeyHolder generatedKeyHolder = new GeneratedKeyHolder();
+		
+		// 获取BEAN的SELECT语句
+		String getSql = (new StringBuilder()).append("SELECT * FROM ").append(entity.getTableName()).append(" WHERE ").append(entity.getIdColumnName()).append("=?").toString();
+
+		List<T> targets = new ArrayList<T>();
+
+		// 遍历
+		for (T bean : this.beans) {
+			SqlSentence sql = this.entity.getInsertSql(bean, props,excludes);
+			T o = insertByKeyHold( sql.getSql(),sql.getArguments(),idColName,generatedKeyHolder,getSql );
+			targets.add( o );
+		}
+
+		return targets;
+	}
+
+	/**
+	 * 更新到数据库
+	 * 
+	 * @return 影响的记录行数目
+	 * @throws DataAccessException
+	 */
+	public int update() throws DataAccessException {
+		if (beans.size() < 1) {
+			throw Exceptions.db("运行UPDATE需要至少一个BEAN绑定");
+		}
+		int cnt = 0;
+
+		if (StringUtil.isBlank(this.where)) {
+			for (T bean : beans) {
+				SqlSentence sql = this.entity.getUpdateSql(bean, props,excludes, null);
+				LogUtil.debug(BeanUpdate.class, "Beanupdate.update指令：%s", sql.getSql());
+				cnt += jdbcTemplate.update(sql.getSql(), sql.getArguments());
+			}
+		}
+		else { // 如果没有指定BEAN而存在WHERE则使用WHERE
+			SqlSentence sql = this.entity.getUpdateSql(this.beans.get(0), props,excludes, SqlSentence.of(where, this.whereArguments.toArray()));
+			LogUtil.debug(BeanUpdate.class, "Beanupdate.update指令：%s", sql.getSql());
+			cnt += jdbcTemplate.update(sql.getSql(), sql.getArguments());
+		}
+
+		return cnt;
+	}
+
+	/**
+	 * 删除指定的数据
+	 * 
+	 * @return 影响的记录行数目
+	 * @throws DataAccessException
+	 */
+	public int delete() throws DataAccessException {
+		// ID优先
+		int cnt = 0;
+		if (this.ids.size() > 0) {
+			for (Object id : this.ids) {
+				cnt += jdbcTemplate.update(entity.getDeleteById(), id);
+			}
+		}
+		else if (this.beans.size() > 0) { // 有设置了BEAN
+			for (Object target : this.beans) {
+				SqlSentence sql = this.entity.getDeleteById(target);
+				cnt += jdbcTemplate.update(sql.getSql(), sql.getArguments());
+			}
+		}
+		else if (!StringUtil.isBlank(this.where)) { // 如果有WHERE条件
+			cnt = jdbcTemplate.update("DELETE FROM " + entity.getTableName() + " WHERE " + where, this.whereArguments.toArray());
+		}
+
+		return cnt;
+	}
+	
+	/**
+	 * 清除所有的定义
+	 */
+	@Override
+	public BeanUpdate<T> clear() {
+		super.clear();
+		this.beans.clear();
+		this.props.clear();
+		return this;
+	}
+
+}

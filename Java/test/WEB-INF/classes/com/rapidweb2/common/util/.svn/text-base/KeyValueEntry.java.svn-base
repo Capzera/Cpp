@@ -1,0 +1,42 @@
+/**
+ * 项目名称：RapidWeb2快速开发平台基础框架
+ * 版权申明：RapidWeb2项目组，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：EntryItem.java
+ * 创建时间：2010-10-30-上午11:45:04
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.common.util;
+
+/**
+ * 由KEY-VALUE构成的一组值
+ * @author chis(chis123@qq.com)
+ *
+ */
+public class KeyValueEntry<K, V> {
+	private K key;
+	private V value;
+	
+	public KeyValueEntry(){}
+	
+	public KeyValueEntry(K key,V value){
+		this.key  = key;
+		this.value = value;
+	}
+	
+	public K getKey() {
+		return this.key;
+	}
+	public void setKey(K key) {
+		this.key = key;
+	}
+	public V getValue() {
+		return this.value;
+	}
+	public void setValue(V value) {
+		this.value = value;
+	}
+	
+}

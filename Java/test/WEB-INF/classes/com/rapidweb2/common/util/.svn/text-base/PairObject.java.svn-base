@@ -1,0 +1,43 @@
+/**
+ * 项目名称：RapidWeb快速开发平台基础框架V2(RCP实现部分)
+ * 版权申明：RapidWeb项目组，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：PairObject.java
+ * 创建时间：2010-5-14-下午06:24:52
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.common.util;
+
+/**
+ * 一对对象
+ * @author chis(chis123@qq.com)
+ * 
+ */
+public class PairObject<T, K> {
+	private T	first;
+	private K	second;
+
+	public PairObject(){}
+	public PairObject(T first,K second){
+		this.first = first;
+		this.second = second;
+	}
+	
+	public T getFirst() {
+		return first;
+	}
+
+	public void setFirst(T first) {
+		this.first = first;
+	}
+
+	public K getSecond() {
+		return second;
+	}
+
+	public void setSecond(K second) {
+		this.second = second;
+	}
+}

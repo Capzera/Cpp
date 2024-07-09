@@ -1,0 +1,35 @@
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svn/Sanxine/!svn/ver/73/Sanxine.common/src/test/java/tool/database/codegen
+END
+system.properties
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svn/Sanxine/!svn/ver/53/Sanxine.common/src/test/java/tool/database/codegen/system.properties
+END
+main.xml
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svn/Sanxine/!svn/ver/53/Sanxine.common/src/test/java/tool/database/codegen/main.xml
+END
+javabean.ftl
+K 25
+svn:wc:ra_dav:version-url
+V 88
+/svn/Sanxine/!svn/ver/53/Sanxine.common/src/test/java/tool/database/codegen/javabean.ftl
+END
+JavaBeanGenerator.java
+K 25
+svn:wc:ra_dav:version-url
+V 98
+/svn/Sanxine/!svn/ver/73/Sanxine.common/src/test/java/tool/database/codegen/JavaBeanGenerator.java
+END
+freemarker.properties
+K 25
+svn:wc:ra_dav:version-url
+V 97
+/svn/Sanxine/!svn/ver/53/Sanxine.common/src/test/java/tool/database/codegen/freemarker.properties
+END

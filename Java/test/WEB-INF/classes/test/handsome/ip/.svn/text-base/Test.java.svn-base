@@ -1,0 +1,13 @@
+package test.handsome.ip;
+
+import com.handsome.ip.IPSeeker;
+
+public class Test
+{
+  public static void main(String[] args)
+  {
+    IPSeeker ip = new IPSeeker("QQWry.Dat", "E:\\ipdata");
+
+    System.out.println(ip.getIPLocation("58.62.226.211").getCountry() + ":" + ip.getIPLocation("58.62.226.211").getArea());
+  }
+}

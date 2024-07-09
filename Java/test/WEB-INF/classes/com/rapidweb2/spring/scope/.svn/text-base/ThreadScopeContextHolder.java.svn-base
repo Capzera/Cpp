@@ -1,0 +1,35 @@
+/**
+ * 代码来自：springbyexample.org
+ */
+package com.rapidweb2.spring.scope;
+
+public class ThreadScopeContextHolder
+{
+  private static final ThreadLocal<ThreadScopeAttributes> threadScopeAttributesHolder = new InheritableThreadLocal<ThreadScopeAttributes>() {
+    protected ThreadScopeAttributes initialValue() {
+      return new ThreadScopeAttributes();
+    }
+  };
+
+  public static ThreadScopeAttributes getThreadScopeAttributes()
+  {
+    return (ThreadScopeAttributes)threadScopeAttributesHolder.get();
+  }
+
+  public static void setThreadScopeAttributes(ThreadScopeAttributes accessor)
+  {
+    threadScopeAttributesHolder.set(accessor);
+  }
+
+  public static ThreadScopeAttributes currentThreadScopeAttributes()
+    throws IllegalStateException
+  {
+    ThreadScopeAttributes accessor = (ThreadScopeAttributes)threadScopeAttributesHolder.get();
+
+    if (accessor == null) {
+      throw new IllegalStateException("No thread scoped attributes.");
+    }
+
+    return accessor;
+  }
+}

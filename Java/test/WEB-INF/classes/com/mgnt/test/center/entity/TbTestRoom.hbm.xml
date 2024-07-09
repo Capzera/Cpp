@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.mgnt.test.center.entity">
+	<class name="TbTestRoom" table="tb_test_room">
+					<id name="SID" column="SID" type="java.lang.Integer">
+						<generator class="identity" />
+					</id>
+				    <property name="NAME" column="NAME" not-null="false" />
+				    <property name="SEATS" column="SEATS" not-null="false" />
+				    <property name="SOFT_DEVICE" column="SOFT_DEVICE" not-null="false" />
+				    <property name="TEST_ROOM_NO" column="TEST_ROOM_NO" not-null="false" />
+				    
+				    <!-- 
+				    <set name="testOrderSet" inverse="true">
+				    	<key column="TEST_ROOM_SID"></key>
+				    	<one-to-many class="TbTestOrder"></one-to-many>
+				    </set>
+				     -->
+	</class>
+</hibernate-mapping>

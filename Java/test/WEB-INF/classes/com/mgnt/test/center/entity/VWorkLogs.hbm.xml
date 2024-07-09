@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.mgnt.test.center.entity">
+	<class name="VWorkLogs" table="v_work_logs">
+					<id name="sid" column="sid" type="java.lang.Integer">
+						<generator class="identity" />
+					</id>
+				    <property name="title" column="title" not-null="false" />
+				    <property name="file_path" column="file_path" not-null="false" />
+				    <property name="ctime" column="ctime" not-null="false" />
+				    <property name="uname" column="uname" not-null="false" />
+				    <property name="syt" column="syt" not-null="false" />
+				    <property name="y_week_th" column="y_week_th" not-null="false" />
+				    <property name="yt_id" column="yt_id" not-null="true" />
+				    <property name="uid" column="uid" not-null="true" />
+	</class>
+</hibernate-mapping>

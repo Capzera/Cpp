@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.mgnt.test.center.entity">
+	<class name="TbDynamic" table="tb_dynamic">
+					<id name="SID" column="SID" type="java.lang.Integer">
+						<generator class="identity" />
+					</id>
+				    <property name="TITILE" column="TITILE" not-null="false" />
+				    <property name="CONTENT" column="CONTENT" not-null="false" />
+				    <property name="C_TIME" column="C_TIME" not-null="false" />
+				    <property name="AUTHOR" column="AUTHOR" not-null="false" />
+				    <property name="SOURCE" column="SOURCE" not-null="false" />
+	</class>
+</hibernate-mapping>

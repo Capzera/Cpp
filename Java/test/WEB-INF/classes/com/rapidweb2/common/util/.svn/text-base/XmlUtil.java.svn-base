@@ -1,0 +1,359 @@
+/*
+ * 项目名称：RapidWeb快速开发平台基础框架
+ * 版权申明：RapidWeb工作室，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：Initializer.java
+ * 创建时间：下午11:19:12
+ * 创建用户：池毓成(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.common.util;
+
+import java.io.File;
+import java.io.OutputStream;
+import java.io.StringReader;
+import java.util.Map;
+
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+
+import com.rapidweb2.common.exception.CommonException;
+
+/**
+ * XML工具类
+ * 
+ * @author CHI
+ */
+public class XmlUtil {
+	private XmlUtil() {}
+
+	/* 根据文件名获得XML的DOCUMENT对象 */
+	public static Document getDocument(String filename) throws CommonException {
+		File xmlfile = new File(filename);
+		return getDocument(xmlfile);
+	}
+
+	/* 根据FILE对象获得DOCUMENT对象 */
+	public static Document getDocument(File xmlfile) throws CommonException {
+		if (xmlfile == null || !xmlfile.exists() || !xmlfile.isFile()) throw new CommonException("xml文件" + xmlfile.getName() + "不存在或者无法访问！");
+
+		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+		try {
+			return factory.newDocumentBuilder().parse(xmlfile);
+		} catch (Exception e) {
+			throw new CommonException(xmlfile.getName() + "配置文件解析错误", e);
+		}
+
+	}
+
+	/**
+	 * 保存XML的DOCUMENT对象到输出流中
+	 * @param doc
+	 * @param output
+	 * @throws CommonException 
+	 */
+	public static void saveDocument(Document doc, OutputStream output) throws CommonException {
+		TransformerFactory transFactory = TransformerFactory.newInstance();// 创建一个TransformerFactory（转换工厂对象）
+		try {
+			Transformer transformer = transFactory.newTransformer();
+			DOMSource domSource = new DOMSource(doc); // 把要转换的Document对象封装到一个DOMSource类中
+			StreamResult xmlResult = new StreamResult(output);//将要变换得到XML文件将来保存在StreamResult
+			transformer.transform(domSource,xmlResult);//把节点树转换为XML文件
+		} catch (TransformerConfigurationException e) {
+			throw new CommonException(e);
+		} catch (TransformerException e) {
+			throw new CommonException(e);
+		}
+	}
+
+	/**
+	 * 从字符串获得XML的DOCUMENT对象
+	 * 
+	 * @param xmldata
+	 * @return
+	 * @throws CommonException
+	 */
+	public static Document loadString(String xmldata) throws CommonException {
+		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+
+		try {
+			return factory.newDocumentBuilder().parse(new InputSource(new StringReader(xmldata)));
+		} catch (Exception e) {
+			throw new CommonException("XML数据错误：" + e.getMessage(), e);
+		}
+	}
+
+	/* 获得ELEMENT节点的属性值，并用默认值填充 */
+	public static String getAttribute(Element item, String tag, String defvalue) {
+		String result = item.getAttribute(tag);
+		return result == null ? defvalue : result;
+	}
+
+	/* 获得ELEMENT节点的属性值(BOOLEAN)，并用默认值填充 */
+	public static boolean getAttribute(Element item, String tag, boolean defvalue) {
+		return getAttribute(item, tag, defvalue ? "false" : "true").trim().compareToIgnoreCase(defvalue ? "false" : "true") == 0;
+	}
+
+	/* 根据TAGNAME获得一个节点 */
+	public static Element getElementByTagName(Element item, String tag) throws CommonException {
+		NodeList nodes = item.getElementsByTagName(tag);
+		if (nodes.getLength() > 0) return (Element) nodes.item(0);
+		return null;
+	}
+
+	/* 获得节点的值,如果有<![CDATA[优先采用该节点数据 */
+	public static String getTextData(Element item) {
+		return item.getTextContent();
+	}
+
+	/* 获得属性值，如果在ATTRIBUTE中没有，则直接去查找子节点 */
+	public static String getProperty(Element item, String tag, String defvalue) {
+		String result = item.getAttribute(tag);
+		// 如果不再属性则在子节点中查找
+		if (result == null || result.length() < 1) {
+			NodeList nodes = ((Node) item).getChildNodes();
+			for (int i = 0; i < nodes.getLength(); i++) {
+				Node n = nodes.item(i);
+				if (n.getNodeType() != Node.ELEMENT_NODE) continue;
+				if (n.getNodeName().equals(tag)) return n.getTextContent();
+			}
+		}
+		return result == null || result.length() < 1 ? defvalue : result;
+	}
+
+	/*
+	 * 获得属性值，属性值由默认值的数据类型来指定，系统自动进行转换
+	 */
+	public static int getProperty(Element item, String tag, int defvalue) {
+		String val = getProperty(item, tag, Integer.toString(defvalue));
+		try {
+			return Integer.parseInt(val);
+		} catch (Exception e) {
+			return defvalue;
+		}
+	}
+
+	/*
+	 * TODO:增加对通用类型的数据获取方式的处理
+	 */
+	// public static <T> T getProperty(Element item, String tag, T defvalue) {
+	// return null;
+	// }
+	/* 处理指定节点所有的所有子节点 */
+	public static void walkOverElementSons(Element e, String tagName, IElementPicker picker) throws CommonException {
+		if (e == null) return;
+		NodeList nodes = e.getChildNodes();
+		for (int i = 0; i < nodes.getLength(); i++) {
+			if (nodes.item(i).getNodeType() != Node.ELEMENT_NODE) continue;
+			Element ele = (Element) nodes.item(i);
+			if (tagName.equals(ele.getNodeName())) picker.pick(ele);
+		}
+	}
+
+	/* 处理指定节点所有的所有子节点 */
+	public static void walkOverElementSonsByTag(Element e, String tagName, IElementPicker picker) throws CommonException {
+		if (e == null) return;
+		NodeList nodes = e.getElementsByTagName(tagName);
+		for (int i = 0; i < nodes.getLength(); i++) {
+			if (nodes.item(i).getNodeType() != Node.ELEMENT_NODE) continue;
+			Element ele = (Element) nodes.item(i);
+			if (tagName.equals(ele.getNodeName())) picker.pick(ele);
+		}
+	}
+
+	/**
+	 * @category 遍历所有的子节点，并根据walker中指定的标签名自动给进行处理
+	 * @param e 当前要处理的节点
+	 * @param walker 节点“标签名-处理器”对应的MAP
+	 * @throws CommonException
+	 */
+	public static void walkOverElementSons(Element e, Map<String, IElementPicker> walker) throws CommonException {
+		if (e == null) return;
+		NodeList nodes = e.getChildNodes();
+		for (int i = 0; i < nodes.getLength(); i++) {
+			if (nodes.item(i).getNodeType() != org.w3c.dom.Node.ELEMENT_NODE) continue;
+
+			Element ele = (Element) nodes.item(i);
+			IElementPicker p = walker.get(ele.getNodeName());
+			if (p == null) continue;
+			p.pick(ele);
+		}
+
+	}
+
+	/**
+	 * @category 返回所有的子节点，并用处理器来处理
+	 * @param e
+	 * @param picker
+	 * @throws CommonException
+	 */
+	public static void walkOverElementSons(Element e, IElementPicker picker) throws CommonException {
+		if (e == null) return;
+		NodeList nodes = e.getChildNodes();
+		for (int i = 0; i < nodes.getLength(); i++) {
+			if (nodes.item(i).getNodeType() != Node.ELEMENT_NODE) continue;
+			picker.pick((Element) nodes.item(i));
+		}
+	}
+
+	/* 处理指定节点所有的所有子节点 */
+	public static void walkOverElementSon(Element e, String tagName, IElementPicker picker) throws CommonException {
+		if (e == null) return;
+		NodeList nodes = e.getElementsByTagName(tagName);
+		for (int i = 0; i < nodes.getLength(); i++)
+			picker.pick((Element) nodes.item(i));
+	}
+
+	/**
+	 * 处理指定节点的第一个TAGNAME的节点，并处理。
+	 * 
+	 * @param e
+	 * @param tagName
+	 * @param picker
+	 * @throws CommonException
+	 */
+	public static void pickSonByTagname(Element e, String tagName, IElementPicker picker) throws CommonException {
+		if (e == null) return;
+		NodeList nodes = e.getChildNodes();
+		for (int i = 0; i < nodes.getLength(); i++) {
+			Node node = nodes.item(i);
+			if (node.getNodeType() != Node.ELEMENT_NODE) continue;
+			if (node.getNodeName().equals(tagName)) {
+				picker.pick((Element) nodes.item(i));
+				break;
+			}
+		}
+	}
+
+	/**
+	 * 查找指定条件的父节点
+	 * 
+	 * @param e
+	 * @param tagName
+	 * @param attr
+	 * @return
+	 */
+	public static Element findParentElement(Element e, String tagName, IAttributeEquals attr) {
+		if( e==null ) return null;
+		
+		Node parent = e.getParentNode();
+		if (parent == null || parent == (Node) e) return null;
+
+		if (parent.getNodeName().equals(tagName)) {
+			if (attr == null || (attr != null && attr.isEqual((Element) parent))) return (Element) parent;
+		}
+
+		return findParentElement((Element) parent, tagName, attr);
+	}
+
+	/**
+	 * 查找子节点中第一个符合条件的节点
+	 * 
+	 * @param e
+	 * @param tagName
+	 * @param attr
+	 * @return
+	 */
+	public static Element findElement(Element e, String tagName, IAttributeEquals attr) {
+		NodeList nodes = e.getChildNodes();
+		for (int i = 0; i < nodes.getLength(); i++) {
+			Node node = nodes.item(i);
+			if (node.getNodeType() != Node.ELEMENT_NODE) continue;
+			if (node.getNodeName().equals(tagName)) {
+				if (attr == null || (attr != null && attr.isEqual((Element) node))) return (Element) node;
+			}
+
+			Element result = findElement((Element) node, tagName, attr);
+			if (result != null) return result;
+		}
+		return null;
+	}
+
+	/**
+	 * 找到指定的节点，并进行特定的处理
+	 * 
+	 * @param e
+	 * @param tagName
+	 * @param attr
+	 * @param actor
+	 * @return
+	 */
+	public static void findElements(Element e, String tagName, IAttributeEquals attr, IElementPicker actor) {
+		NodeList nodes = e.getChildNodes();
+		for (int i = 0; i < nodes.getLength(); i++) {
+			Node node = nodes.item(i);
+			if (node.getNodeType() != Node.ELEMENT_NODE) continue;
+			if (node.getNodeName().equals(tagName)) {
+				if (attr == null || (attr != null && attr.isEqual((Element) node))) {
+					try {
+						actor.pick((Element) node);
+					} catch (CommonException e1) {
+						e1.printStackTrace();
+					}
+				}
+			}
+
+			findElements((Element) node, tagName, attr, actor);
+		}
+	}
+
+	/**
+	 * 查找子节点中第一个符合条件的节点
+	 * 
+	 * @param e
+	 * @param tagName
+	 * @param attr
+	 * @return
+	 */
+	public static Element findSonElement(Element e, String tagName, IAttributeEquals attr) {
+		NodeList nodes = e.getChildNodes();
+		for (int i = 0; i < nodes.getLength(); i++) {
+			Node node = nodes.item(i);
+			if (node.getNodeType() != Node.ELEMENT_NODE) continue;
+			if (node.getNodeName().equals(tagName)) {
+				if (attr == null || (attr != null && attr.isEqual((Element) node))) return (Element) node;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * 属性比较的接口，用户查找节点
+	 * 
+	 * @author chis
+	 * 
+	 */
+	public static interface IAttributeEquals {
+		public boolean isEqual(Element item);
+	}
+
+	/* XML节点处理者 */
+	public static interface IElementPicker {
+		public void pick(Element item) throws CommonException;
+	}
+
+	public static Element getChildElement(Element e, String tagName) {
+		NodeList nodes = e.getChildNodes();
+		for (int i = 0; i < nodes.getLength(); i++) {
+			Node node = nodes.item(i);
+			if (node.getNodeType() != Node.ELEMENT_NODE) continue;
+			if (node.getNodeName().equals(tagName)) {
+				return (Element) node;
+			}
+		}
+		return null;
+	}
+
+}

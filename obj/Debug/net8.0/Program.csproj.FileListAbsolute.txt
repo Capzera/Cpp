@@ -1,0 +1,2 @@
+D:\Program\obj\Debug\net8.0\csharp.Form1.resources
+D:\Program\obj\Debug\net8.0\Program.csproj.GenerateResource.cache

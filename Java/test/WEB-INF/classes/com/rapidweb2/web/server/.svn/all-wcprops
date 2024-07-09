@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svn/Sanxine/!svn/ver/2/Sanxine.common/src/main/com/rapidweb2/web/server
+END
+IWebService.java
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svn/Sanxine/!svn/ver/2/Sanxine.common/src/main/com/rapidweb2/web/server/IWebService.java
+END
+Spring-JettyWebService.xml
+K 25
+svn:wc:ra_dav:version-url
+V 99
+/svn/Sanxine/!svn/ver/2/Sanxine.common/src/main/com/rapidweb2/web/server/Spring-JettyWebService.xml
+END
+JettyWebService.java
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svn/Sanxine/!svn/ver/2/Sanxine.common/src/main/com/rapidweb2/web/server/JettyWebService.java
+END

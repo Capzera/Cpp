@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.mgnt.test.center.entity">
+	<class name="TbTestTeaching" table="tb_test_teaching">
+					<id name="SID" column="SID" type="java.lang.Integer">
+						<generator class="identity" />
+					</id>
+				    <property name="TITLE" column="TITLE" not-null="false" />
+				    <property name="CONTENT" column="CONTENT" not-null="false" />
+				    <property name="C_TIME" column="C_TIME" not-null="false" />
+				    <property name="CNT_CATEGORY" column="CNT_CATEGORY" not-null="false" />
+				    <property name="AUTHOR" column="AUTHOR" not-null="false" />
+				    <property name="SOURCE" column="SOURCE" not-null="false" />
+	</class>
+</hibernate-mapping>

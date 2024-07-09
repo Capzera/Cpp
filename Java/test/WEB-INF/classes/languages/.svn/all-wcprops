@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svn/Sanxine/!svn/ver/2/Sanxine.common/resource/languages
+END
+sns_zh_CN.properties
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svn/Sanxine/!svn/ver/2/Sanxine.common/resource/languages/sns_zh_CN.properties
+END
+i18n_en_US.properties
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svn/Sanxine/!svn/ver/2/Sanxine.common/resource/languages/i18n_en_US.properties
+END
+sns_en_US.properties
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svn/Sanxine/!svn/ver/2/Sanxine.common/resource/languages/sns_en_US.properties
+END
+i18n_zh_CN.properties
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svn/Sanxine/!svn/ver/2/Sanxine.common/resource/languages/i18n_zh_CN.properties
+END

@@ -1,0 +1,276 @@
+/**
+ * 项目名称：RapidWeb快速开发平台基础框架
+ * 版权申明：RapidWeb项目组，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：BeanUtil.java
+ * 创建时间：2009-12-23-下午08:05:45
+ * 创建用户：chiyucheng(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.common.util;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.rapidweb2.common.exception.Asserts;
+import com.rapidweb2.common.util.beans.BeanCache;
+import com.rapidweb2.common.util.beans.BeanProperty;
+
+/**
+ * Bean工具类
+ * 
+ * @author chis
+ * 
+ */
+final public class BeanUtil {
+	/**
+	 * 取出类的所有属性、以及属性的相关定义
+	 * 
+	 * @param clazz BEAN的类
+	 * @return
+	 */
+	public static BeanProperty[] getProperties(Class<?> clazz) {
+		Map<String, BeanProperty> properties = new HashMap<String, BeanProperty>();
+
+		for( Method method : clazz.getMethods() ) {
+			String name = method.getName();
+			// 如果是属性的getter方法
+			if(name.startsWith("get") || name.startsWith("is")) {
+				String pName = extractPropertyName(name);
+
+				if (pName == null) continue;				
+				BeanProperty p = (BeanProperty) properties.get(pName);
+
+				if (p == null) {
+					Class<?> returnType = getReturnType(method);
+					// getter不至于是不返回值的
+					if (returnType == null) continue;					
+
+					p = new BeanProperty();
+					p.setName(pName);
+					p.setType(returnType);
+
+					properties.put(pName, p);
+				} else {
+					// 如果一个BEAN有多个getter则排除它，不认为是个属性
+					if (!p.getType().equals(method.getReturnType())) {
+						properties.remove(pName);
+						continue;
+					}
+				}
+
+				p.setGetter(method);
+			} else if (name.startsWith("set")) {
+				String pName = extractPropertyName(name);
+				if (pName == null) 	continue;
+
+				BeanProperty p = (BeanProperty) properties.get(pName);
+
+				if (p == null) {
+					p = new BeanProperty();
+					p.setName(pName);
+
+					Class<?> paramType = getFirstParameterType(method);
+					if (paramType == null || getReturnType(method) != null) continue;
+
+					p.setType(paramType);
+
+					properties.put(pName, p);
+				} else { 
+					// 如果有多个setter则认为这个不是合法的属性
+					Class<?> paramType = getFirstParameterType(method);
+					if (!p.getType().equals(paramType) || getReturnType(method) != null) {
+						properties.remove(pName);
+						continue;
+					}
+				}
+
+				p.setSetter(method);
+			}
+		}
+
+		// 删除所有不合法的属性 ?? 会触发并发错误！！！
+//		for( Map.Entry<String, BeanProperty> entry : properties.entrySet() ){
+//			if( !entry.getValue().isValid() ) properties.remove(entry.getKey());
+//		}
+
+		return (BeanProperty[]) properties.values().toArray(new BeanProperty[properties.size()]);
+	}
+
+	/**
+	 * 取指定方法的返回值类型
+	 * @param method
+	 * @return
+	 */
+	public static Class<?> getReturnType(Method method) {
+		Class<?> type = method.getReturnType();
+
+		if (type.equals(Void.TYPE)) { return null; }
+		return type;
+	}
+
+
+	/**
+	 * 取指定函数的第一个参数，在setter中使用
+	 * @param method
+	 * @return
+	 */
+	public static Class<?> getFirstParameterType(Method method) {
+		Class<?> paramTypes[] = method.getParameterTypes();
+
+		if (paramTypes.length == 0) { return null; }
+		return paramTypes[0];
+	}
+
+	/**
+	 * 根据函数的名称解析出属性的名字 
+	 * @param methodName
+	 * @return
+	 */
+	public static String extractPropertyName(String methodName) {
+		if (methodName == null) { return null; }
+		String pname = null;
+		try {
+			if (methodName.startsWith("get") || methodName.startsWith("set")) pname = methodName.substring(3);
+			else if (methodName.startsWith("is")) pname = methodName.substring(2);
+		} catch (IndexOutOfBoundsException e) {
+			e.printStackTrace();
+			return null;
+		}
+		return pname;
+	}
+
+	/**
+	 * 对用BEAN对象的设置属性方法
+	 * @param obj
+	 * @param property
+	 * @param value
+	 */
+	public static void setter( Object obj,String property,Object value ){
+		if( obj==null ) return ;
+		Map<String,BeanProperty> map = BeanCache.get(obj.getClass());
+		BeanProperty bp = map.get(property);
+		if( bp==null ) return ;
+		if( value!=null ){
+			if( bp.getType()==boolean.class || bp.getType()==Boolean.class ){
+				if( value.getClass()==String.class ) 
+					value = ((String)value).equalsIgnoreCase("true") || ((String)value).equalsIgnoreCase("1"); 
+				else if( value.getClass()==int.class || value.getClass()==Integer.class)
+					value = ((Integer)value)==1;
+				else if( value.getClass()==char.class || value.getClass()==Character.class )
+					value = ((Character)value)=='1' || ((Character)value)==1;
+			}
+			else if( value.getClass()==BigDecimal.class ){
+				if( bp.getType()==int.class || bp.getType()==Integer.class) 
+					value =  ((BigDecimal)value).intValue();
+				else if ( bp.getType()==String.class ) value = value== ((BigDecimal)value).toString();
+				else value = ((BigDecimal)value).floatValue();
+			}
+		}else {
+			if( bp.getType()==boolean.class || bp.getType()==Boolean.class ) value = false;
+			else if( bp.getType()==int.class || bp.getType()==Integer.class || bp.getType()==long.class || 
+					bp.getType()==Long.class || bp.getType()==float.class )
+				value = 0;
+		}
+
+		Method m = bp.getSetter();
+		if( m!=null ) 
+			try {
+				m.invoke(obj, new Object[]{value});
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			} catch (InvocationTargetException e) {
+				e.printStackTrace();
+			}
+	}
+	
+	/**
+	 * 格式化属性名，主要用于从数据库的字段名中获得
+	 * @param name
+	 * @return
+	 */
+	public static String fieldToPropertyName(String name){
+		if(name==null) return null;
+		name = name.toLowerCase();
+		
+		char[] names = name.toCharArray();
+		StringBuilder sb = new StringBuilder();
+		boolean flag = true;
+		
+		for( char c : names ){
+			if( c=='_'){ flag=true; continue; }
+			if( (c>='a'&&c<='z') || (c>='A'&&c<='Z') || (c>='0'&&c<='9') ){
+				sb.append( flag ? Character.toUpperCase(c) : c  );
+				flag = false;
+			}
+		}
+		
+		return sb.toString();
+	}
+	/**
+	 * 格式化属性名，主要用于从数据库的字段名中获得,第一个字母小写
+	 * @param name
+	 * @return
+	 */
+	public static String fieldToPropertyId(String name){
+		if(name==null) return null;
+		name = name.toLowerCase();
+		
+		char[] names = name.toCharArray();
+		StringBuilder sb = new StringBuilder();
+		boolean flag = false;
+		
+		for( char c : names ){
+			if( c=='_'){ 
+				flag=true; continue; 
+			}
+			if( (c>='a'&&c<='z') || (c>='A'&&c<='Z') || (c>='0'&&c<='9') ){
+				sb.append( flag ? Character.toUpperCase(c) : c  );
+				flag = false;
+			}
+		}
+		
+		return sb.toString();
+	}
+	
+	/**
+	 * 试图将一个字符转化为类名，按照JAVA标准命名法<br>
+	 * 例如："device_master"  --->  "DeviceMaster"
+	 * @param name
+	 * @return
+	 */
+	public static String guessClassName( String name){
+		Asserts.notEmpty(name, "要猜测的类名不能为空");
+		name = name.trim();
+		StringBuilder sb = new StringBuilder();
+		for( String o : name.split("_") ){
+			if( o.length()<1 ) continue;
+			sb.append(Character.toTitleCase(o.charAt(0))).append(o.substring(1)).toString();
+		}
+		return sb.toString();
+	}
+	/**
+	 * 试图将字符串转换为标准的方法名，如："get_recored_by_id" ----> "getRecordById"
+	 * @param name
+	 * @return
+	 */
+	public static String guessMethodName(String name){
+		Asserts.notEmpty(name, "要猜测的类方法名不能为空");
+		name = name.trim();
+		StringBuilder sb = new StringBuilder();
+		boolean flag = false;
+		for( String o : name.split("_") ){
+			if( o.length()<1 ) continue;
+			if( flag==false ){ sb.append(o); flag = true; }
+			else sb.append(Character.toTitleCase(o.charAt(0))).append(o.substring(1)).toString();
+		}
+		return sb.toString();		
+	}
+	
+}

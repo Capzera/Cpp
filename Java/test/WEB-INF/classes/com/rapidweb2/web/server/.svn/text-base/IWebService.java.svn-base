@@ -1,0 +1,30 @@
+/**
+ * 项目名称：RapidWeb2快速开发平台基础框架
+ * 版权申明：RapidWeb2项目组，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：IWebService.java
+ * 创建时间：2010-12-1-下午11:12:38
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.web.server;
+
+/**
+ * JAVA web容器
+ * 
+ * @author chis(chis123@qq.com)
+ * 
+ */
+public interface IWebService {
+
+	/**
+	 * 启动服务
+	 */
+	public void startup();
+
+	/**
+	 * 终止服务
+	 */
+	public void stop();
+}

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.mgnt.test.center.entity">
+	<class name="User" table="user">
+					<id name="SID" column="SID" type="java.lang.Integer">
+						<generator class="identity" />
+					</id>
+				    <property name="UNAME" column="UNAME" not-null="false" />
+				    <property name="PASSWD" column="PASSWD" not-null="false" />
+				    <property name="EMPL_SNO" column="EMPL_SNO" not-null="false" />
+				    <property name="LOGIN_NAME" column="LOGIN_NAME" not-null="false" />
+				    <property name="U_TYPE" column="U_TYPE" not-null="false" />
+				    <property name="orderList" column="orderList" not-null="false" />
+	</class>
+</hibernate-mapping>

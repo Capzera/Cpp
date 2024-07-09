@@ -1,0 +1,197 @@
+/**
+ * 项目名称：SanXine.com善行网，“打造国内有车一族的第一社区”
+ * 版权申明：sanxine.com所有，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：BeanQuery.java
+ * 创建时间：2011-4-26-上午10:06:15
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.spring.beanmapper;
+
+import java.util.List;
+
+import org.springframework.dao.DataAccessException;
+
+import com.rapidweb2.common.util.LogUtil;
+import com.rapidweb2.common.util.StringUtil;
+import com.rapidweb2.db.DBException;
+import com.rapidweb2.db.Pager;
+import com.rapidweb2.db.SqlSentence;
+
+/**
+ * 基于BEAN的查询操作方法类
+ * 
+ * @author chis(chis123@qq.com)
+ */
+public class BeanQuery<T extends Object> extends BeanExecutor<T, BeanQuery<T>> {
+	/** 排序使用 */
+	private String	orderby;
+	/** 设置分页信息 */
+	private Pager	page;
+	/** 限制取多少条记录，按照MYSQL的规则 SELECT * FROM A LIMIT limitStart,limitLen */
+	private int limitStart = -1,limitLen = -1;
+
+	/*
+	 * (non-Javadoc)
+	 * @see com.rapidweb2.database.cmd.BeanExecutor#clear()
+	 */
+	@Override
+	public BeanQuery<T> clear() {
+		super.clear();
+		this.orderby = null;
+		page = null;
+
+		return this;
+	}
+
+	/**
+	 * 增加ORDERBY的条件
+	 * 
+	 * @param orderby
+	 * @return
+	 */
+	public BeanQuery<T> orderby(String orderby) {
+		if( this.orderby==null ) this.orderby = "";
+		if (!StringUtil.isBlank(this.orderby)) this.orderby += ",";
+		this.orderby += orderby;
+		return this;
+	}
+
+	/**
+	 * 设置分页情况
+	 * 
+	 * @param page
+	 * @return
+	 */
+	public BeanQuery<T> page(Pager page) {
+		this.page = page;
+		return this;
+	}
+	/**
+	 * 限定取出的记录条数
+	 * @param start
+	 * @param len
+	 * @return
+	 */
+	public BeanQuery<T> limit( int start,int len ){
+		this.limitStart = start ;
+		this.limitLen = len;
+		return this;
+	}
+	/**
+	 * 限制最多取多少条
+	 * @param len
+	 * @return
+	 */
+	public BeanQuery<T> limit( int len ){
+		this.limitLen = len;
+		this.limitStart = -1;
+		return this;
+	}
+	/**
+	 * 获得所定义查询条件的第一条记录<BR/>
+	 * TODO:暂时先只支持MYSQL，后续采用MEMCACHE支持缓存，根据BEAN的ID来识别
+	 * 
+	 * @return
+	 * @throws DataAccessException
+	 */
+	public T getOne() throws DataAccessException {
+		SqlSentence so = getBeanSql();
+		String sql = so.getSql() + " LIMIT 1";
+		LogUtil.debug(BeanQuery.class, "getOne ---> %s", sql);
+		List<T> list = this.jdbcTemplate.query(sql, so.getArguments(), entity.getRowMapper());
+		return list.size() > 0 ? list.get(0) : null;
+	}
+	/**
+	 * 获得第一列第一行，并转化为整数
+	 * @return
+	 * @throws DataAccessException
+	 */
+	public int getForInteger( ) throws DataAccessException{
+		SqlSentence so = getBeanSql();
+		String sql = so.getSql() + " LIMIT 1";
+		LogUtil.debug(BeanQuery.class, "getOne ---> %s", sql);
+		return this.jdbcTemplate.queryForInt(sql, so.getArguments());
+	}
+	
+	/**
+	 * 获得列表数据<BR/>
+	 * TODO:现阶段不支持对MEMCACHE的缓存支持，也不支持非MYSQL的分页策略
+	 * 
+	 * @return
+	 * @throws DataAccessException
+	 */
+	public List<T> getList() throws DataAccessException {
+		SqlSentence so = getBeanSql();
+		String sql = so.getSql();
+		// 是否有限制取出的记录数
+		if( this.limitLen>0 ){
+			sql =  "select * from (" + sql + ") as _inner LIMIT " + (this.limitStart>=0 ? limitStart+"," : "") + limitLen;
+		}
+		
+		// 识别如何分页
+		if (page != null) {
+			page.setTotalCount(this.jdbcTemplate.queryForLong("SELECT COUNT(*) FROM (" + sql + ") as _cnt", so.getArguments()));
+			sql = "SELECT * from (" + sql + ") as _page LIMIT " + page.getOffset() + "," + page.getPageSize();
+		}
+		LogUtil.debug(BeanQuery.class, "getOne ---> %s", sql);
+		return this.jdbcTemplate.query(sql, so.getArguments(), entity.getRowMapper());
+	}
+
+	/**
+	 * 获得当前指令对应的记录数目
+	 * 
+	 * @return
+	 * @throws DataAccessException
+	 */
+	public int getCount() throws DataAccessException {
+		SqlSentence so = getBeanSql();
+		return jdbcTemplate.queryForInt("SELECT COUNT(*) FROM (" + so.getSql() + ") as _a", so.getArguments());
+	}
+
+	/**
+	 * 内部方法，获得对应的SQL，不包含分页处理。
+	 * 
+	 * @return
+	 * @throws DataAccessException
+	 */
+	private SqlSentence getBeanSql() throws DataAccessException {
+		if (this.entity == null) throw new DBException("使用BeanQuery使用必须指定BEAN的CLASS");
+		// 构造SQL指令
+		StringBuilder sb = new StringBuilder();
+		Object[] arguments = new Object[] {};
+		// 如果有设置sql，则这个级别最高
+		if (!StringUtil.isBlank(this.sql)) return SqlSentence.of(this.sql, this.sqlArguments);
+
+		// 自动补齐前面的SQL指令
+		// sb.append("SELECT ").append(entity.getSelectColumns()).append(" FROM ").append(entity.getTableName());
+		sb.append("SELECT * FROM ").append(entity.getTableName());
+		// 如果设置了IDS的值，说明是根据ID来获得值的
+		if (ids != null) {
+			if (ids.size() == 1) {
+				sb.append(" WHERE ").append(entity.getIdColumnName()).append(" =? ");
+				return SqlSentence.of(sb.toString(), ids.get(0));
+			}
+			else if (ids.size() > 1) {
+				sb.append(" WHERE ").append(entity.getIdColumnName()).append(" in( ");
+				for (int i = 0; i < ids.size(); i++)
+					sb.append("?,");
+				sb.deleteCharAt(sb.length() - 1);
+				sb.append(")");
+				return SqlSentence.of(sb.toString(), ids.toArray());
+			}
+		}
+		// 其他继续识别WHERE
+		if (!StringUtil.isBlank(this.where)) {
+			sb.append(" WHERE ").append(this.where);
+			arguments = this.whereArguments.toArray();
+		}
+		// 如果有ORDER BY 也一块来好了
+		if (!StringUtil.isBlank(this.orderby)) sb.append(" ORDER BY ").append(orderby);
+
+		return SqlSentence.of(sb.toString(), arguments);
+	}
+
+}

@@ -1,0 +1,478 @@
+/**
+ * 项目名称：SanXine.com善行网，“打造国内有车一族的第一社区”
+ * 版权申明：sanxine.com所有，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：EntityProperties.java
+ * 创建时间：2011-4-25-下午05:10:38
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.spring.beanmapper;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+
+import org.springframework.jdbc.core.RowMapper;
+
+import com.rapidweb2.common.exception.Asserts;
+import com.rapidweb2.common.exception.Exceptions;
+import com.rapidweb2.common.util.LogUtil;
+import com.rapidweb2.common.util.StringUtil;
+import com.rapidweb2.db.SqlSentence;
+
+/**
+ * 属性定义类
+ * 
+ * @author chis(chis123@qq.com)
+ */
+public class TableEntity<T> {
+	/** 实体的类名 */
+	private Class<T>							entityType;
+
+	/** 表/视图对应的实体 */
+	private String								tableName;
+	/** 主键，注意：只支持单一关键字 */
+	private String								idProperty;
+	/** 属性集合 */
+	private final Map<String, EntityProperty>	properties	= new HashMap<String, EntityProperty>();
+	/** 列集合 */
+	private final Map<String, EntityProperty>	columns		= new HashMap<String, EntityProperty>();	// columns
+
+	/**
+	 * 获得对应的转换方法
+	 * 
+	 * @return
+	 */
+	public RowMapper<T> getRowMapper() {
+		return new RowMapper<T>() {
+			final List<String>	cols	= new ArrayList<String>();
+
+			public T mapRow(ResultSet rs, int rowNum) throws SQLException {
+				if (cols.size() < 1) { // 记录缓存对应的元数据
+					ResultSetMetaData md = rs.getMetaData();
+					for (int i = 1; i < md.getColumnCount() + 1; i++){
+						cols.add(md.getColumnLabel(i));
+//						LogUtil.debug(TableEntity.class,"发现Name=%s,label=%s",md.getColumnName(i),md.getColumnLabel(i));
+					}
+				}
+				try {
+					T t = (T) entityType.newInstance();
+//					System.out.println( "发现数据：");
+					for (String s : cols) {
+						Object value = rs.getObject(s);
+						EntityProperty ep = columns.get(s.toUpperCase());
+						if (ep != null && value != null) ep.setValue(t, value);
+//						System.out.print(String.format("%s:%s=%s ,",ep==null?"@":ep.getColName(),s,value) );
+					}
+					
+					// for (EntityProperty ep : properties.values()) {
+					// Object value = rs.getObject(ep.getColName());
+					// if (value != null) ep.setValue(t, value);
+					// }
+					return t;
+				}
+				catch (Exception e) {
+					throw new RuntimeException(e);
+				}
+			}
+		};
+	}
+
+	/**
+	 * 为SELECT获得对应的列集合<br>
+	 * 
+	 * @param props
+	 * @return
+	 */
+	public String getSelectColumns(String... props) {
+		StringBuilder sb = new StringBuilder();
+		// 如果没有定义属性，则从这里取吧
+		if (props == null || props.length < 1) {
+			for (EntityProperty ep : this.properties.values())
+				sb.append(ep.getColName()).append(",");
+		}
+		else { // 有指定属性则从这里取
+			for (String p : props) {
+				EntityProperty ep = this.properties.get(p);
+				if (ep != null) sb.append(ep.getColName()).append(",");
+			}
+		}
+		if (sb.length() > 1) sb.deleteCharAt(sb.length() - 1);
+		return sb.toString();
+	}
+
+	/**
+	 * 获得当前实体的主键列名
+	 * 
+	 * @return
+	 */
+	public String getIdColumnName() {
+		EntityProperty ep = properties.get(idProperty);
+		Asserts.notNull(ep, "实体%没有定义ID列", entityType);
+		return ep.getColName();
+	}
+
+	/**
+	 * ID是否是自增量<br/>
+	 * 判断规则是：不可参与更新的ID就是自增量
+	 * 
+	 * @return
+	 */
+	public boolean isAutoIncrementId() {
+		EntityProperty ep = properties.get(idProperty);
+		Asserts.notNull(ep, "实体%没有定义ID列", entityType);
+		return !ep.isInsertable();
+	}
+
+	/**
+	 * 获得指定属性的对应名字
+	 * 
+	 * @param prop
+	 * @return
+	 */
+	public String getColumnName(String prop) {
+		EntityProperty ep = this.properties.get(prop.toUpperCase());
+		return ep == null ? null : ep.getColName();
+	}
+	/**
+	 * 获得指定BEAN的属性值
+	 * @param target
+	 * @param p
+	 * @return
+	 */
+	public Object getPropertyValue( T target,String p ){
+		if( target==null ) return null;
+		Asserts.notEmpty(p, "要取的属性名称不能为空" );
+		EntityProperty ep = this.properties.get(p.toUpperCase());
+		if(ep==null) return null;
+		try {
+			return ep.getGetter().invoke(target);
+		}
+		catch (Throwable e) {
+			throw Exceptions.db(e, "获得指定%s类型BEAN的属性%s出错", target.getClass(),p);
+		}
+	}
+	
+	/**
+	 * 获得INSERT指令的SQL语句
+	 * 
+	 * @param target
+	 * @param properties
+	 * @return
+	 */
+	public SqlSentence getInsertSql(T target, List<String> props, List<String> exclude) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("INSERT INTO ").append(this.tableName).append("(");
+		final List<Object> insertArgs = new ArrayList<Object>();
+		// 如果有指定要新增的属性的话
+		if (props != null && props.size() > 0) {
+			for (String prop : props) {
+				if (exclude.size() > 0 && exclude.contains(prop.trim().toUpperCase())) continue;
+				EntityProperty ep = this.properties.get(prop.toUpperCase());
+				if (ep == null) continue;
+				sb.append(ep.getColName()).append(",");
+				insertArgs.add(ep.getValue(target));
+			}
+		}
+		else { // 否则全部列入要新增的内容范围
+			for (EntityProperty ep : properties.values()) {
+				if (!ep.isInsertable()) continue;
+				if (exclude.size() > 0 && exclude.contains(ep.getPropertyName())) continue;
+				sb.append(ep.getColName()).append(",");
+				insertArgs.add(ep.getValue(target));
+			}
+		}
+		if (insertArgs.size() < 1) {
+			LogUtil.error(TableEntity.class, "INSERT指令没有找到参数和列！");
+			throw Exceptions.illegalArgument("BEAN：%s中不存在一个可以新增的列", this.getEntityType());
+		}
+		sb.deleteCharAt(sb.length() - 1);
+		// 追加剩余的SQL部分
+		sb.append(") VALUES(");
+		for (int i = 0; i < insertArgs.size(); i++)
+			sb.append(i == 0 ? "?" : ",?");
+		sb.append(") ");
+
+		return SqlSentence.of(sb.toString(), insertArgs.toArray());
+	}
+
+	/**
+	 * 获得根据ID删除BEAN的SQL指令
+	 * 
+	 * @param target
+	 * @return
+	 */
+	public SqlSentence getDeleteById(Object target) {
+		return SqlSentence.of(getDeleteById(), this.properties.get(this.idProperty).getValue(target));
+	}
+
+	/**
+	 * 获得删除的指令SQL，不包含参数
+	 * 
+	 * @return
+	 */
+	public String getDeleteById() {
+		return "DELETE FROM " + this.tableName + " WHERE " + this.getIdColumnName() + " = ?";
+	}
+
+	/**
+	 * 获得更新BEAN的SQL语句：UPDATE...... <BR>
+	 * TODO: 可以使用JAVA集合类的求交、差、并的方式来提升性能：
+	 * 
+	 * <pre>
+	 * public class Test {
+	 * 
+	 * 	public static void main(String[] args) {
+	 * 		Set&lt;Integer&gt; result = new HashSet&lt;Integer&gt;();
+	 * 		Set&lt;Integer&gt; set1 = new HashSet&lt;Integer&gt;() {
+	 * 			{
+	 * 				add(1);
+	 * 				add(3);
+	 * 				add(5);
+	 * 			}
+	 * 		};
+	 * 
+	 * 		Set&lt;Integer&gt; set2 = new HashSet&lt;Integer&gt;() {
+	 * 			{
+	 * 				add(1);
+	 * 				add(2);
+	 * 				add(3);
+	 * 			}
+	 * 		};
+	 * 
+	 * 		result.clear();
+	 * 		result.addAll(set1);
+	 * 		result.retainAll(set2);
+	 * 		System.out.println(&quot;交集：&quot; + result);
+	 * 
+	 * 		result.clear();
+	 * 		result.addAll(set1);
+	 * 		result.removeAll(set2);
+	 * 		System.out.println(&quot;差集：&quot; + result);
+	 * 
+	 * 		result.clear();
+	 * 		result.addAll(set1);
+	 * 		result.addAll(set2);
+	 * 		System.out.println(&quot;并集：&quot; + result);
+	 * 
+	 * 	}
+	 * 
+	 * }
+	 * </pre>
+	 * 
+	 * @param target
+	 * @param props
+	 * @return
+	 */
+	public SqlSentence getUpdateSql(Object target, List<String> props, List<String> exclude, SqlSentence where) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("UPDATE ").append(this.tableName).append(" SET ");
+		final List<Object> insertArgs = new ArrayList<Object>();
+		// 如果有指定要新增的属性的话
+		if (props != null && props.size() > 0) {
+			for (String prop : props) {
+				if (exclude.size() > 0 && exclude.contains(prop.trim().toUpperCase())) continue;
+				EntityProperty ep = this.properties.get(prop.toUpperCase());
+				if (ep == null) continue;
+				sb.append(ep.getColName()).append("=?,");
+				insertArgs.add(ep.getValue(target));
+			}
+		}
+		else { // 否则全部列入要新增的内容范围
+			for (EntityProperty ep : properties.values()) {
+				if (!ep.isUpdateable()) continue;
+				if (exclude.size() > 0 && exclude.contains(ep.getPropertyName())) continue;
+				sb.append(ep.getColName()).append("=?,");
+				insertArgs.add(ep.getValue(target));
+			}
+		}
+		if (insertArgs.size() < 1) throw Exceptions.illegalArgument("BEAN：%s中不存在一个可以修改的列", this.getEntityType());
+		sb.deleteCharAt(sb.length() - 1);
+
+		// 判读是否有WHERE
+		if (where == null || StringUtil.isBlank(where.getSql())) {
+			// 追加剩余的SQL部分
+			sb.append(" WHERE ").append(this.getIdColumnName()).append("=?");
+			// 追加ID的参数
+			insertArgs.add(this.properties.get(this.idProperty).getValue(target));
+		}
+		else {
+			sb.append(" WHERE ").append(where.getSql());
+			List<Object> wargs = Arrays.asList(where.getArguments());
+			insertArgs.addAll(wargs);
+		}
+
+		return SqlSentence.of(sb.toString(), insertArgs.toArray());
+	}
+
+	/**
+	 * 获得根据ID进行查找的SQL指令
+	 * 
+	 * @param id
+	 * @return
+	 */
+	public SqlSentence getGetByIdSql(Object id) {
+		String sql = String.format("SELECT * from %s WHERE %s=?", this.tableName, this.getIdColumnName());
+		return SqlSentence.of(sql, id);
+	}
+	
+	// ===================== getter and setter
+
+	/**
+	 * @return 返回属性 entityType
+	 */
+	public Class<?> getEntityType() {
+		return entityType;
+	}
+
+	/**
+	 * @param 将值entityType 设置为属性entityType
+	 */
+	public void setEntityType(Class<T> entityType) {
+		this.entityType = entityType;
+	}
+
+	/**
+	 * @return 返回属性 tableName
+	 */
+	public String getTableName() {
+		return tableName;
+	}
+
+	/**
+	 * @param 将值tableName 设置为属性tableName
+	 */
+	public void setTableName(String tableName) {
+		this.tableName = tableName;
+	}
+
+	/**
+	 * @return 返回属性 id
+	 */
+	public String getId() {
+		return idProperty;
+	}
+
+	/**
+	 * @param 将值id 设置为属性id
+	 */
+	public void setId(String id) {
+		this.idProperty = id;
+	}
+
+	/**
+	 * @return 返回属性 properties
+	 */
+	public Map<String, EntityProperty> getProperties() {
+		return properties;
+	}
+
+	/**
+	 * 构建指定类的映射配置
+	 * 
+	 * @param beanType
+	 * @return
+	 */
+	public static <T> TableEntity<T> of(Class<T> beanType) {
+		TableEntity<T> e = new TableEntity<T>();
+
+		e.entityType = beanType;
+		// 查找是否被显示定义了@Entity，则去里面的值，否则用类名来顶替
+		if (beanType.isAnnotationPresent(Entity.class)) {
+			e.tableName = beanType.getAnnotation(Entity.class).name();
+		}
+		else e.tableName = beanType.getSimpleName();
+
+		// 查找所有公用的GETTER方法，然后从中找出需要的ID、普通列等
+		for (Method method : beanType.getMethods()) {
+			// static修饰符的不要
+			if (Modifier.isStatic(method.getModifiers())) continue;
+			// 有参数的不要
+			if (method.getParameterTypes().length != 0) continue;
+			// 默认类方法getClass不要
+			if (method.getName().equals("getClass")) continue;
+
+			// 返回类型为void的不要
+			Class<?> returnType = method.getReturnType();
+			if (void.class.equals(returnType)) continue;
+			// 如果是布尔值，需要遵照java bean标准用isXxxx
+			if ((returnType.equals(boolean.class) || returnType.equals(Boolean.class)) && method.getName().startsWith("is") && method.getName().length() > 2) {
+				// 布尔值是不允许成为主键的
+				EntityProperty ep = getEntityPropertyByGetter(beanType, method, 2);
+				if (ep != null) {
+					e.properties.put(ep.getPropertyName().toUpperCase(), ep);
+					e.columns.put(ep.getColName().toUpperCase(), ep);
+				}
+				continue;
+			}
+			// 不是get打头的不要
+			if (!method.getName().startsWith("get")) continue;
+			// get后面没东西的不要
+			if (method.getName().length() < 4) continue;
+			// 取得属性
+			EntityProperty ep = getEntityPropertyByGetter(beanType, method, 3);
+			if (ep != null) {
+				e.properties.put(ep.getPropertyName().toUpperCase(), ep);
+				e.columns.put(ep.getColName().toUpperCase(), ep);
+				// 如果设置了ID则这是对应的关键字列，注意：单一关键字，覆盖
+				if (method.isAnnotationPresent(Id.class)) e.idProperty = ep.getPropertyName();
+			}
+		}
+
+		return e;
+	}
+
+	/**
+	 * 获得对应的属性定义
+	 * 
+	 * @param beanType
+	 * @param method
+	 * @param prefix
+	 * @return
+	 */
+	private static EntityProperty getEntityPropertyByGetter(Class<?> beanType, Method method, int prefix) {
+		EntityProperty ep = new EntityProperty();
+
+		// 计算属性名
+		String pname1 = method.getName().substring(prefix);
+		String pname = Character.toLowerCase(pname1.charAt(0)) + pname1.substring(1);
+		ep.setPropertyName(pname.toUpperCase());
+
+		// 设置getter
+		ep.setGetter(method);
+
+		// 返回值是否为枚举
+		ep.setEnumClass(method.getReturnType() == Enum.class ? method.getReturnType() : null);
+
+		// 根据JPA的@Column定义来定义
+		Column column = method.getAnnotation(Column.class);
+		ep.setColName(column == null ? pname : column.name().toUpperCase());
+		ep.setInsertable(column == null ? true : column.insertable());
+		ep.setUpdateable(column == null ? true : column.updatable());
+
+		// 查找对应的setter
+		try {
+			Method m = beanType.getDeclaredMethod("set" + pname1, method.getReturnType());
+			ep.setSetter(m);
+		}
+		catch (Exception e) {
+			LogUtil.warn(TableEntity.class, "实体%s的属性%s去对应的SETTER错误", beanType, pname);
+		}
+
+		return ep;
+	}
+
+}

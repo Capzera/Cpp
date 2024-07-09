@@ -1,0 +1,19 @@
+/* CSS Document */
+body{ margin:0; padding:0}
+.alertWord{ font-size:12px; color:#D53E20; margin-left:10px;}
+.helpWord{ font-size:12px; color:#999999; margin-left:10px;}
+.availWord{ font-size:12px;  margin-left:10px;}
+.unavail{ color:#D53E20; background:url(../img/unavail.png) 2px no-repeat; padding:0px 2px 0px 20px; border:1px solid #D53E20}
+.liMousrOver{ background-color:#f2faff}
+.inp{ height:16px; border:1px solid #7F9DB9}
+input[type="text"]{ height:16px; border:1px solid #7F9DB9}
+.inpFocus{ background-color:#FFFFCC }
+.blue{ color:#03F}
+.red{ color:#f00}
+
+.title{text-align:left;font-size:13px;padding-top:10px;text-indent:10px;}
+.lableName{font-size:12px;text-align:right;text-indent:5px;padding-top:10px;}
+.form_table{border-left:1px solid #DDDDDD;border-bottom:1px solid #DDDDDD;}
+.form_table tr td{border-top:1px solid #DDDDDD;border-right:1px solid #DDDDDD;padding:2px;color:#000000}
+
+

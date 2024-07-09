@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.mgnt.test.center.entity">
+	<class name="TbSendRecord" table="tb_send_record">
+					<id name="SID" column="SID" type="java.lang.Integer">
+						<generator class="identity" />
+					</id>
+				    <property name="CTIME" column="CTIME" not-null="false" />
+				    <property name="AMOUNT" column="AMOUNT" not-null="false" />
+				    <property name="FEES" column="FEES" not-null="false" />
+	</class>
+</hibernate-mapping>

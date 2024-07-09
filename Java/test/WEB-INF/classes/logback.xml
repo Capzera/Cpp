@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>   
+<!DOCTYPE configuration>
+
+<configuration>
+	<jmxConfigurator />
+
+	<!-- 控制台输出日志 -->
+	<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>%d{HH:mm:ss} [%-5level] - %msg [%logger]%n</pattern>
+		</encoder>
+	</appender>
+
+	<!-- 禁用JETTY的日志的输出 -->
+	<logger name="org.mortbay" level="INFO" />
+	<logger name="org.springframework" level="INFO" />
+	<logger name="org.springframework.beans" level="WARN" />
+	<logger name="org.logicalcobwebs" level="ERROR" />
+	<logger name="com.opensymphony.oscache" level="ERROR" />
+	<logger name="org.logicalcobwebs.proxool" level="ERROR" />
+	<logger name="freemarker.cache" level="ERROR" />
+	<logger name="org.mybatis" level="ERROR" />
+
+
+	<!-- LOG4JDBC的配置 -->
+	<logger name="jdbc.audit" level="OFF" />
+	<logger name="jdbc.resultset" level="OFF" />
+	<logger name="jdbc.connection" level="OFF" />
+	<logger name="jdbc.sqlonly" level="OFF" />
+	<logger name="java.sql.ResultSet" level="OFF" />
+	<logger name="java.sql.Connection" level="OFF" />
+	<logger name="java.sql.PreparedStatement" level="OFF" />
+	<logger name="java.sql.Statement" level="OFF" />
+
+
+	<!-- 默认输出DEBUG级别 -->
+	<root level="INFO">
+		<appender-ref ref="STDOUT" />
+	</root>
+
+</configuration> 

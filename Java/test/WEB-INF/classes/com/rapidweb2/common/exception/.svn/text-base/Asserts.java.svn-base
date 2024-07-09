@@ -1,0 +1,91 @@
+/**
+ * 项目名称：RapidWeb2快速开发平台基础框架
+ * 版权申明：RapidWeb2项目组，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：Asserts.java
+ * 创建时间：2010-12-1-下午05:29:57
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.common.exception;
+
+import java.io.File;
+
+/**
+ * 用来抛出一些特定的错误，一般用于抛出uncheck类型的异常
+ * @author chis(chis123@qq.com)
+ *
+ */
+public class Asserts {
+	/**
+	 * 断定发现方法传递近来的参数有错
+	 * @param msg
+	 */
+	public static void illegalArgument(String msg,Object...paras){
+		throw new IllegalArgumentException( String.format(msg, paras) );
+	}
+	/**
+	 * 判断数组是否为空或者长度为0
+	 * @param <T>
+	 * @param array
+	 * @param msg
+	 * @param paras
+	 */
+	public static <T> void notEmpty( T[] array,String msg,Object...paras ){
+		if( array==null || array.length<1 ) throw new IllegalArgumentException( String.format(msg, paras) );
+	}
+	/**
+	 * 不允许字符串为空
+	 * @param <T>
+	 * @param o
+	 * @param msg
+	 * @param paras
+	 */
+	public static <T> void notEmpty( String o,String msg,Object...paras ){
+		if( o==null || o.length()<1 || o.trim().length()<1 ) throw new IllegalArgumentException( String.format(msg, paras) );
+	}	
+	/**
+	 * 如果值为空则抛出UNCHECK异常
+	 * @param o
+	 * @param msg
+	 * @param paras
+	 */
+	public static void notNull(Object o,String msg,Object...paras ){
+		if( o==null ) throw new IllegalArgumentException( String.format(msg, paras) );
+	}
+	/**
+	 * 抛出一般的uncheck异常,说明前面执行的结果出错了
+	 * @param msg
+	 * @param e
+	 * @param paras
+	 */
+	public static void unchecked( Throwable e,String msg,Object...paras){
+		throw new RuntimeException( String.format(msg, paras),e );
+	}
+	/**
+	 * 将当前异常转换为unchecked异常
+	 * @param e
+	 */
+	public static void unchecked( Throwable e ){
+		throw new RuntimeException( String.format("执行出现错误：%s",e.getMessage()), e );
+	}
+	/**
+	 * 根据表达式的结果抛出异常
+	 * @param flag
+	 * @param msg
+	 * @param params
+	 */
+	public static void checkArgument( boolean expression,String msg,Object...params ){
+		if( !expression ) throw new IllegalArgumentException( String.format(msg, params) );
+	}
+	/**
+	 * 如果不是合法的文件则抛出异常
+	 * @param file
+	 */
+	public static void isFile( File file ){
+		if( file==null ) throw new IllegalArgumentException( "文件不允许为空" );
+		if( !file.exists() ) throw new IllegalArgumentException( String.format("文件%s不存在", file.getAbsolutePath()) );
+		if( !file.isFile() ) throw new IllegalArgumentException( String.format("%s不是文件", file.getAbsolutePath()) );
+	}
+}

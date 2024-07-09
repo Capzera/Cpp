@@ -1,0 +1,82 @@
+.bm {
+	MARGIN-BOTTOM: 10px
+}
+.bn {
+	MARGIN-BOTTOM: 10px
+}
+.bm {
+	BORDER-BOTTOM: #e6e7e1 1px solid; BORDER-LEFT: #e6e7e1 1px solid; BACKGROUND: #fff; BORDER-TOP: #e6e7e1 1px solid; BORDER-RIGHT: #e6e7e1 1px solid
+}
+.bmw {
+	BORDER-BOTTOM: #e6e7e1 1px solid; BORDER-LEFT: #e6e7e1 1px solid; BORDER-TOP: #e6e7e1 1px solid; BORDER-RIGHT: #e6e7e1 1px solid
+}
+.bmw .bm_h {
+	BORDER-BOTTOM-COLOR: #e1edf6; BORDER-LEFT: #fff 1px solid; BORDER-TOP-COLOR: #fff; BACKGROUND: #f2f7fb; BORDER-RIGHT: #fff 1px solid
+}
+.bm {
+	MARGIN-BOTTOM: 10px
+}
+.bn {
+	MARGIN-BOTTOM: 10px
+}
+.bm {
+	BORDER-BOTTOM: #e6e7e1 1px solid; BORDER-LEFT: #e6e7e1 1px solid; BACKGROUND: #fff; BORDER-TOP: #e6e7e1 1px solid; BORDER-RIGHT: #e6e7e1 1px solid
+}
+.bm_c {
+	PADDING-BOTTOM: 10px; PADDING-LEFT: 10px; PADDING-RIGHT: 10px; PADDING-TOP: 10px
+}
+.drag {
+	
+}
+.bm_h .o {
+	WIDTH: 30px; FLOAT: right
+}
+.bm_h .o IMG {
+	MARGIN-TOP: 11px; FLOAT: right; CURSOR: pointer
+}
+.bm_h .i {
+	PADDING-LEFT: 10px
+}
+.bm_h {
+	BORDER-BOTTOM: #e1edf6 1px solid; PADDING-BOTTOM: 0px; LINE-HEIGHT: 31px; PADDING-LEFT: 10px; PADDING-RIGHT: 10px; WHITE-SPACE: nowrap; BACKGROUND: #f5f5f5; HEIGHT: 31px; OVERFLOW: hidden; BORDER-TOP: #fff 1px solid; PADDING-TOP: 0px
+}
+.bmw {
+	BORDER-BOTTOM: #e6e7e1 1px solid; BORDER-LEFT: #e6e7e1 1px solid; BORDER-TOP: #e6e7e1 1px solid; BORDER-RIGHT: #e6e7e1 1px solid
+}
+.bmw .bm_h {
+	BORDER-BOTTOM-COLOR: #e1edf6; BORDER-LEFT: #fff 1px solid; BORDER-TOP-COLOR: #fff; BACKGROUND: #f2f7fb; BORDER-RIGHT: #fff 1px solid
+}
+.bmw .bm_h A {
+	COLOR: #369
+}
+.bml .bm_h {
+	BORDER-BOTTOM: medium none; BORDER-LEFT: medium none; BACKGROUND: none transparent scroll repeat 0% 0%; BORDER-TOP: medium none; BORDER-RIGHT: medium none; PADDING-TOP: 5px
+}
+.bml .bm_c {
+	PADDING-TOP: 0px
+}
+.bmn {
+	BORDER-BOTTOM-COLOR: #e0e7ed; PADDING-BOTTOM: 7px; BORDER-TOP-COLOR: #e0e7ed; PADDING-LEFT: 10px; PADDING-RIGHT: 10px; BACKGROUND: #f2f7fb; BORDER-RIGHT-COLOR: #e0e7ed; BORDER-LEFT-COLOR: #e0e7ed; PADDING-TOP: 7px
+}
+.fl {
+	BORDER-BOTTOM: #e6e7e1 1px solid; BORDER-LEFT: #e6e7e1 1px solid; BACKGROUND: #fff; BORDER-TOP: medium none; BORDER-RIGHT: #e6e7e1 1px solid
+}
+.fl .bm {
+	BORDER-BOTTOM: medium none; BORDER-LEFT: medium none; MARGIN-BOTTOM: 0px; BORDER-TOP: medium none; BORDER-RIGHT: medium none
+}
+.bmw .bm_h A {
+	COLOR: #369
+}
+.fl_icn{padding:5px;}
+.fl_tb tr td p{margin-top:4px; color:#000000;}
+.fl_i{width:100px;padding:5px;}
+
+.nvhm {
+	LINE-HEIGHT: 200px; WIDTH: 24px; BACKGROUND: url(/resource/images/bbs/pt_icn.png) no-repeat; OVERFLOW: hidden
+}
+.z {
+	FLOAT: left
+}
+.y {
+	FLOAT: right
+}

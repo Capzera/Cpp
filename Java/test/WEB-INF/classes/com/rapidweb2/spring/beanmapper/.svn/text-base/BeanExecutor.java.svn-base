@@ -1,0 +1,213 @@
+/**
+ * 项目名称：SanXine.com善行网，“打造国内有车一族的第一社区”
+ * 版权申明：sanxine.com所有，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：DbExecutor.java
+ * 创建时间：2011-4-25-下午11:59:26
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.spring.beanmapper;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import com.rapidweb2.common.exception.Exceptions;
+import com.rapidweb2.common.util.StringUtil;
+
+/**
+ * 针对BEAN的数据操作的基础类,不允许直接的使用
+ * 
+ * @author chis(chis123@qq.com)
+ * @param <T>
+ * @param <K>
+ */
+@SuppressWarnings("unchecked")
+public abstract class BeanExecutor<T extends Object, K extends BeanExecutor<T, ?>> {
+
+	/** 要求使用SPRING的BEAN工厂类注入的JdbcTemplate对象 */
+	protected JdbcTemplate			jdbcTemplate;
+	/** 针对BEAN的类型定义 */
+	protected TableEntity<T>		entity;
+	/** 指定要控制的ID */
+	protected final List<Object>	ids				= new ArrayList<Object>();
+	/** WHERE条件 */
+	protected String				where			= "";
+	/** WHERE条件的参数 */
+	protected final List<Object>	whereArguments	= new ArrayList<Object>();
+	/** 直接执行的SQL指令 */
+	protected String				sql;
+	/** 直接执行的SQL指令的参数 */
+	protected Object[]				sqlArguments;
+
+	public BeanExecutor() {
+		super();
+	}
+
+	/**
+	 * 清楚所有的定义
+	 * 
+	 * @return
+	 */
+	public K clear() {
+		this.ids.clear();
+		this.where = null;
+		this.whereArguments.clear();
+		this.sql = null;
+		this.sqlArguments = null;
+		return (K) this;
+	}
+
+	/**
+	 * 指定要操作的BEAN类型，当DELETEBYID时候用
+	 * 
+	 * @param beanType
+	 */
+	public K of(Class<T> beanType) {
+		this.entity = TableEntityHelper.get(beanType);
+		return (K) this;
+	}
+
+	/**
+	 * 指定一个ID，主要用于删除
+	 * 
+	 * @param id
+	 * @return
+	 */
+	public K id(Object id) {
+		this.ids.add(id);
+		return (K) this;
+	}
+
+	/**
+	 * 增加一组ID，用来删除使用
+	 * 
+	 * @param ids
+	 * @return
+	 */
+	public K ids(Collection<?> ids) {
+		this.ids.addAll(ids);
+
+		return (K) this;
+	}
+
+	/**
+	 * 增加一个ID组,用来删除或者获取数据用
+	 * 
+	 * @param ids
+	 * @return
+	 */
+	public K ids(Object[] ids) {
+		List<Object> os = Arrays.asList(ids);
+		this.ids.addAll(os);
+		return (K) this;
+	}
+
+	/**
+	 * 构造WHERE条件，在update和delete时候使用
+	 * 
+	 * @param where
+	 * @param args
+	 * @return
+	 */
+	public K where(String where, Object... args) {
+		this.where = StringUtil.isBlank(this.where) ? where : where + " AND (" + where + ")";
+		// 合并参数
+		if (args != null && args.length > 0) this.whereArguments.addAll(Arrays.asList(args));
+		return (K) this;
+	}
+
+	/**
+	 * 根据BEAN设定WHERE条件，各个条件之间用and相连，并且属性比较全部用“等于”符号<br>
+	 * 例如：a.where( bean,"name,sex" );
+	 * 
+	 * @param bean
+	 * @param properties 参与条件构造包含的属性，不能为空
+	 * @return
+	 */
+	public K where(T bean, String... properties) {
+		if (properties == null || properties.length < 1) throw Exceptions.db("采用BEAN自动构造条件时必须指定要包含的属性");
+
+		StringBuilder sb = new StringBuilder();
+		for (String p : properties) {
+			Object v = this.entity.getPropertyValue((T)bean, p);
+			if (v == null) continue;
+			if (sb.length() > 0) sb.append(" AND ");
+			sb.append(p).append("=?");
+			this.whereArguments.add(v);
+		}
+		if (StringUtil.isBlank(this.where)) where = sb.toString();
+		else where = where + " AND " + sb.toString();
+
+		return (K) this;
+	}
+
+	/**
+	 * 根据属性名、值的列表定义对应的WHERE约束<br/>
+	 * 例如：a.where( ["name","sex"],[name,sex] );
+	 * 
+	 * @param props
+	 * @param args
+	 * @return
+	 */
+	public K where(String[] props, Object[] args) {
+		if (props.length != args.length) throw Exceptions.db("根据属性列表动态构造WHERE语句时候，必须和对应参数值数目一致");
+
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < props.length; i++) {
+			String p = props[i];
+			Object v = args[i];
+			if (v == null) continue;
+			if (sb.length() > 0) sb.append(" AND ");
+			sb.append(p).append("=?");
+			this.whereArguments.add(v);
+		}
+		if (StringUtil.isBlank(this.where)) where = sb.toString();
+		else where = where + " AND " + sb.toString();
+
+		return (K) this;
+	}
+
+	/**
+	 * 增加WHERE条件
+	 * 
+	 * @param wh
+	 * @return
+	 */
+	public K where(Where wh) {
+		if (wh == null) return (K) this;
+		if (StringUtil.isBlank(this.where)) this.where = wh.getSql();
+		else this.where = this.where + " AND (" + wh.getSql() + ")";
+		// 增加参数
+		this.whereArguments.addAll(wh.getArguments());
+		return (K) this;
+	}
+
+	/**
+	 * 设置直接执行的SQL,如果设置了这个则忽略所有的定义
+	 * 
+	 * @param sql
+	 * @param args
+	 * @return
+	 */
+	public K sql(String sql, Object... args) {
+		this.sql = sql;
+		this.sqlArguments = args;
+		return (K) this;
+	}
+
+	/**
+	 * 设置对应的jdbcTemplate
+	 * 
+	 * @param jdbcTemplate
+	 */
+	public void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
+		this.jdbcTemplate = jdbcTemplate;
+	}
+
+}

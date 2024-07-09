@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.mgnt.test.center.entity">
+	<class name="TbLogs" table="tb_logs">
+					<id name="sid" column="sid" type="java.lang.Integer">
+						<generator class="identity" />
+					</id>
+				    <property name="file_path" column="file_path" not-null="false" />
+				    <property name="ctime" column="ctime" not-null="false" />
+				    <property name="title" column="title" not-null="false" />
+				    <property name="uid" column="uid" not-null="false" />
+				    <property name="y_term_id" column="y_term_id" not-null="false" />
+				    <property name="y_week_th" column="y_week_th" not-null="false" />
+	</class>
+</hibernate-mapping>

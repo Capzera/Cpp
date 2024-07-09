@@ -1,0 +1,74 @@
+/**
+ * 项目名称：SanXine.com善行网，“打造国内有车一族的第一社区”
+ * 版权申明：sanxine.com所有，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：ViewTest.java
+ * 创建时间：2011-4-30-下午11:10:31
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package test.rapidweb2.spring.beanmapper;
+
+import javax.persistence.Entity;
+
+/**
+ * TODO: 请编写相应的类使用JAVADOC说明
+ * @author chis(chis123@qq.com)
+ */
+@Entity(name="view_test")
+public class ViewTest {
+	private int id;
+	private String area;
+	private String name;
+	private int pid;
+	/**
+	 * @return 返回属性 id
+	 */
+	public int getId() {
+		return id;
+	}
+	/**
+	 * @param 将值id 设置为属性id
+	 */
+	public void setId(int id) {
+		this.id = id;
+	}
+	/**
+	 * @return 返回属性 area
+	 */
+	public String getArea() {
+		return area;
+	}
+	/**
+	 * @param 将值area 设置为属性area
+	 */
+	public void setArea(String area) {
+		this.area = area;
+	}
+	/**
+	 * @return 返回属性 name
+	 */
+	public String getName() {
+		return name;
+	}
+	/**
+	 * @param 将值name 设置为属性name
+	 */
+	public void setName(String name) {
+		this.name = name;
+	}
+	/**
+	 * @return 返回属性 pid
+	 */
+	public int getPid() {
+		return pid;
+	}
+	/**
+	 * @param 将值pid 设置为属性pid
+	 */
+	public void setPid(int pid) {
+		this.pid = pid;
+	}
+	
+}

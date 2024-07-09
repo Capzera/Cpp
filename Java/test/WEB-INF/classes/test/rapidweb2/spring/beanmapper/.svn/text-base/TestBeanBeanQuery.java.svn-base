@@ -1,0 +1,128 @@
+/**
+ * 项目名称：SanXine.com善行网，“打造国内有车一族的第一社区”
+ * 版权申明：sanxine.com所有，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：TestBeanBeanQuery.java
+ * 创建时间：2011-4-26-下午10:19:29
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package test.rapidweb2.spring.beanmapper;
+
+import java.util.Arrays;
+import java.util.List;
+
+import junit.framework.Assert;
+
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.AbstractApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import com.rapidweb2.db.Pager;
+import com.rapidweb2.spring.SpringUtil;
+import com.rapidweb2.spring.beanmapper.BeanQuery;
+import com.rapidweb2.spring.beanmapper.Where;
+import com.rapidweb2.spring.beanmapper.Where.Option;
+
+/**
+ * 测试BeanMapper
+ * 
+ * @author chis(chis123@qq.com)
+ */
+public class TestBeanBeanQuery {
+	private static ApplicationContext	context;
+	static {
+		context = new ClassPathXmlApplicationContext("classpath:/test/rapidweb2/spring/beanmapper/main.xml");
+		((AbstractApplicationContext) context).registerShutdownHook(); // auto-destory single-bean. chis.
+	}
+
+	BeanQuery<SysArea>					bq;
+
+	/**
+	 * @throws java.lang.Exception
+	 */
+	@BeforeClass
+	public static void setUpBeforeClass() throws Exception {
+
+	}
+
+	/**
+	 * @throws java.lang.Exception
+	 */
+	@Before
+	public void setUp() throws Exception {
+		bq = SpringUtil.getBeanQuery(SysArea.class);
+	}
+
+	/**
+	 * 测试
+	 */
+	@Test
+	public void getOneById() {
+		SysArea user = bq.clear().id(9).getOne();
+		Assert.assertEquals(user.getName(), "海淀区");
+		
+	}
+
+	@Test
+	public void getOneByIds() {
+		List<Integer> d  = Arrays.asList(new Integer[] { 1, 2, 3, 4 });
+		SysArea area = bq.clear().ids( d ).getOne();
+		Assert.assertEquals(area.getName(), "北京");
+		List<SysArea> areas = bq.clear().ids(new Integer[] { 1, 2, 3, 4 }).getList();
+		for( SysArea a : areas ) System.out.println(a.getName() + ",");
+		areas = bq.clear().where("name like '%北%' and sid>?",1 ).getList();
+		for( SysArea a : areas ) System.out.println(a.getName() + ",");
+		Pager page = new Pager();
+		page.setPageNumber(3);
+		areas = bq.clear().page(page).getList();
+		for( SysArea a : areas ) System.out.println(a.getName() + ",");
+		System.out.println("=================================");
+		areas = bq.clear().page(page).sql("select * from sys_area where sid>?",1).getList();
+		for( SysArea a : areas ) System.out.println(a.getName() + ",");
+		System.out.println("总记录有：" + page.getTotalCount());
+	}
+
+	@Test
+	public void getByWhere(){
+		Where where1 = Where.of(" name like '%江%'");
+		Where where = Where.of(Option.like("name", "%区%")).and(Option.gt("parent_id", 1)).and(where1);
+		for( SysArea a : bq.clear().where(where).getList() ){
+			System.out.println("\n" + a.getName());
+		}
+	}
+	@Test
+	public void testView(){
+		BeanQuery<ViewTest> query = SpringUtil.getBeanQuery(ViewTest.class);
+		for( ViewTest t : query.getList() ){
+			System.out.println( String.format("id=%d ,area=%s ,name=%s,pid=%d", t.getId(),t.getArea(),t.getName(),t.getPid()));
+		}
+		
+		query.sql("select sid as id,'地名' area,name,parent_id pid from sys_area where name like ?", "%福%");
+		for( ViewTest t : query.getList() ){
+			System.out.println( String.format("id=%d ,area=%s ,name=%s,pid=%d", t.getId(),t.getArea(),t.getName(),t.getPid()));
+		};
+	}
+	
+	@Test 
+	public void testLimit(){
+		List<SysArea> vls = bq.limit(10).getList();
+		for( SysArea sa : vls ){
+			System.out.println("地区名称为:" + sa.getName());
+		}
+		
+		for( SysArea sa : bq.clear().sql("select * from sys_area limit 8").limit(5,5).getList() ){
+			System.out.println("地区名称为:" + sa.getName());
+		}
+		
+		Pager page = new Pager();
+		page.setPageNumber(1);
+		for( SysArea sa : bq.clear().sql("select * from sys_area limit 8").limit(5,5).page(page).getList() ){
+			System.out.println("地区名称为:" + sa.getName());
+		}
+	}
+}

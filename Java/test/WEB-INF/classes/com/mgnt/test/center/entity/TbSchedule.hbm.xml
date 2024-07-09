@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.mgnt.test.center.entity">
+	<class name="TbSchedule" table="tb_schedule">
+					<id name="sid" column="sid" type="java.lang.Integer">
+						<generator class="identity" />
+					</id>
+				    <property name="uid" column="uid" not-null="false" />
+				    <property name="weekTh" column="weekTh" not-null="false" />
+				    <property name="dayTh" column="dayTh" not-null="false" />
+				    <property name="sectionTh" column="sectionTh" not-null="false" />
+				    <property name="content" column="content" not-null="false" />
+				    <property name="ctime" column="ctime" not-null="false" />
+				    <property name="bgColor" column="bgColor" not-null="false" />
+	</class>
+</hibernate-mapping>

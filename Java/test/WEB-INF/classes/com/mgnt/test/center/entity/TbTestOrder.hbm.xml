@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.mgnt.test.center.entity">
+	<class name="TbTestOrder" table="tb_test_order">
+					<id name="SID" column="SID" type="java.lang.Integer">
+						<generator class="identity" />
+					</id>
+				    
+				    <property name="SECTION" column="SECTION" not-null="false" />
+				    <property name="WEEK_TH" column="WEEK_TH" not-null="false" />
+				    <property name="WEEK_DAY" column="WEEK_DAY" not-null="false" />
+				    <property name="TEACHER" column="TEACHER" not-null="false" />
+				    <property name="C_TIME" column="C_TIME" not-null="false" />
+				    <property name="TEST_CONTENT" column="TEST_CONTENT" not-null="false" />
+				    <many-to-one name="testRoom" column="TEST_ROOM_SID" lazy="false" class="TbTestRoom"></many-to-one>
+				    <many-to-one name="inputUser" column="INPUT_USER_SID" lazy="false" class="User"></many-to-one>
+				    <many-to-one name="yearTerm" column="YEAR_TERM_SID" class="TbYearTerm"></many-to-one>
+	</class>
+</hibernate-mapping>

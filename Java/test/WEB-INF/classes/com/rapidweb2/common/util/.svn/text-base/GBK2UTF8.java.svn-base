@@ -1,0 +1,49 @@
+/**
+ * 项目名称：RapidWeb2快速开发平台基础框架
+ * 版权申明：RapidWeb2项目组，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：FilesEncodingTransfer.java
+ * 创建时间：2010-11-11-下午06:13:30
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.common.util;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.Charset;
+
+import com.google.common.io.Files;
+
+
+/**
+ * 文件编码格式转化
+ * @author chis(chis123@qq.com)
+ *
+ */
+public class GBK2UTF8 {
+	
+	public static void gbk2utf8(String path) {
+		FilesUtil.stepPaths(new FilesUtil.IFilePicker() {
+			@Override
+			public void pick(File file) {
+				if(!file.getName().endsWith(".java")) return ;
+					try {
+						String buf = Files.toString(file,Charset.forName("GBK") );
+						Files.write(buf, file,  Charset.forName("UTF-8"));
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
+		}, path);
+	}
+	
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) {
+		gbk2utf8("D:\\HTY_WORK_SXINFO\\10.workspace\\RapidWeb2.sxinfo\\src\\sns\\com\\sxinfo\\sns\\web\\filter");
+	}
+
+}

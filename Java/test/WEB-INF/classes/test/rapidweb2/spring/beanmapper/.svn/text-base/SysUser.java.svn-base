@@ -1,0 +1,281 @@
+/**
+ * 项目名称：SanXine.com善行网，“打造国内有车一族的第一社区”
+ * 版权申明：sanxine.com所有，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：SysUser.java
+ * 创建时间：2011-4-27 9:32:00
+ * 创建用户：代码生成器
+ * 文件描述：
+ * 修改记录：
+ */
+package test.rapidweb2.spring.beanmapper;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+
+/**
+ * 从表sys_user自动生成的JAVA BEAN类：<br/>
+ * 表名： 用户基本信息表
+ *
+ * @Author 代码生成器
+ */
+@Entity( name="sys_user" )
+public class SysUser {
+    /** 内部ID  : 表间用户关联用 */
+    private Integer	sid;
+    /** 用户名(登录名)  : 要么为空、要么唯一 */
+    private String	log_Id;
+    /** 绑定EMAIL  : 要么为空、要么唯一 */
+    private String	email;
+    /** 绑定手机号  : 要么为空、要么唯一 */
+    private String	mobile;
+    /** 用户中文名字  : 用户名字（昵称） */
+    private String	uname;
+    /** 密码  : 需要用MD5加密 */
+    private String	passwd;
+    /** 父亲编码  : 自身引用， 为空时候为顶级的地区（国家） */
+    private String	utype;
+    /** 用户状态  : ‘1’ = 正常账户（默认） ‘0’ = 被禁用 ‘2’ = 等待验证（邮件） */
+    private String	status;
+    /** 是否在线  : 1=在线，其他不在线（布尔类型） */
+    private String	online;
+    /** 是否密码保护  : 布尔值 */
+    private String	pw_Protect;
+    /** 最后登陆时间 : 最后登陆时间 */
+    private java.sql.Timestamp	t_Last;
+    /** 最后登陆IP : 最后登陆IP */
+    private String	ip_Last;
+    /** 最后登陆城市 : 最后登陆城市 */
+    private String	loc_Last;
+    /** 创建时间  : 一般认为是用户的注册时间 */
+    private java.sql.Timestamp	t_Create;
+    /** 最后激活时间  : 用户的最后激活时间 */
+    private java.sql.Timestamp	t_Active;
+    
+    /**
+	 * 获得属性[ 内部ID  ]: 表间用户关联用
+	 * @return
+	 */
+	@Id
+	@Column(name="sid" ,insertable=false,updatable=false)
+    public Integer getSid(){
+    	return this.sid;
+    }
+	/**
+	 * 设置属性
+	 * @param sid
+	 */    
+    public void setSid( Integer sid ){
+    	this.sid = sid;
+    }    
+    /**
+	 * 获得属性[ 用户名(登录名)  ]: 要么为空、要么唯一
+	 * @return
+	 */
+	@Column(name="log_Id" ,insertable=true,updatable=true)
+    public String getLog_Id(){
+    	return this.log_Id;
+    }
+	/**
+	 * 设置属性
+	 * @param log_Id
+	 */    
+    public void setLog_Id( String log_Id ){
+    	this.log_Id = log_Id;
+    }    
+    /**
+	 * 获得属性[ 绑定EMAIL  ]: 要么为空、要么唯一
+	 * @return
+	 */
+	@Column(name="email" ,insertable=true,updatable=true)
+    public String getEmail(){
+    	return this.email;
+    }
+	/**
+	 * 设置属性
+	 * @param email
+	 */    
+    public void setEmail( String email ){
+    	this.email = email;
+    }    
+    /**
+	 * 获得属性[ 绑定手机号  ]: 要么为空、要么唯一
+	 * @return
+	 */
+	@Column(name="mobile" ,insertable=true,updatable=true)
+    public String getMobile(){
+    	return this.mobile;
+    }
+	/**
+	 * 设置属性
+	 * @param mobile
+	 */    
+    public void setMobile( String mobile ){
+    	this.mobile = mobile;
+    }    
+    /**
+	 * 获得属性[ 用户中文名字  ]: 用户名字（昵称）
+	 * @return
+	 */
+	@Column(name="uname" ,insertable=true,updatable=true)
+    public String getUname(){
+    	return this.uname;
+    }
+	/**
+	 * 设置属性
+	 * @param uname
+	 */    
+    public void setUname( String uname ){
+    	this.uname = uname;
+    }    
+    /**
+	 * 获得属性[ 密码  ]: 需要用MD5加密
+	 * @return
+	 */
+	@Column(name="passwd" ,insertable=true,updatable=true)
+    public String getPasswd(){
+    	return this.passwd;
+    }
+	/**
+	 * 设置属性
+	 * @param passwd
+	 */    
+    public void setPasswd( String passwd ){
+    	this.passwd = passwd;
+    }    
+    /**
+	 * 获得属性[ 父亲编码  ]: 自身引用， 为空时候为顶级的地区（国家）
+	 * @return
+	 */
+	@Column(name="utype" ,insertable=true,updatable=true)
+    public String getUtype(){
+    	return this.utype;
+    }
+	/**
+	 * 设置属性
+	 * @param utype
+	 */    
+    public void setUtype( String utype ){
+    	this.utype = utype;
+    }    
+    /**
+	 * 获得属性[ 用户状态  ]: ‘1’ = 正常账户（默认） ‘0’ = 被禁用 ‘2’ = 等待验证（邮件）
+	 * @return
+	 */
+	@Column(name="status" ,insertable=true,updatable=true)
+    public String getStatus(){
+    	return this.status;
+    }
+	/**
+	 * 设置属性
+	 * @param status
+	 */    
+    public void setStatus( String status ){
+    	this.status = status;
+    }    
+    /**
+	 * 获得属性[ 是否在线  ]: 1=在线，其他不在线（布尔类型）
+	 * @return
+	 */
+	@Column(name="online" ,insertable=true,updatable=true)
+    public String getOnline(){
+    	return this.online;
+    }
+	/**
+	 * 设置属性
+	 * @param online
+	 */    
+    public void setOnline( String online ){
+    	this.online = online;
+    }    
+    /**
+	 * 获得属性[ 是否密码保护  ]: 布尔值
+	 * @return
+	 */
+	@Column(name="pw_Protect" ,insertable=true,updatable=true)
+    public String getPw_Protect(){
+    	return this.pw_Protect;
+    }
+	/**
+	 * 设置属性
+	 * @param pw_Protect
+	 */    
+    public void setPw_Protect( String pw_Protect ){
+    	this.pw_Protect = pw_Protect;
+    }    
+    /**
+	 * 获得属性[ 最后登陆时间 ]: 最后登陆时间
+	 * @return
+	 */
+	@Column(name="t_Last" ,insertable=true,updatable=true)
+    public java.sql.Timestamp getT_Last(){
+    	return this.t_Last;
+    }
+	/**
+	 * 设置属性
+	 * @param t_Last
+	 */    
+    public void setT_Last( java.sql.Timestamp t_Last ){
+    	this.t_Last = t_Last;
+    }    
+    /**
+	 * 获得属性[ 最后登陆IP ]: 最后登陆IP
+	 * @return
+	 */
+	@Column(name="ip_Last" ,insertable=true,updatable=true)
+    public String getIp_Last(){
+    	return this.ip_Last;
+    }
+	/**
+	 * 设置属性
+	 * @param ip_Last
+	 */    
+    public void setIp_Last( String ip_Last ){
+    	this.ip_Last = ip_Last;
+    }    
+    /**
+	 * 获得属性[ 最后登陆城市 ]: 最后登陆城市
+	 * @return
+	 */
+	@Column(name="loc_Last" ,insertable=true,updatable=true)
+    public String getLoc_Last(){
+    	return this.loc_Last;
+    }
+	/**
+	 * 设置属性
+	 * @param loc_Last
+	 */    
+    public void setLoc_Last( String loc_Last ){
+    	this.loc_Last = loc_Last;
+    }    
+    /**
+	 * 获得属性[ 创建时间  ]: 一般认为是用户的注册时间
+	 * @return
+	 */
+	@Column(name="t_Create" ,insertable=true,updatable=true)
+    public java.sql.Timestamp getT_Create(){
+    	return this.t_Create;
+    }
+	/**
+	 * 设置属性
+	 * @param t_Create
+	 */    
+    public void setT_Create( java.sql.Timestamp t_Create ){
+    	this.t_Create = t_Create;
+    }    
+    /**
+	 * 获得属性[ 最后激活时间  ]: 用户的最后激活时间
+	 * @return
+	 */
+	@Column(name="t_Active" ,insertable=true,updatable=true)
+    public java.sql.Timestamp getT_Active(){
+    	return this.t_Active;
+    }
+	/**
+	 * 设置属性
+	 * @param t_Active
+	 */    
+    public void setT_Active( java.sql.Timestamp t_Active ){
+    	this.t_Active = t_Active;
+    }    
+}

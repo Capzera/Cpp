@@ -1,0 +1,144 @@
+/**
+ * 项目名称：SanXine.com善行网，“打造国内有车一族的第一社区”
+ * 版权申明：sanxine.com所有，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：SprintUtil.java
+ * 创建时间：2011-4-26-下午03:51:28
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.spring;
+
+import java.util.Collection;
+
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
+import com.rapidweb2.spring.beanmapper.BeanQuery;
+import com.rapidweb2.spring.beanmapper.BeanUpdate;
+
+/**
+ * 和SPRING相关的工具类<br/>
+ * 就一个独立的类，就用明确的定义吧，不要用自动查找
+ * 
+ * @author chis(chis123@qq.com)
+ */
+@Component
+public final class SpringUtil implements ApplicationContextAware {
+	/** 我们相信，同一个应用中只有一个SPRING环境，所以就静态吧 */
+	private static ApplicationContext	context = null;
+
+	@Override
+	public void setApplicationContext(ApplicationContext context) throws BeansException {
+		SpringUtil.context = context;
+	}
+
+	/**
+	 * 获得指定ID的BEAN
+	 * @param <T>
+	 * @param id
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T> T getBean( String id ){
+		return (T) context.getBean(id);
+	}
+	
+	/**
+	 * 根据类型获得BEAN的定义
+	 * @param <T>
+	 * @param clazz
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T> T getBean( Class<?> clazz ){
+		return (T) context.getBean(clazz);
+	}
+	
+	// 一些固定的常量的工具类定义
+	/** JDBC_TEMPLATE模版 */
+	private static final String ID_JDBC_TEMPLATE = "jdbcTemplate";
+	/**  */
+	private static final String ID_BEAN_UPDATE = "beanUpdate";
+	private static final String ID_BEAN_QUERY = "beanQuery";
+	
+	/**
+	 * 获得JDBCTEMPLATE的实例
+	 * @return
+	 */
+	public static JdbcTemplate getJdbcTemplate( ){
+		return (JdbcTemplate) context.getBean( ID_JDBC_TEMPLATE );
+	}
+	/**
+	 * 获得BeanUpdate的实例
+	 * @param <T>
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T> BeanUpdate<T> getBeanUpdate( ){
+		return (BeanUpdate<T>) context.getBean(ID_BEAN_UPDATE);
+	}
+	/**
+	 * 获得针对特定类的BEAN UPDATOR
+	 * @param <T>
+	 * @param type
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T> BeanUpdate<T> getBeanUpdate( Class<T> type ){
+		BeanUpdate<T> update = (BeanUpdate<T>) context.getBean(ID_BEAN_UPDATE);;
+		return update.of(type);
+	}
+	/**
+	 * 获得针对特定BEAN的updator类
+	 * @param <T>
+	 * @param bean
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T> BeanUpdate<T> getBeanUpdate( T bean ){
+		BeanUpdate<T> update = (BeanUpdate<T>) context.getBean(ID_BEAN_UPDATE);;
+		return update.of(bean);
+	}
+	/**
+	 * 获得针对特定BEAN数组的UPDATOR类
+	 * @param <T>
+	 * @param bean
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T> BeanUpdate<T> getBeanUpdate( T[] beans ){
+		BeanUpdate<T> update = (BeanUpdate<T>) context.getBean(ID_BEAN_UPDATE);;
+		return update.of(beans);
+	}
+	@SuppressWarnings("unchecked")
+	public static <T> BeanUpdate<T> getBeanUpdate( Collection<T> beans ){
+		BeanUpdate<T> update = (BeanUpdate<T>) context.getBean(ID_BEAN_UPDATE);;
+		return update.of(beans);
+	}
+	/**
+	 * 获得BeanQuery的实例
+	 * @param <T>
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T> BeanQuery<T> getBeanQuery( ){
+		return (BeanQuery<T>) context.getBean(ID_BEAN_QUERY);
+	}
+	
+	/**
+	 * 获得BeanQuery的实例
+	 * @param <T>
+	 * @param beanType
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T> BeanQuery<T> getBeanQuery( Class<T> beanType ){
+		BeanQuery<T> bq = (BeanQuery<T>) context.getBean(ID_BEAN_QUERY);
+		return bq.of(beanType);
+	}
+}

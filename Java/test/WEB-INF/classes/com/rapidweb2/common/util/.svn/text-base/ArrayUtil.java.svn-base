@@ -1,0 +1,50 @@
+/**
+ * 项目名称：RapidWeb快速开发平台基础框架V2(RCP实现部分)
+ * 版权申明：RapidWeb项目组，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：ArrayUtil.java
+ * 创建时间：2010-10-15-下午03:50:03
+ * 创建用户：chis
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.common.util;
+
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
+
+
+/**
+ * @author chis
+ * 
+ */
+public class ArrayUtil {
+	/**
+	 * 将字节数组转换为用分割符号分割的十六进制数组，例如MAC地址的显示方式
+	 * @param bytes
+	 * @param split
+	 * @return
+	 */
+	public static String bytes2HexString(byte[] bytes,String split) {
+		if (bytes == null || bytes.length < 6) return null;
+		StringBuilder sb = new StringBuilder();
+		for (byte b : bytes) {
+			if (sb.length() > 0) sb.append(split);
+			sb.append(Integer.toHexString((b & 240) >> 4));
+			sb.append(Integer.toHexString((b & 15)));
+		}
+		return sb.toString();
+	}
+	/**
+	 * 转换
+	 * @param <T>
+	 * @param e
+	 * @return
+	 */
+	public static <T> List<T> of( Enumeration<T> e ){
+		List<T> list = new ArrayList<T>();
+		while(e.hasMoreElements())	list.add( e.nextElement() );
+		return list;
+	}
+}

@@ -1,0 +1,84 @@
+/**
+ * 项目名称：SanXine.com善行网，“打造国内有车一族的第一社区”
+ * 版权申明：sanxine.com所有，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：pager.java
+ * 创建时间：2011-4-25-下午11:37:04
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.db;
+
+/**
+ * Bean类 - 分页
+ */
+
+public class Pager {
+
+	public static final Integer	MAX_PAGE_SIZE	= 500;	// 每页最大记录数限制
+
+	private Integer				pageNumber		= 1;	// 当前页码
+	private Integer				pageSize		= 20;	// 每页记录数
+	private Long				totalCount		= 0L;	// 总记录数
+	private Integer				pageCount		= 0;	// 总页数
+
+	/**
+	 * 用于获取分页offset MySQL计数从0开始
+	 * 
+	 * @return
+	 */
+	public Integer getOffset() {
+		return this.pageNumber > 0 ? (this.pageNumber - 1) * this.pageSize : 0;
+	}
+
+	public Integer getPageNumber() {
+		return pageNumber;
+	}
+
+	/**
+	 * 设置当前页码
+	 * @param pageNumber
+	 */
+	public void setPageNumber(Integer pageNumber) {
+		if (pageNumber < 1) {
+			pageNumber = 1;
+		}
+		this.pageNumber = pageNumber;
+	}
+
+	public Integer getPageSize() {
+		return pageSize;
+	}
+
+	public void setPageSize(Integer pageSize) {
+		if (pageSize < 1) {
+			pageSize = 1;
+		}
+		else if (pageSize > MAX_PAGE_SIZE) {
+			pageSize = MAX_PAGE_SIZE;
+		}
+		this.pageSize = pageSize;
+	}
+
+	public Long getTotalCount() {
+		return totalCount;
+	}
+
+	public void setTotalCount(Long totalCount) {
+		this.totalCount = totalCount;
+	}
+
+	public Integer getPageCount() {
+		pageCount = (int) (totalCount / pageSize);
+		if (totalCount % pageSize > 0) {
+			pageCount++;
+		}
+		return pageCount;
+	}
+
+	public void setPageCount(Integer pageCount) {
+		this.pageCount = pageCount;
+	}
+
+}

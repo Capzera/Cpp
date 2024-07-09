@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc.xsd">
+
+   <!-- 嵌入的JETTY服务器配置 ，常用配置项目：主机地址/端口/路径/最大线程数-->
+   <bean id="service.web" class="com.rapidweb2.web.server.JettyWebService">
+   		<property name="hostAddress" value="${web.host}"/>
+   		<property name="tcpPort" value="${web.port}"/>
+   		<property name="contextPath" value="${web.content}"/>
+   		<property name="maxThreads" value="${web.maxThreads}" />
+   </bean>
+
+</beans>

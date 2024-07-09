@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<!-- 胜平负列表 -->
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<title></title>
+		<link href="../resource/m/css/mui.min.css" rel="stylesheet" />
+		<link href="../resource/m/css/mui.picker.css" rel="stylesheet" />
+		<link href="../resource/m/css/mui.poppicker.css" rel="stylesheet" />
+		<link href="../resource/m/css/style.css" rel="stylesheet" />
+		<script src="../resource/m/js/mui.js"></script>
+		<script src="../resource/m/js/mui.enterfocus.js"></script>
+		<script src="../resource/m/js/app.js?r=12121"></script>
+		<script src="../resource/m/js/app_config.js"></script>
+		<script src="../resource/m/js/mui.picker.js"></script>
+		<script src="../resource/m/js/mui.poppicker.js"></script>
+		<script src="../resource/m/js/moment.js"></script>
+		<script src="../resource/m/js/jquery-1.9.0.min.js"></script>
+		<script src="../resource/m/js/vue.js"></script>
+		<style>
+			.schedule tbody tr td {
+				border: 0px solid #CCC;
+				font-size: 14px;
+				color: #777777;
+				align: center;
+
+			}
+
+			.main-table tbody tr td {
+				border: 0px;
+				padding: 3px;
+				border-radius: 5px;
+
+			}
+
+			.content-cell {
+				border: 1px solid #CCC;
+				border-radius: 5px;
+				height: 35px;
+				width: 120px;
+				padding-top: 5px;
+				text-align: center;
+				word-wrap: break-word;
+				word-break: break-all;
+				overflow: hidden;
+			}
+
+			.mui-popover {
+				width: 150px;
+			}
+
+			.mui-plus .plus {
+				display: inline;
+			}
+
+			.plus {
+				display: none;
+			}
+
+			#topPopover {
+				position: fixed;
+				top: 16px;
+				right: 6px;
+			}
+
+			#topPopover .mui-popover-arrow {
+				left: auto;
+				right: 6px;
+			}
+
+			p {
+				text-indent: 22px;
+			}
+
+		
+			.mui-popover {
+				height: 300px;
+			}
+
+			.mui-content {
+				padding: 0px 0px 0px 0px;
+			}
+		</style>
+		<script>
+			var uid = window.localStorage.getItem("uid");
+
+			var weekTh = 0;
+			var uname = window.localStorage.getItem("uname");
+			var roomId = 0;
+			
+			function chioseWeek(obj) {
+				weekTh = obj.querySelector("a").innerText;
+				mui('#middlePopover').popover('hide');
+				$("#weekTh").html(weekTh);
+				//console.log(weekTh + "  " + roomId);
+				getRchRoomOrderList(roomId, weekTh);
+			}
+
+			function choiseRoom(obj) {
+				room = obj.querySelector("a").innerText;
+				mui('#roomPopover').popover('hide');
+				$("#leaderName").html(room);
+				roomId = obj.querySelector("a").getAttribute("id");
+				weekTh = $("#weekTh").html();
+				getRchRoomOrderList(roomId, weekTh);
+			}
+
+			function getRchRoomOrderList(roomId, weekTh) {
+				var cells = $(".content-cell"); //所有的内容单元格
+				for (j = 0; j < cells.length; j++) {
+					$(cells[j]).html("");
+					$(cells[j]).css({
+						"background-color": 'white'
+					});
+				}
+				mui.ajax({
+					url: SERVER + "/mobile/user/search/"+ weekTh,
+					data: {
+						roomId: roomId,
+						weekTh: weekTh
+					},
+					dataType: "json",
+					success: function(data) {
+						//console.log(JSON.stringify(data)); 
+						var cells = $(".content-cell"); //所有的内容单元格
+						$("#one").html(data.one);
+						$("#two").html(data.two);
+						$("#three").html(data.three);
+						$("#four").html(data.four);
+						$("#five").html(data.five);
+						$("#six").html(data.six);
+						$("#seven").html(data.seven);
+						//console.log(data);   
+						if (data.tsList && data.tsList.length > 0) {
+							
+							for (i = 0; i < data.tsList.length; i++) {
+								var t = data.tsList[i].week_DAY + "-" + data.tsList[i].section;
+								//console.log(JSON.stringify(data.tsList[i]));
+								var recordId = data.tsList[i].sid;
+								var content = data.tsList[i].inputUser.uname+","+data.tsList[i].test_CONTENT;
+								inner: for (j = 0; j < cells.length; j++) {
+									var id = $(cells[j]).attr("id");
+									if (id == t) {
+										$(cells[j]).attr("sid",recordId);
+										//console.log(recordId);
+										$(cells[j]).html(content);
+										var bgColor = "#FFB400";
+										if( uid == data.tsList[i].inputUser.sid){
+											bgColor = "GREEN";
+										}
+										$(cells[j]).css({
+											"background-color": bgColor,
+											'color': 'white'
+										});
+										break inner; 
+									}
+								}
+							}
+						} else {
+							for (j = 0; j < cells.length; j++) {
+								$(cells[j]).html(content);
+								$(cells[j]).css({
+									"background-color": 'white'
+								});
+							}
+						}
+					}
+				})
+
+			}
+
+
+			$(document).ready(function() {
+				var currWeek = window.localStorage.getItem("currWeek");
+				var uid = window.localStorage.getItem("uid");
+				$("#weekTh").html(currWeek);
+				//console.log( uid + "  " + currWeek) 
+				var cells = $(".content-cell"); //所有的内容单元格
+				for (j = 0; j < cells.length; j++) {
+					$(cells[j]).css({
+						"background-color": 'white'
+					});
+				}
+				mui('.mui-scroll-wrapper').scroll();
+				mui('body').on('shown', '.mui-popover', function(e) {
+					//console.log('shown', e.detail.id);//detail为当前popover元素
+				});
+				mui('body').on('hidden', '.mui-popover', function(e) {
+					//console.log('hidden', e.detail.id);//detail为当前popover元素
+				});
+				//初始化周
+				var weekLis = "";
+				for (i = 1; i <= 20; i++) {
+					weekLis += '<li class="mui-table-view-cell" align="center" onclick="chioseWeek(this)">' +
+						'第<span style="font-size:14px"><a href="#" class="weekSeri">' + i + '</a></span>周' +
+						'</li>';
+				}
+				$("#weekTh_ul").html(weekLis)
+				//初始化教室
+				$.ajax({
+					url: SERVER + "/mobile/user/getReserchRoom",
+					data: {
+						uType: 2
+					},
+					method:"post",
+					dataType:"json",
+					success: function(data) {
+						//console.log(data.userList); 
+						if (data.ttrList.length > 0) {
+							var leaderLis = "";
+							$("#leaderName").html(data.ttrList[0].test_ROOM_NO);
+							roomId = data.ttrList[0].sid;
+							for (i = 0; i < data.ttrList.length; i++) {
+								leaderLis +=
+									'<li class="mui-table-view-cell" align="center" onclick="choiseRoom(this)">' +
+									'<span style="font-size:14px"><a href="#" id="' + data.ttrList[i].sid +
+									'">' + data.ttrList[i].test_ROOM_NO + '</a></span>' +
+									'</li>';
+							}
+							$("#researchRooms").html(leaderLis);
+							//发送请求去当前周，院长的日程安排
+							getRchRoomOrderList(roomId, currWeek); 
+						}
+					}
+				})
+
+			})
+			
+			function cancelOrder(obj){
+				var sid = $(obj).attr("sid");
+				$.ajax({
+					url		: SERVER + "/mobile/user/cancelRchOrder",
+					data	: {
+						orderId: sid
+					},
+					method	:"post",
+					dataType: "json",
+					success	: function( data ) {
+						$(obj).html("");
+						mui.toast("取消成功");
+						$(obj).css({
+							"background-color": 'white'
+						});
+					}
+				})
+			}
+			
+			function saveOrder(obj) {
+				if($(obj).html() != ""){
+					var content = $(obj).html();
+					var arry = content.split("\,");
+					if(uname == arry[0]){
+						 mui.confirm('确定取消吗？','取消提示',['取消','确认'],function (e) {
+						    if(e.index == 1){
+								cancelOrder(obj);
+							}
+						},'div')
+					}else{
+						mui.alert("请选择其他时间",'','',function(){},'div');
+						return false;
+					}
+				}else{
+					var id = $(obj).attr("id");
+					var arr = id.split("\-");
+					var dayTh = arr[0];
+					var sectionTh = arr[1];
+					var weekTh = $("#weekTh").html();
+					$.ajax({
+						url: SERVER + "/mobile/user/isOrdered",
+						method: "POST",
+						data: {
+							SECTION  		: sectionTh,
+							WEEK_DAY 		: dayTh,
+							TEST_ROOM_NO	: $("#leaderName").html(),
+							TEST_CONTENT	: "研究生辅导",
+							TEACHER			: uname,
+							WEEK_TH			: weekTh,
+							uid				: uid,
+						},
+						dataType: "json",
+						success: function(data) {
+							//alert(JSON.stringify(data));
+							if (data.isOrdered == "sameTime") {
+								mui.alert('“' + uname + '”' + "已在周" + dayTh + '的' + sectionTh +
+									"预约，请更换时间!",'','',function(){},'div');
+								$(obj).val("");
+								return false;
+							}
+							if (data.status == "true" && data.isOrdered == "other") {
+								mui.alert("该时间已预约，请刷新后预约其他时间！",'','',function(){},'div');
+								return false;
+							}
+							if (data.isOrdered == "self" && data.status == "true") {
+								mui.alert("您已经预约过该时间，请重新预约其他时间！",'','',function(){},'div');
+								return false;
+							}
+							if (data.status == "false" || data.limitDay) {
+								
+								$.ajax({
+									url: SERVER + "/mobile/user/saveResearchRoom",
+									data: {
+										SECTION  		: sectionTh,
+										WEEK_DAY 		: dayTh,
+										TEST_ROOM_NO	: $("#leaderName").html(),
+										TEST_CONTENT	: "研究生辅导",
+										TEACHER			: uname,
+										WEEK_TH			: weekTh,
+										uid				: uid
+									},
+									method: "POST",
+									dataType: "json",
+									success: function(data) {
+										if (data.status == "success") { 
+											mui.toast("预约研讨室成功!");
+											$(obj).attr("sid",data.sid);
+											$(obj).css({
+												"background-color": '#FFB400',
+												'color': 'white'
+											});
+											$(obj).html(uname+ ",研究生辅导");
+										} else {
+											mui.toast("预约研讨室失败!");
+										}
+									}
+								})
+							}
+						
+						}
+					})
+				}
+				
+			}
+		</script>
+	</head>
+	<body>
+		<header class="mui-bar mui-bar-nav">
+			<h1 id="title" class="mui-title">研讨室预约</h1>
+		</header>
+		<nav class="mui-bar mui-bar-tab">
+			<a  class="mui-tab-item" href="leader_schedule.html" id='0' onclick='openNew(this)'>
+				<span class="mui-icon mui-icon-home"></span>
+				<span class="mui-tab-label">班子成员</span>
+			</a>
+			<a  class="mui-tab-item  mui-active" href="research_room.html" id='1' onclick='openNew(this)'>
+				<span class="mui-icon mui-icon-chat"></span>
+				<span class="mui-tab-label">研讨室</span>
+			</a>
+			<!--a  class="mui-tab-item" href="test_room.html" id='2' onclick='openNew(this)'>
+				<span class="mui-icon mui-icon-chatboxes"></span>
+				<span class="mui-tab-label">实验室</span>
+			</a--> 
+			<a  class="mui-tab-item" href="updatePasswd.html" id='2' onclick='openNew(this)'>
+				<span class="mui-icon mui-icon-help"></span>
+				<span class="mui-tab-label">修改密码</span>
+			</a> 
+			<a  class="mui-tab-item" href="my_schedule.html" id='3' onclick='openNew(this)'>
+				<span class="mui-icon mui-icon-contact"></span>
+				<span class="mui-tab-label">我的日程</span>
+			</a>
+		</nav>
+		<div id="refreshContainer" class="mui-content">
+
+			<div class="mui-content-padded" align="center"
+				style=" border-radius: 5px; padding:10px; background-color:#CF2D28;color:#F9F9F9">
+				第<B id='weekTh' style="width:50px">10</B>
+				<a class="mui-icon mui-icon-arrowdown" href="#middlePopover"
+					style="border:1px solid #CCC;color:#CCC"></a>周，
+				<span id='leaderName' style="width:96px"></span>
+				<a class="mui-icon mui-icon-arrowdown" href="#roomPopover" style="border:1px solid #CCC;color:#CCC"></a>
+				研讨室
+			</div>
+			<div id="middlePopover" class="mui-popover">
+				<div class="mui-popover-arrow"></div>
+				<div class="mui-scroll-wrapper">
+					<div class="mui-scroll">
+						<ul class="mui-table-view" id='weekTh_ul'>
+
+						</ul>
+					</div>
+				</div>
+			</div>
+			<div id="roomPopover" class="mui-popover">
+				<div class="mui-popover-arrow"></div>
+				<div class="mui-scroll-wrapper">
+					<div class="mui-scroll">
+						<ul class="mui-table-view" id='researchRooms'>
+
+						</ul>
+					</div>
+				</div>
+			</div>
+
+			<div class="mui-content-padded" id="container"
+				style="background-color:#EEEEEE;padding:5px 0px 5px 0px; border:1px solid #CCC; border-radius: 5px;">
+				<table width="100%" style="border: 0px solid #CCC;" class="schedule">
+					<tr>
+						<td align="center" style="border-bottom:1px solid #CCC; color:#777777;width:80px;">
+							周一
+							<div id='one'></div>
+						</td>
+						<td style="padding: 3px; border-bottom:1px solid #CCC;">
+							<table width="100%" border="0" class='main-table' id='scheduleTab'>
+								<tr>
+									<td align="center">
+										1,2节
+									</td>
+									<td align="center">
+										3,4节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='1-12' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='1-34' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										5,6节
+									</td>
+									<td align="center">
+										7,8节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='1-56' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='1-78' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										9,10节
+									</td>
+									<td align="center">
+										<div style='background-color:#EEEEEE'></div>
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='1-910' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div style='background-color:#EEEEEE'></div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td align="center" style="border-bottom:1px solid #CCC; color:#777777;width:80px;">
+							周二
+							<div id='two'></div>
+							
+						</td>
+						<td style="padding: 3px; border: 0px;border-bottom:1px solid #CCC;">
+							<table width="100%" border="0" class='main-table'>
+								<tr>
+									<td align="center">
+										1,2节
+									</td>
+									<td align="center">
+										3,4节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='2-12' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='2-34' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										5,6节
+									</td>
+									<td align="center">
+										7,8节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='2-56' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='2-78' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center" >
+										9,10节
+									</td>
+									<td align="center">
+										
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='2-910' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div style='background-color:#EEEEEE'></div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td align="center" style="border-bottom:1px solid #CCC; color:#777777;width:80px;">
+							周三
+							<div id='three'></div>
+							
+						</td>
+						<td style="padding: 3px; border: 0px;border-bottom:1px solid #CCC;">
+							<table width="100%" border="0" class='main-table'>
+								<tr>
+									<td align="center">
+										1,2节
+									</td>
+									<td align="center">
+										3,4节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='3-12' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='3-34' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										5,6节
+									</td>
+									<td align="center">
+										7,8节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='3-56' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='3-78' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										9,10节
+									</td>
+									<td align="center">
+										
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='3-910' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div style='background-color:#EEEEEE'></div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td align="center" style="border-bottom:1px solid #CCC; color:#777777;width:80px;">
+							周四
+							<div id='four'></div>
+							
+						</td>
+						<td style="padding: 3px; border: 0px;border-bottom:1px solid #CCC;">
+							<table width="100%" border="0" class='main-table'>
+								<tr>
+									<td align="center">
+										1,2节
+									</td>
+									<td align="center">
+										3,4节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='4-12' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='4-34' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										5,6节
+									</td>
+									<td align="center">
+										7,8节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='4-56' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='4-78' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										9,10节
+									</td>
+									<td align="center">
+										
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='4-910' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div style='background-color:#EEEEEE'></div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td align="center" style="border-bottom:1px solid #CCC; color:#777777;width:80px;">
+							周五
+							<div id='five'></div>
+							
+						</td>
+						<td style="padding: 3px; border: 0px;border-bottom:1px solid #CCC;">
+							<table width="100%" border="0" class='main-table'>
+								<tr>
+									<td align="center">
+										1,2节
+									</td>
+									<td align="center">
+										3,4节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='5-12' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='5-34' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										5,6节
+									</td>
+									<td align="center">
+										7,8节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='5-56' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='5-78' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										9,10节
+									</td>
+									<td align="center">
+										
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='8-910' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div style='background-color:#EEEEEE'></div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td align="center" style="border-bottom:1px solid #CCC; color:#777777;width:80px;">
+							周六
+							<div id='six'></div>
+							
+						</td>
+						<td style="padding: 3px; border: 0px;border-bottom:1px solid #CCC;">
+							<table width="100%" border="0" class='main-table'>
+								<tr>
+									<td align="center">
+										1,2节
+									</td>
+									<td align="center">
+										3,4节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='6-12' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='6-34' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										5,6节
+									</td>
+									<td align="center">
+										7,8节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='6-56' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='6-78' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										9,10节
+									</td>
+									<td align="center">
+										
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='6-910' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div style='background-color:#EEEEEE'></div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td align="center" style="  color:#777777;width:80px;">
+							周日
+							<div id='seven'></div>
+							
+						</td>
+						<td style='padding: 3px;  '>
+							<table width="100%" border="0" class='main-table'>
+								<tr>
+									<td align="center">
+										1,2节
+									</td>
+									<td align="center">
+										3,4节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='7-12' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='7-34' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										5,6节
+									</td>
+									<td align="center">
+										7,8节
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='7-56' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div class="content-cell" id='7-78' onclick="saveOrder(this)"></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center">
+										9,10节
+									</td>
+									<td align="center">
+										
+									</td>
+								</tr>
+								<tr>
+									<td height="35px" align="center">
+										<div class="content-cell" id='7-910' onclick="saveOrder(this)"></div>
+									</td>
+									<td align="center">
+										<div style='background-color:#EEEEEE'></div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</table>
+			</div>
+		</div>
+	</body>
+</html>

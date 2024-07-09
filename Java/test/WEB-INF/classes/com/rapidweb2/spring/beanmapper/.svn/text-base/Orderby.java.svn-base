@@ -1,0 +1,111 @@
+/**
+ * 项目名称：SanXine.com善行网，“打造国内有车一族的第一社区”
+ * 版权申明：sanxine.com所有，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：Orderby.java
+ * 创建时间：2011-4-26-上午09:27:18
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.spring.beanmapper;
+
+import java.util.ArrayList;
+import java.util.List;
+
+
+/**
+ * 使用在查询时候的定义
+ * 
+ * @author chis(chis123@qq.com)
+ */
+public class Orderby {
+	/** 保存排序定义 */
+	private final List<OrderbyItem>	items	= new ArrayList<OrderbyItem>();
+	/** 针对的BEAN定义 */
+	private TableEntity<?> entity = null;
+
+	/**
+	 * 设定目标ENTITY的类
+	 * @param beanType
+	 * @return
+	 */
+	public Orderby to( Class<?> beanType ){
+		this.entity = TableEntityHelper.get(beanType);
+		return this;
+	}
+	/**
+	 * 设定目标Entity
+	 * @param entity
+	 * @return
+	 */
+	public Orderby to( TableEntity<?> entity ){
+		this.entity = entity;
+		return this;
+	}
+	/**
+	 * 增加一个排序属性
+	 * 
+	 * @param prop
+	 * @return
+	 */
+	public Orderby prop(String prop) {
+
+		items.add(new OrderbyItem(prop));
+
+		return this;
+	}
+	/**
+	 * 增加一个排序属性
+	 * @param prop
+	 * @param desc
+	 * @return
+	 */
+	public Orderby prop(String prop,boolean desc) {
+
+		items.add(new OrderbyItem(prop));
+
+		return this;
+	}
+	/**
+	 * 清除所有的定义
+	 * @return
+	 */
+	public Orderby clear(){
+		items.clear();
+		return this;
+	}
+	/**
+	 * 转换为ORDERBY的字符串
+	 */
+	@Override
+	public String toString(){
+		if( items.size()<1 ) return "";
+		StringBuilder sb = new StringBuilder();
+		sb.append("ORDER BY ");
+		for( OrderbyItem oi : this.items )
+			sb.append( this.entity==null ? oi.prop : entity.getColumnName(oi.prop) ).append(oi.desc?" DESC,":"");
+		
+		sb.deleteCharAt(sb.length()-1);
+		
+		return null;
+		
+	}
+	
+
+	static class OrderbyItem {
+		/** 要参与ORDERBY的属性 */
+		String	prop;
+		/** 是否逆序 */
+		boolean	desc;
+
+		public OrderbyItem(String prop) {
+			this.prop = prop;
+		}
+
+		public OrderbyItem(String prop, boolean desc) {
+			this.prop = prop;
+			this.desc = desc;
+		}
+	}
+}

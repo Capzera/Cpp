@@ -1,0 +1,128 @@
+/**
+ * 项目名称：SanXine.com善行网，“打造国内有车一族的第一社区”
+ * 版权申明：sanxine.com所有，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：SysArea.java
+ * 创建时间：2011-4-27 9:32:00
+ * 创建用户：代码生成器
+ * 文件描述：
+ * 修改记录：
+ */
+package test.rapidweb2.spring.beanmapper;
+
+import javax.persistence.Id;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+
+/**
+ * 从表sys_area自动生成的JAVA BEAN类：<br/>
+ * 表名： 地区表 备注：1）、用来保存地区的信息。
+ *
+ * @Author 代码生成器
+ */
+@Entity( name="sys_area" )
+public class SysArea  {
+    /**  地区表SID :  地区表SID */
+    private Integer	sid;
+    /** 创建时间 : 创建时间 */
+    private java.sql.Timestamp	createDate;
+    /** 修改时间 : 修改时间 */
+    private java.sql.Timestamp	modifyDate;
+    /** 名称 : 名称 */
+    private String	name;
+    /** 路径 : 路径 */
+    private String	path;
+    /** 父级地区 : 父级地区 */
+    private Integer	parent_Id;
+    
+    /**
+	 * 获得属性[  地区表SID ]:  地区表SID
+	 * @return
+	 */
+	@Id
+	@Column(name="sid" ,insertable=false,updatable=false)
+    public Integer getSid(){
+    	return this.sid;
+    }
+	/**
+	 * 设置属性
+	 * @param sid
+	 */    
+    public void setSid( Integer sid ){
+    	this.sid = sid;
+    }    
+    /**
+	 * 获得属性[ 创建时间 ]: 创建时间
+	 * @return
+	 */
+	@Column(name="createDate" ,insertable=true,updatable=true)
+    public java.sql.Timestamp getCreateDate(){
+    	return this.createDate;
+    }
+	/**
+	 * 设置属性
+	 * @param createDate
+	 */    
+    public void setCreateDate( java.sql.Timestamp createDate ){
+    	this.createDate = createDate;
+    }    
+    /**
+	 * 获得属性[ 修改时间 ]: 修改时间
+	 * @return
+	 */
+	@Column(name="modifyDate" ,insertable=true,updatable=true)
+    public java.sql.Timestamp getModifyDate(){
+    	return this.modifyDate;
+    }
+	/**
+	 * 设置属性
+	 * @param modifyDate
+	 */    
+    public void setModifyDate( java.sql.Timestamp modifyDate ){
+    	this.modifyDate = modifyDate;
+    }    
+    /**
+	 * 获得属性[ 名称 ]: 名称
+	 * @return
+	 */
+	@Column(name="name" ,insertable=true,updatable=true)
+    public String getName(){
+    	return this.name;
+    }
+	/**
+	 * 设置属性
+	 * @param name
+	 */    
+    public void setName( String name ){
+    	this.name = name;
+    }    
+    /**
+	 * 获得属性[ 路径 ]: 路径
+	 * @return
+	 */
+	@Column(name="path" ,insertable=true,updatable=true)
+    public String getPath(){
+    	return this.path;
+    }
+	/**
+	 * 设置属性
+	 * @param path
+	 */    
+    public void setPath( String path ){
+    	this.path = path;
+    }    
+    /**
+	 * 获得属性[ 父级地区 ]: 父级地区
+	 * @return
+	 */
+	@Column(name="parent_Id" ,insertable=true,updatable=true)
+    public Integer getParent_Id(){
+    	return this.parent_Id;
+    }
+	/**
+	 * 设置属性
+	 * @param parent_Id
+	 */    
+    public void setParent_Id( Integer parent_Id ){
+    	this.parent_Id = parent_Id;
+    }    
+}

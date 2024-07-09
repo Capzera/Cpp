@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<!-- 胜平负列表 -->
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<title></title>
+		<link href="../resource/m/css/mui.min.css" rel="stylesheet" />
+		<link href="../resource/m/css/mui.picker.css" rel="stylesheet" />
+		<link href="../resource/m/css/mui.poppicker.css" rel="stylesheet" />
+		<link href="../resource/m/css/style.css" rel="stylesheet" />
+		<script src="../resource/m/js/mui.js"></script>
+		<script src="../resource/m/js/mui.enterfocus.js"></script>
+		<script src="../resource/m/js/app.js?r=12345666"></script>
+		<script src="../resource/m/js/app_config.js"></script>
+		<script src="../resource/m/js/mui.picker.js"></script>
+		<script src="../resource/m/js/mui.poppicker.js"></script>
+		<script src="../resource/m/js/moment.js"></script>
+		<script src="../resource/m/js/jquery-1.9.0.min.js"></script>
+		<script src="../resource/m/js/vue.js"></script>
+		<style>
+			.schedule tbody tr td{
+				border : 0px solid #CCC;
+				font-size: 14px;
+				color: #777777;
+				align:center;
+				
+			}
+			.main-table tbody tr td{
+				border : 0px;
+				padding: 3px ;
+				border-radius: 5px; 
+			
+			}
+			
+			.content-cell{
+				border: 1px solid #CCC; 
+				border-radius: 5px;
+				height: 35px;
+				width: 120px;
+				padding-top:5px;
+				text-align:center;
+				word-wrap: break-word;
+				word-break: break-all;
+				overflow: hidden;
+			}
+			.mui-popover{
+				width:150px;
+			}
+			.mui-plus .plus{
+							display: inline;
+						}
+			
+			.plus{
+							display: none;
+			}
+						
+						#topPopover {
+							position: fixed;
+							top: 16px;
+							right: 6px;
+						}
+						#topPopover .mui-popover-arrow {
+							left: auto;
+							right: 6px;
+						}
+						p {
+							text-indent: 22px;
+						}
+					
+						.mui-popover {
+							height: 300px;
+						}
+						.mui-content {
+							padding:0px 0px 0px 0px;
+						}
+			
+		</style>
+		<script>
+			function f_inputData(obj){
+				$(obj).css({'background-color':'#FFB400'});
+				 mui.prompt('请输入日程安排','','提示',['取消','确认'],function (e) {
+					
+				    if(e.index == 0){
+						$(obj).css({'background-color':''});
+					}else{
+						console.log(JSON.stringify(e));
+						$(obj).html(e.value);
+						$(obj).css({'color':'white'});
+					} 
+				},'div')
+			}
+			var weekTh = 0;
+			var leaderId = 0;
+			var leaderName = "";
+			
+			function chioseWeek(obj){
+				weekTh = obj.querySelector("a").innerText;
+				mui('#middlePopover').popover('hide');
+				$("#weekTh").html(weekTh);
+				getScheduld(leaderId,weekTh);
+			}
+			
+			function choiseLeader(obj){
+				leaderId = obj.querySelector("a").getAttribute("id");
+				leaderName = obj.querySelector("a").innerText;
+				$("#leaderName").html(leaderName);
+				mui('#leaderPopover').popover('hide');
+				weekTh = $("#weekTh").html();
+				getScheduld(leaderId,weekTh);
+			}
+			 
+			function getScheduld(leaderId,weekTh){
+				var cells = $(".content-cell"); //所有的内容单元格
+				for( j = 0; j< cells.length; j++){
+						$(cells[j]).css({"background-color":'white'}); 
+				}
+				mui.ajax({ 
+					url: SERVER + "/mobile/user/scheduleList", 
+					data:{
+						leaderId: leaderId,   
+						weekTh:   weekTh  
+					},
+					dataType:"json",
+					success:function(data){
+						//console.log(JSON.stringify(data)); 
+						var cells = $(".content-cell"); //所有的内容单元格
+						$("#one").html(data.one);
+						$("#two").html(data.two);
+						$("#three").html(data.three);
+						$("#four").html(data.four);
+						$("#five").html(data.five);
+						$("#six").html(data.six);
+						$("#seven").html(data.seven); 
+						if(data.tsList && data.tsList.length > 0){  
+							for(i = 0 ; i < data.tsList.length ; i++){
+								var t = data.tsList[i].dayTh + "-" + data.tsList[i].sectionTh;
+								var content = data.tsList[i].content;
+								//console.log(t);
+								var bgColor = data.tsList[i].bgColor;
+								//console.log(t);
+								inner : for( j = 0; j< cells.length; j++){
+									var id = $(cells[j]).attr("id");
+									//console.log("id====" + bgColor);
+									if(id == t){
+										$(cells[j]).html(content); 
+										$(cells[j]).css({"background-color":bgColor,'color':'white'});
+										break inner; 
+									}
+								}
+							}
+						}else{
+							for( j = 0; j< cells.length; j++){
+									$(cells[j]).html(content);
+									$(cells[j]).css({"background-color":'white'});
+							}
+						}
+					}
+				})
+				
+			}
+			 
+			 
+			$(document).ready(function () {
+			    var currWeek = window.localStorage.getItem("currWeek");
+				var uid = window.localStorage.getItem("uid");
+			    $("#weekTh").html(currWeek); 
+				//console.log( uid + "  " + currWeek) 
+				var cells = $(".content-cell"); //所有的内容单元格
+				for( j = 0; j< cells.length; j++){
+						$(cells[j]).css({"background-color":'white'}); 
+				}
+				mui('.mui-scroll-wrapper').scroll();
+							mui('body').on('shown', '.mui-popover', function(e) {
+								//console.log('shown', e.detail.id);//detail为当前popover元素
+							});
+							mui('body').on('hidden', '.mui-popover', function(e) {
+								//console.log('hidden', e.detail.id);//detail为当前popover元素
+				});
+				//初始化周
+				var weekLis = "";
+				for(i = 1 ; i<= 20;i++){
+					weekLis += '<li class="mui-table-view-cell" align="center" onclick="chioseWeek(this)">' + 
+											'第<span style="font-size:14px"><a href="#" class="weekSeri">' + i +'</a></span>周' +
+								'</li>';
+				}
+				$("#weekTh_ul").html(weekLis)
+				//初始化领导
+				$.ajax({
+					url: SERVER + "/mobile/user/getLeaders", 
+					data:{uType:2},
+					dataType:"json",
+					method:"post",
+					success:function(data){
+						//console.log(data.userList); 
+						if(data.userList.length > 0){
+							
+							leaderId = data.userList[0].sid; 
+							$("#leaderName").html(data.userList[0].uname); 
+							var leaderLis = "";
+							for(i = 0 ; i< data.userList.length;i++){ 
+								leaderLis += '<li class="mui-table-view-cell" align="center" onclick="choiseLeader(this)">' + 
+														'<span style="font-size:14px"><a href="#" id="'+data.userList[i].sid +'">' + data.userList[i].uname +'</a></span>' +
+											 '</li>';
+							} 
+							//console.log(leaderLis);
+							$("#leadersLis").html(leaderLis);
+							
+							//console.log( leaderId + " " + currWeek)
+							//发送请求去当前周，院长的日程安排
+							getScheduld(leaderId,currWeek);  
+						}
+					}
+				})
+				 
+			})
+			
+		</script>
+	</head>
+	<body>
+		 <header class="mui-bar mui-bar-nav">
+			<h1 id="title" class="mui-title">班子成员</h1>
+		</header>
+		<nav class="mui-bar mui-bar-tab">
+			<a id="defaultTab" class="mui-tab-item mui-active" href="leader_schedule.html" id='0' onclick='openNew(this)'>
+				<span class="mui-icon mui-icon-home"></span>
+				<span class="mui-tab-label">班子成员</span>
+			</a>
+			<a  class="mui-tab-item" href="research_room.html" id='1' onclick='openNew(this)'>
+				<span class="mui-icon mui-icon-chat"></span>
+				<span class="mui-tab-label">研讨室</span>
+			</a>
+			<!--a  class="mui-tab-item" href="test_room.html" id='2' onclick='openNew(this)'>
+				<span class="mui-icon mui-icon-chatboxes"></span>
+				<span class="mui-tab-label">实验室</span>
+			</a--> 
+			<a  class="mui-tab-item" href="updatePasswd.html" id='2' onclick='openNew(this)'>
+				<span class="mui-icon mui-icon-help"></span>
+				<span class="mui-tab-label">修改密码</span>
+			</a> 
+			<a  class="mui-tab-item" href="my_schedule.html" id='3' onclick='openNew(this)'>
+				<span class="mui-icon mui-icon-contact"></span>
+				<span class="mui-tab-label">我的日程</span>
+			</a>
+		</nav>
+		
+		<div id="refreshContainer" class="mui-content">
+			
+				<div class="mui-content-padded" align="center" style=" border-radius: 5px; padding:10px; background-color:#CF2D28;color:#F9F9F9">
+					第<B id='weekTh' style="width:50px">10</B>
+						<a class="mui-icon mui-icon-arrowdown" href="#middlePopover" style="border:1px solid #CCC;color:#CCC"></a>周，
+					<span id='leaderName' style="width:96px"></span>  
+					<a class="mui-icon mui-icon-arrowdown" href="#leaderPopover" style="border:1px solid #CCC;color:#CCC"></a>，日程安排
+				</div>
+				<div id="middlePopover" class="mui-popover">
+							<div class="mui-popover-arrow"></div>
+							<div class="mui-scroll-wrapper">
+								<div class="mui-scroll">
+									<ul class="mui-table-view" id='weekTh_ul'>
+									</ul>
+								</div>
+							</div>
+				</div>
+				<div id="leaderPopover" class="mui-popover">
+							<div class="mui-popover-arrow"></div>
+							<div class="mui-scroll-wrapper">
+								<div class="mui-scroll">
+									<ul class="mui-table-view" id='leadersLis'> 
+										
+									</ul>
+								</div>
+							</div>
+				</div>
+			
+			<div class="mui-content-padded" id="container" style="background-color:#EEEEEE;padding:5px 0px 5px 0px; border:1px solid #CCC; border-radius: 5px;">
+				<table width="100%"  style="border: 0px solid #CCC;" class="schedule">
+					<tr>
+						<td align="center" style="border-bottom:1px solid #CCC; color:#777777;width:80px;">
+							周一
+							<div id='one'></div>
+						</td>
+						<td style="padding: 3px; border-bottom:1px solid #CCC;">
+							<table width="100%" border="0" class='main-table' id='scheduleTab'  > 
+								<tr>
+									<td align="center">
+										09:00-10:00
+									</td>
+									<td align="center">
+										10:00-12:00
+									</td>
+								</tr>
+								<tr> 
+									<td height="35px">
+										<div class="content-cell" id='1-12'>
+											&nbsp;
+										</div>
+									</td>
+									<td >
+										<div class="content-cell" id='1-34'>
+												&nbsp;
+										</div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center" >
+										14:00-16:00
+									</td>
+									<td align="center">
+										16:00-18:00
+									</td>
+								</tr>
+								<tr>
+									<td height="35px">
+										<div class="content-cell" id='1-56'>
+											&nbsp;
+										</div>
+									</td>
+									<td >
+										<div class="content-cell" id='1-78'>
+											&nbsp;
+										</div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td align="center" style="border-bottom:1px solid #CCC; color:#777777;width:80px;">
+							周二
+							<div id='two'></div>
+						</td>
+						<td style="padding: 3px; border: 0px;border-bottom:1px solid #CCC;"> 
+							<table width="100%" border="0" class='main-table'  >
+								<tr>
+									<td align="center">
+										09:00-10:00
+									</td>
+									<td align="center">
+										10:00-12:00
+									</td>
+								</tr>
+								<tr> 
+									<td height="35px">
+										<div class="content-cell" id='2-12'>
+											&nbsp;
+										</div>
+									</td>
+									<td >
+										<div class="content-cell" id='2-34'>
+												&nbsp;
+										</div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center" >
+										14:00-16:00
+									</td>
+									<td align="center">
+										16:00-18:00
+									</td>
+								</tr>
+								<tr>
+									<td height="35px">
+										<div class="content-cell" id='2-56'>
+											&nbsp;
+										</div>
+									</td>
+									<td >
+										<div class="content-cell" id='2-78'>
+												&nbsp;
+										</div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td align="center" style="border-bottom:1px solid #CCC; color:#777777;width:80px;">
+							周三
+							<div id='three'></div>
+						</td>
+						<td style="padding: 3px; border: 0px;border-bottom:1px solid #CCC;">
+							<table width="100%" border="0" class='main-table'  >
+								<tr>
+									<td align="center">
+										09:00-10:00
+									</td>
+									<td align="center">
+										10:00-12:00
+									</td>
+								</tr>
+								<tr> 
+									<td height="35px">
+										<div class="content-cell" id='3-12'>
+											&nbsp;
+										</div>
+									</td>
+									<td >
+										<div class="content-cell" id='3-34'>
+												&nbsp;
+										</div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center" >
+										14:00-16:00
+									</td>
+									<td align="center">
+										16:00-18:00
+									</td>
+								</tr>
+								<tr>
+									<td height="35px">
+										<div class="content-cell" id='3-56'>
+											&nbsp;
+										</div>
+									</td>
+									<td >
+										<div class="content-cell" id='3-78'>
+												&nbsp;
+										</div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td align="center" style="border-bottom:1px solid #CCC; color:#777777;width:80px;">
+							周四
+							<div id='four'></div>
+						</td>
+						<td style="padding: 3px; border: 0px;border-bottom:1px solid #CCC;">
+							<table width="100%" border="0" class='main-table'  >
+								<tr>
+									<td align="center">
+										09:00-10:00
+									</td>
+									<td align="center">
+										10:00-12:00
+									</td>
+								</tr>
+								<tr> 
+									<td height="35px">
+										<div class="content-cell" id='4-12'>
+											&nbsp;
+										</div>
+									</td>
+									<td >
+										<div class="content-cell" id='4-34'>
+												&nbsp;
+										</div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center" >
+										14:00-16:00
+									</td>
+									<td align="center">
+										16:00-18:00
+									</td>
+								</tr>
+								<tr>
+									<td height="35px">
+										<div class="content-cell" id='4-56'>
+											&nbsp;
+										</div>
+									</td>
+									<td >
+										<div class="content-cell" id='4-78'>
+												&nbsp;
+										</div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td align="center" style="border-bottom:1px solid #CCC; color:#777777;width:80px;">
+							周五
+							<div id='five'></div>
+						</td>
+						<td style="padding: 3px; border: 0px;border-bottom:1px solid #CCC;">
+							<table width="100%" border="0" class='main-table'  >
+								<tr>
+									<td align="center">
+										09:00-10:00
+									</td>
+									<td align="center">
+										10:00-12:00
+									</td>
+								</tr>
+								<tr> 
+									<td height="35px">
+										<div class="content-cell" id='5-12'>
+											&nbsp;
+										</div>
+									</td>
+									<td >
+										<div class="content-cell" id='5-34'>
+												&nbsp;
+										</div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center" >
+										14:00-16:00
+									</td>
+									<td align="center">
+										16:00-18:00
+									</td>
+								</tr>
+								<tr>
+									<td height="35px">
+										<div class="content-cell" id='5-56'></div>
+									</td>
+									<td >
+										<div class="content-cell" id='5-78'></div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td align="center" style="border-bottom:1px solid #CCC; color:#777777;width:80px;">
+							周六
+							<div id='six'></div>
+						</td>
+						<td style="padding: 3px; border: 0px;border-bottom:1px solid #CCC;">
+							<table width="100%" border="0" class='main-table'  >
+								<tr>
+									<td align="center">
+										09:00-10:00
+									</td>
+									<td align="center">
+										10:00-12:00
+									</td>
+								</tr>
+								<tr> 
+									<td height="35px">
+										<div class="content-cell" id='6-12'></div>
+									</td>
+									<td >
+										<div class="content-cell" id='6-34'></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center" >
+										14:00-16:00
+									</td>
+									<td align="center">
+										16:00-18:00
+									</td>
+								</tr>
+								<tr>
+									<td height="35px">
+										<div class="content-cell" id='6-56'></div>
+									</td>
+									<td >
+										<div class="content-cell" id='6-78'></div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td align="center" style="  color:#777777;width:80px;">
+							周日
+							<div id='seven'></div>
+						</td>
+						<td style='padding: 3px;  '>
+							<table width="100%" border="0" class='main-table'  >
+								<tr>
+									<td align="center">
+										09:00-10:00
+									</td>
+									<td align="center">
+										10:00-12:00
+									</td>
+								</tr>
+								<tr> 
+									<td height="35px">
+										<div class="content-cell" id='7-12'></div>
+									</td>
+									<td >
+										<div class="content-cell" id='7-34'></div>
+									</td>
+								</tr>
+								<tr>
+									<td align="center" >
+										14:00-16:00
+									</td>
+									<td align="center">
+										16:00-18:00
+									</td>
+								</tr>
+								<tr>
+									<td height="35px">
+										<div class="content-cell" id='7-56'></div>
+									</td>
+									<td >
+										<div class="content-cell" id='7-78'></div>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</table>
+			</div>
+		</div>
+	</body>
+</html>

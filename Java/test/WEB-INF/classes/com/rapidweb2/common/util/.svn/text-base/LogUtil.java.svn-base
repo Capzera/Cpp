@@ -1,0 +1,148 @@
+/**
+ * 
+ */
+package com.rapidweb2.common.util;
+
+import org.slf4j.LoggerFactory;
+
+/**
+ * @author CHI
+ */
+public final class LogUtil
+{
+	private LogUtil()
+	{
+	}
+
+	// ================== warn 
+	public static void warn(String name, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(name).warn(String.format(msg, args));
+	}
+
+	public static void warn(String name, Throwable e)
+	{
+		LoggerFactory.getLogger(name).warn(e.getMessage());
+	}
+
+	public static void warn(String name, Throwable e, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(name).warn(String.format(msg, args), e);
+	}
+
+	public static void warn(Class<?> t, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(t.getName()).warn(String.format(msg, args));
+	}
+
+	public static void warn(Class<?> t, Throwable e)
+	{
+		LoggerFactory.getLogger(t.getName()).warn(e.getMessage());
+	}
+
+	public static void warn(Class<?> t, Throwable e, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(t.getName()).warn(String.format(msg, args), e);
+	}
+
+	//======================= info 
+	public static void info(String name, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(name).info(String.format(msg, args));
+	}
+
+	public static void info(String name, Throwable e)
+	{
+		LoggerFactory.getLogger(name).info(e.getLocalizedMessage());
+	}
+
+	public static void info(String name, Throwable e, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(name).info(String.format(msg, args), e);
+	}
+
+	public static void info(Class<?> t, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(t.getName()).info(String.format(msg, args));
+	}
+
+	public static void info(Class<?> t, Throwable e)
+	{
+		LoggerFactory.getLogger(t.getName()).info(e.getLocalizedMessage());
+	}
+
+	public static void info(Class<?> t, Throwable e, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(t.getName()).info(String.format(msg, args), e);
+	}
+
+	//======================= debug
+	public static void debug(String name, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(name).debug(String.format(msg, args));
+	}
+
+	public static void debug(String name, Throwable e)
+	{
+		LoggerFactory.getLogger(name).debug(e.getLocalizedMessage());
+	}
+
+	public static void debug(String name, Throwable e, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(name).debug(String.format(msg, args), e);
+	}
+
+	public static void debug(Class<?> t, String msg,Object...args )
+	{
+		LoggerFactory.getLogger(t.getName()).debug( String.format(msg, args) );
+	}
+
+	public static void debug(Class<?> t, Throwable e)
+	{
+		LoggerFactory.getLogger(t.getName()).debug(e.getLocalizedMessage());
+	}
+
+	public static void debug(Class<?> t, Throwable e, String msg ,Object...args )
+	{
+		LoggerFactory.getLogger(t.getName()).debug(String.format(msg, args), e);
+	}
+
+	//======================= error 
+	public static void error(String name, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(name).error(String.format(msg, args));
+	}
+
+	public static void error(String name, Throwable e)
+	{
+		LoggerFactory.getLogger(name).error(e.getLocalizedMessage());
+	}
+
+	public static void error(String name, Throwable e, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(name).error(String.format(msg, args), e);
+	}
+
+	public static void error(Class<?> t, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(t.getName()).error(String.format(msg, args));
+	}
+
+	public static void error(Class<?> t, Throwable e)
+	{
+		LoggerFactory.getLogger(t.getName()).error(e.getLocalizedMessage());
+	}
+
+	public static void error(Class<?> t, Throwable e, String msg,Object...args)
+	{
+		LoggerFactory.getLogger(t.getName()).error(String.format(msg, args), e);
+	}
+
+	/**
+	 * 是否打开DEBUG开关
+	 * @return
+	 */
+	public static boolean isDebug(){
+		return LoggerFactory.getLogger(LogUtil.class).isDebugEnabled();
+	}
+}

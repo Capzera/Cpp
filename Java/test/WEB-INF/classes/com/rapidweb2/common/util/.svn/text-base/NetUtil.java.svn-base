@@ -1,0 +1,168 @@
+/**
+ * 项目名称：RapidWeb快速开发平台基础框架V2(RCP实现部分)
+ * 版权申明：RapidWeb项目组，未经许可不得在任何软件中以任何形式使用全部或部分代码，不得更改本项目的代码。
+ * 文件名称：NetUtil.java
+ * 创建时间：2010-5-14-下午06:22:50
+ * 创建用户：chis(chis123@qq.com)
+ * 文件描述：
+ * 修改记录：
+ *   
+ */
+package com.rapidweb2.common.util;
+
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
+
+/**
+ * 
+ * 与网络相关的工具类
+ * @author chis(chis123@qq.com)
+ *
+ */
+public final class NetUtil {
+	private static final byte[] isatap={0,0,0,0,0,0,0,(byte)0xE0};	// 微软的IPV6-IPV4隧道的MAC地址
+	/**
+	 *  比较两个是否相等
+	 * @param src
+	 * @param desc
+	 * @return
+	 */
+	private static boolean equalMac( byte[] src,byte[] desc ){
+		if( src==null ) return true;
+		if( src==null || desc==null ) return false;
+		if( src.length != desc.length ) return false;
+		for( int i=0;i<src.length;i++ )
+			if( src[i]!=desc[i] ) return false;
+		return true;
+	}
+	
+	/**
+	 * 获得当前机器的所有MAC地址,以及对应的首IPV4/IPV6地址，所有本地回环类地址一律过滤
+	 * @return
+	 */
+	public static List<MacAddress> getNetworkAddress(  ){
+		List< MacAddress > addresses = new ArrayList<MacAddress>();
+		
+		try {
+			Enumeration<NetworkInterface>  interfaces = NetworkInterface.getNetworkInterfaces();
+			while( interfaces.hasMoreElements() ){
+				NetworkInterface face = interfaces.nextElement();
+				byte[] haddr = face.getHardwareAddress();
+				if( haddr!=null )System.out.println(face.getName() + ":MAC地址="+ArrayUtil.bytes2HexString(face.getHardwareAddress(), "-"));
+				// 如果没有MAC地址则放弃本地址
+				if( haddr==null || haddr.length<1 ) continue;
+				// 如果是ISATAP则放弃
+				if( equalMac(isatap,haddr) ) continue;
+				
+				// 获得IPV6和IPV4的首地址
+				String ipv4=null,ipv6=null;
+				Enumeration<InetAddress> aa = face.getInetAddresses();
+				while( aa.hasMoreElements() ){
+					InetAddress ia = aa.nextElement();
+					if( ia.isLoopbackAddress() || ia.isMulticastAddress() ||ia.isAnyLocalAddress()  ) continue;
+						
+					if( ia instanceof Inet6Address ){
+						if( ipv6==null  ) ipv6 = ia.getHostAddress();  // 只取首地址
+					}
+					else if( ia instanceof Inet4Address ){
+						if( ipv4==null ) ipv4 = ia.getHostAddress();  // 只取首地址
+					}
+				}
+							
+				addresses.add( new MacAddress(face.getName(),haddr,ipv4,ipv6 ));
+			}
+		} catch (SocketException e) {
+			e.printStackTrace();
+		}
+		return addresses;
+	}
+	
+	/**
+	 * 网卡信息
+	 * @author chis(chis123@qq.com)
+	 *
+	 */
+	public static class MacAddress{
+		private String name;				// 网卡的物理名称
+		private byte[] address;				// 网卡的物理地址
+		private String ipv4;				// 首选的IPV4地址
+		private String ipv6;				// 首选的IPV6地址
+
+		public String getIpv4() {
+			return this.ipv4;
+		}
+
+		public void setIpv4(String ipv4) {
+			this.ipv4 = ipv4;
+		}
+
+		public String getIpv6() {
+			return this.ipv6;
+		}
+
+		public void setIpv6(String ipv6) {
+			this.ipv6 = ipv6;
+		}
+
+		public MacAddress(){}
+		
+		public MacAddress(String name ,byte[] macno,String ipv4,String ipv6){
+			this.name = name;
+			this.address = macno;
+			this.ipv4 = ipv4;
+			this.ipv6 = ipv6;
+		}
+		
+		public String getName() {
+			return name;
+		}
+		public void setName(String name) {
+			this.name = name;
+		}
+		public byte[] getAddress() {
+			return address;
+		}
+		public void setAddress(byte[] address) {
+			this.address = address;
+		}
+
+		/**
+		 * 获得标准的MAC地址的字符串
+		 * @return
+		 */
+		public String getHexMacAddress(){
+			return ArrayUtil.bytes2HexString(this.address, "-");
+		}
+	}
+	
+	public static void main(String[] args) throws SocketException, UnknownHostException{
+		List<MacAddress> addrs =  getNetworkAddress();
+		for( MacAddress mac : addrs ) 
+			System.out.println(mac.getName()+":" + mac.getHexMacAddress()+" IPV4:" + mac.getIpv4() + " IPV6=" + mac.getIpv6()   );
+		
+		// 自己获得
+		InetAddress address = InetAddress.getLocalHost(); // 获得当前主机地址 
+		NetworkInterface ni = NetworkInterface.getByInetAddress(address); // 获得网络接口
+//		NetworkInterface ni = NetworkInterface.getByName("net4");
+		byte[] mac = ni.getHardwareAddress(); // 获得硬件的MAC地址 
+		String sIP = address.getHostAddress(); // 获得IP地址 
+		System.out.println("当前主机名字：" + ArrayUtil.bytes2HexString(mac, "-") + " IP:" + sIP);
+		    
+		//    
+		Enumeration<NetworkInterface>  interfaces = NetworkInterface.getNetworkInterfaces();
+		while( interfaces.hasMoreElements() ){
+			NetworkInterface face = interfaces.nextElement();
+			byte[] bs = face.getHardwareAddress();
+			if( bs==null || bs.length<1 ) continue;
+			System.out.println(face.getName()+":MAC="+ ArrayUtil.bytes2HexString(face.getHardwareAddress(),"-"));
+		}
+	}
+	
+}

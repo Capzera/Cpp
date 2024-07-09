@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD//EN" "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping package="com.mgnt.test.center.entity">
+	<class name="TbLeaveMsg" table="tb_leave_msg">
+					<id name="sid" column="sid" type="java.lang.Integer">
+						<generator class="identity" />
+					</id>
+				    <property name="content" column="content" not-null="false" />
+				    <property name="ctime" column="ctime" not-null="false" />
+				    <property name="answer" column="answer" not-null="false" />
+				    <many-to-one name="user" class="User" column="p_uid"/>
+	</class>
+</hibernate-mapping>
