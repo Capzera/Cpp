@@ -1,2 +1,7 @@
 # Cpp
-本代码库用于Capzera本人学习上传，欢迎各位大佬来此斧正
+``` cpp
+/*
+ *  Author : Capzera
+ *  Mail   : 1786126188@qq.com
+ *  Tel    : +86 186-5545-8613
+```

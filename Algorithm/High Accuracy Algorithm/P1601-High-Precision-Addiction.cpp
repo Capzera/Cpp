@@ -1,25 +1,18 @@
 #include <bits/stdc++.h>
 using namespace std;
 string HAplus(string s1, string s2) {
-    string ans;
-    int l = s1.size() - 1, r = s2.size() - 1, carry = 0;
-    while (l >= 0 || r >= 0) {
-        int a = 0, b = 0;
-        if (l >= 0) {
-            a = s1[l];
-            l--;
-        }
-        if (r >= 0) {
-            b = s2[r];
-            r--;
-        }
-        carry += a + b;
-        ans += carry % 10 + '0';
-        carry /= 10;
-    }
-    if (carry) ans += "1";
-    reverse(ans.begin(), ans.end());
-    return ans;
+	string ans;
+	int l = s1.size() - 1, r = s2.size() - 1, carry = 0;
+	while (l >= 0 || r >= 0) {
+		int a = (l >= 0 ? s1[l--] - '0' : 0);
+		int b = (r >= 0 ? s2[r--] - '0' : 0);
+		carry += a + b;
+		ans += carry % 10 + '0';
+		carry /= 10;
+	}
+	if (carry) ans += "1";
+	reverse(ans.begin(), ans.end());
+	return ans;
 }
 int main() {
     string s1, s2;

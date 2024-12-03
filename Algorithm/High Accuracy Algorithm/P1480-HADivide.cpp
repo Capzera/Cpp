@@ -32,6 +32,5 @@ int main() {
     string s1, s2;
     cin >> s1 >> s2;
     cout << HADivide(s1, s2) << endl;
-    system("pause");
     return 0;
 }

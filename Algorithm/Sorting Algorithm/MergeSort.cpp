@@ -1,29 +1,28 @@
 #include <bits/stdc++.h>
 using namespace std;
 void MergeSort(vector<int>& nums, int l, int r) {
-    if (l >= r) return;
-    int mid = l + (r - l) / 2;
-    MergeSort(nums, l, mid);
-    MergeSort(nums, mid + 1, r);
-    vector<int> vec(r - l + 1);
-    int i = l, j = mid + 1, k = 0;
-    while (i <= mid && j <= r) {
-        if (nums[i] <= nums[j]) vec[k++] = nums[i++];
-        else vec[k++] = nums[j++];
-    }
-    while (i <= mid) vec[k++] = nums[i++];
-    while (j <= r) vec[k++] = nums[j++];
-    copy(vec.begin(), vec.end(), nums.begin() + l);
+	if (l >= r) return;
+	int mid = l + (r - l) / 2;
+	MergeSort(nums, l, mid);
+	MergeSort(nums, mid + 1, r);
+	vector<int> vec(r - l + 1);
+	int i = l, j = mid + 1, k = 0;
+	while (i <= mid && j <= r) {
+		if (nums[i] <= nums[j]) vec[k++] = nums[i++];
+		else vec[k++] = nums[j++];
+	}
+	while (i <= mid) vec[k++] = nums[i++];
+	while (j <= r) vec[k++] = nums[j++];
+	copy(vec.begin(), vec.end(), nums.begin() + l);
 }
 int main() {
-    int n;
-    cin >> n;
-    vector<int> nums(n);
-    for (auto& x : nums) cin >> x;
-    MergeSort(nums, 0, n - 1);
-    for (auto& x : nums) cout << x << " ";
-    system("pause");
-    return 0;
+	int n;
+	cin >> n;
+	vector<int> nums(n);
+	for (auto& x : nums) cin >> x;
+	MergeSort(nums, 0, n - 1);
+	for (auto& x : nums) cout << x << " ";
+	return 0;
 }
 /*
 1 2 3 4 5 6 7 8 9 10 11 12

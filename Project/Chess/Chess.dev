@@ -30,7 +30,7 @@ CommandLine =
 Folders = 
 IncludeVersionInfo = 0
 SupportXPThemes = 0
-CompilerSet = 3
+CompilerSet = 1
 CompilerSetType = 0
 StaticLink = 0
 AddCharset = 1
@@ -46,7 +46,7 @@ ParellelBuildingJobs = 0
 
 
 [Unit1]
-FileName = icon/bk.png
+FileName = icon/wp.png
 CompileCpp = 1
 Folder = 其他文件
 Compile = 0
@@ -79,19 +79,6 @@ SyncProduct = 1
 
 
 [Unit2]
-FileName = icon/bn.png
-CompileCpp = 1
-Folder = 其他文件
-Compile = 0
-Link = 0
-Priority = 1000
-OverrideBuildCmd = 0
-BuildCmd = 
-FileEncoding = PROJECT
-RealEncoding = ASCII
-
-
-[Unit3]
 FileName = icon/wb.png
 CompileCpp = 1
 Folder = 其他文件
@@ -104,10 +91,23 @@ FileEncoding = PROJECT
 RealEncoding = ASCII
 
 
-[Unit4]
-FileName = init.h
+[Unit3]
+FileName = init.cpp
 CompileCpp = 1
-Folder = 头文件
+Folder = 源文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+FileEncoding = PROJECT
+RealEncoding = UTF-8
+
+
+[Unit4]
+FileName = game.cpp
+CompileCpp = 1
+Folder = 源文件
 Compile = 1
 Link = 1
 Priority = 1000
@@ -118,20 +118,20 @@ RealEncoding = UTF-8
 
 
 [Unit5]
-FileName = icon/wp.png
+FileName = piece.cpp
 CompileCpp = 1
-Folder = 其他文件
-Compile = 0
-Link = 0
+Folder = 源文件
+Compile = 1
+Link = 1
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
 FileEncoding = PROJECT
-RealEncoding = ASCII
+RealEncoding = UTF-8
 
 
 [Unit6]
-FileName = icon/wk.png
+FileName = icon/bp.png
 CompileCpp = 1
 Folder = 其他文件
 Compile = 0
@@ -144,19 +144,6 @@ RealEncoding = ASCII
 
 
 [Unit7]
-FileName = icon/wn.png
-CompileCpp = 1
-Folder = 其他文件
-Compile = 0
-Link = 0
-Priority = 1000
-OverrideBuildCmd = 0
-BuildCmd = 
-FileEncoding = PROJECT
-RealEncoding = ASCII
-
-
-[Unit8]
 FileName = icon/wq.png
 CompileCpp = 1
 Folder = 其他文件
@@ -169,9 +156,22 @@ FileEncoding = PROJECT
 RealEncoding = ASCII
 
 
+[Unit8]
+FileName = icon/br.png
+CompileCpp = 1
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+FileEncoding = PROJECT
+RealEncoding = ASCII
+
+
 [Unit9]
-FileName = piece.cpp
-Folder = 源文件
+FileName = common.h
+Folder = 头文件
 Compile = 1
 Link = 1
 Priority = 1000
@@ -183,7 +183,7 @@ RealEncoding = UTF-8
 
 
 [Unit10]
-FileName = icon/bp.png
+FileName = icon/wn.png
 Folder = 其他文件
 Compile = 0
 Link = 0
@@ -196,58 +196,6 @@ RealEncoding = ASCII
 
 
 [Unit11]
-FileName = icon/bb.png
-Folder = 其他文件
-Compile = 0
-Link = 0
-Priority = 1000
-OverrideBuildCmd = 0
-BuildCmd = 
-FileEncoding = PROJECT
-RealEncoding = ASCII
-CompileCpp = 1
-
-
-[Unit12]
-FileName = init.cpp
-Folder = 源文件
-Compile = 1
-Link = 1
-Priority = 1000
-OverrideBuildCmd = 0
-BuildCmd = 
-CompileCpp = 1
-FileEncoding = PROJECT
-RealEncoding = UTF-8
-
-
-[Unit13]
-FileName = icon/bq.png
-Folder = 其他文件
-Compile = 0
-Link = 0
-Priority = 1000
-OverrideBuildCmd = 0
-BuildCmd = 
-FileEncoding = PROJECT
-RealEncoding = ASCII
-CompileCpp = 1
-
-
-[Unit14]
-FileName = icon/br.png
-Folder = 其他文件
-Compile = 0
-Link = 0
-Priority = 1000
-OverrideBuildCmd = 0
-BuildCmd = 
-CompileCpp = 1
-FileEncoding = PROJECT
-RealEncoding = ASCII
-
-
-[Unit15]
 FileName = game.h
 Folder = 头文件
 Compile = 1
@@ -260,7 +208,33 @@ RealEncoding = UTF-8
 CompileCpp = 1
 
 
-[Unit16]
+[Unit12]
+FileName = icon/bq.png
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+CompileCpp = 1
+FileEncoding = PROJECT
+RealEncoding = ASCII
+
+
+[Unit13]
+FileName = icon/bk.png
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+FileEncoding = PROJECT
+RealEncoding = ASCII
+CompileCpp = 1
+
+
+[Unit14]
 FileName = main.cpp
 Folder = 
 Compile = 1
@@ -273,20 +247,20 @@ FileEncoding = PROJECT
 RealEncoding = UTF-8
 
 
-[Unit17]
-FileName = game.cpp
-Folder = 源文件
-Compile = 1
-Link = 1
+[Unit15]
+FileName = icon/bb.png
+Folder = 其他文件
+Compile = 0
+Link = 0
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
 FileEncoding = PROJECT
-RealEncoding = UTF-8
+RealEncoding = ASCII
 CompileCpp = 1
 
 
-[Unit18]
+[Unit16]
 FileName = piece.h
 Folder = 头文件
 Compile = 1
@@ -294,25 +268,25 @@ Link = 1
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
+CompileCpp = 1
 FileEncoding = PROJECT
 RealEncoding = UTF-8
-CompileCpp = 1
 
 
-[Unit19]
-FileName = common.h
-Folder = 头文件
-Compile = 1
-Link = 1
+[Unit17]
+FileName = icon/bn.png
+Folder = 其他文件
+Compile = 0
+Link = 0
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
 FileEncoding = PROJECT
-RealEncoding = UTF-8
+RealEncoding = ASCII
 CompileCpp = 1
 
 
-[Unit20]
+[Unit18]
 FileName = icon/wr.png
 Folder = 其他文件
 Compile = 0
@@ -320,16 +294,45 @@ Link = 0
 Priority = 1000
 OverrideBuildCmd = 0
 BuildCmd = 
-CompileCpp = 1
 FileEncoding = PROJECT
 RealEncoding = ASCII
+CompileCpp = 1
+
+
+[Unit19]
+FileName = icon/wk.png
+Folder = 其他文件
+Compile = 0
+Link = 0
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+FileEncoding = PROJECT
+RealEncoding = ASCII
+CompileCpp = 1
+
+
+[Unit20]
+FileName = init.h
+Folder = 头文件
+Compile = 1
+Link = 1
+Priority = 1000
+OverrideBuildCmd = 0
+BuildCmd = 
+CompileCpp = 1
+FileEncoding = PROJECT
+RealEncoding = UTF-8
 
 
 [CompilerSettings]
 c_cmd_opt_std = gnu17
+cc_cmd_opt_check_iso_conformance = on
 cc_cmd_opt_debug_info = on
+cc_cmd_opt_inhibit_all_warning = on
 cc_cmd_opt_optimize = 2
 cc_cmd_opt_pointer_size = 64
 cc_cmd_opt_std = gnu++2b
 cc_cmd_opt_use_pipe = on
 cc_cmd_opt_warning_all = on
+link_cmd_opt_stack_size = 12
