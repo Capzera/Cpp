@@ -14,7 +14,7 @@ int main() {
         if (!num) return 0;
         int last = 0, ans = 0;
         vector<int> nums;
-        while (num) nums.emplace(num % b), num /= b;
+        while (num) nums.push_back(num % b), num /= b;
         for (int i = nums.size() - 1; i >= 0; i--) {
             if (nums[i]) {
                 ans += c[i][k - last];

@@ -1,6 +1,6 @@
 #include <bits/stdc++.h>
 using namespace std;
-int n, cnt1, cnt2;
+int n, c1, c2;
 string a, b;
 int main() {
     cin >> n >> a >> b;
