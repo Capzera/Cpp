@@ -1,0 +1,44 @@
+# Project: Chess
+# Makefile created by Red Panda C++ 2.26.2249
+
+CPP      = g++.exe
+CC       = gcc.exe
+WINDRES  = windres.exe
+RES      = Chess_private.res
+OBJ      = game.o init.o main.o piece.o $(RES)
+LINKOBJ  = game.o init.o main.o piece.o Chess_private.res
+CLEANOBJ  =  game.o init.o main.o piece.o  Chess_private.res Chess.exe
+LIBS     =  -m64 -mwindows -lgraphics -luuid -lmsimg32 -lgdi32 -limm32 -lole32 -loleaut32 -lwinmm -lgdiplus  
+INCS     =  
+CXXINCS  =  
+BIN      = Chess.exe
+CXXFLAGS = $(CXXINCS)  -g3 -O2 -std=gnu++2b -pipe -Wall -std=c++17 -D__DEBUG__
+CFLAGS   = $(INCS)  -std=gnu17 -g3 -O2 -pipe -Wall -std=c++17 -D__DEBUG__
+RM       = del /q /f
+WINDRESFLAGS  = 
+
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before $(BIN) all-after
+
+clean: clean-custom
+	-$(RM) $(CLEANOBJ) > NUL 2>&1
+
+$(BIN): $(OBJ)
+	$(CPP) $(LINKOBJ) -o $(BIN) $(LIBS)
+
+game.o: game.cpp piece.h common.h game.h
+	$(CPP) -c game.cpp -o game.o $(CXXFLAGS)  -finput-charset=UTF-8 -fexec-charset=utf-8
+
+init.o: init.cpp init.h piece.h common.h
+	$(CPP) -c init.cpp -o init.o $(CXXFLAGS)  -finput-charset=UTF-8 -fexec-charset=utf-8
+
+main.o: main.cpp init.h piece.h common.h game.h
+	$(CPP) -c main.cpp -o main.o $(CXXFLAGS)  -finput-charset=UTF-8 -fexec-charset=utf-8
+
+piece.o: piece.cpp piece.h
+	$(CPP) -c piece.cpp -o piece.o $(CXXFLAGS)  -finput-charset=UTF-8 -fexec-charset=utf-8
+
+Chess_private.res: Chess_private.rc 
+	$(WINDRES) -i Chess_private.rc --input-format=rc -o Chess_private.res -O coff $(WINDRESFLAGS) 
+

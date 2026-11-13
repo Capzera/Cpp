@@ -1,0 +1,58 @@
+{
+	"size": [6, 5],
+	"terrain": [
+		[0, 5, 0, 0, 0, 0],
+		[0, 5, 0, 0, 0, 0],
+		[0, 0, 0, 0, 0, 0],
+		[0, 5, 0, 0, 0, 0],
+		[0, 0, 0, 0, 0, 0]
+	],
+	"paths": [
+		[
+			[5, 0], [4, 0], [3, 0], [2, 0],
+			[2, 1], [2, 2], [3, 2], [3, 3],
+			[3, 4], [2, 4], [1, 4], [0, 4]
+		],
+		[
+			[5, 4], [4, 4], [3, 4], [2, 4],
+			[1, 4], [0, 4]
+		]
+	],
+	"spawn_points": [
+		[5, 0],
+		[5, 4]
+	],
+	"base": [0, 4],
+	"waves": [
+		{
+			"enemy_type": 0,
+			"count": 6,
+			"spawn_interval": 0.7,
+			"wave_interval": 9.0
+		},
+		{
+			"enemy_type": 0,
+			"count": 8,
+			"spawn_interval": 0.7,
+			"wave_interval": 9.0
+		},
+		{
+			"enemy_type": 0,
+			"count": 12,
+			"spawn_interval": 0.65,
+			"wave_interval": 9.0
+		},
+		{
+			"enemy_type": 1,
+			"count": 16,
+			"spawn_interval": 0.6,
+			"wave_interval": 9.0
+		},
+		{
+			"enemy_type": 2,
+			"count": 22,
+			"spawn_interval": 0.55,
+			"wave_interval": 9.0
+		}
+	]
+}

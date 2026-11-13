@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link href="./tabulator/tabulator.min.css" rel="stylesheet">
+    <script type="text/javascript" src="./tabulator/tabulator.min.js"></script>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+        html, body { height: 100%; margin: 0; padding: 10px; box-sizing: border-box; font-family: "HYWenHei-65W", sans-serif; background: transparent; overflow: hidden; }
+        
+        .tabulator { 
+            border: none !important; 
+            background: #FFFFFF !important; 
+            font-size: 17px;
+            font-family: "HYWenHei-65W", sans-serif !important;
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(148, 163, 184, 0.08);
+            overflow: hidden;
+        }
+        
+        /* 🚀 优化 1：表头全量换装 #DEEAFC 高定浅科技蓝 */
+        .tabulator-header { 
+            background: #DEEAFC !important; 
+            border-bottom: 2px solid #CBD5E1 !important; 
+            border-top: none !important; 
+        }
+        /* 🚀 优化 2：因为背景是浅色，字体特意改为高清晰度的深色 #1E293B */
+        .tabulator-col { 
+            background: transparent !important; 
+            border-right: none !important; 
+            border-left: none !important;
+            padding: 16px 12px !important; 
+            color: #1E293B !important; 
+            font-weight: bold !important; 
+            font-size: 20px !important;
+        }
+        
+        .tabulator-col-title {
+            color: #1E293B !important;
+            font-family: "HYWenHei-85W", sans-serif !important;
+            font-size: 20px;
+        }
+
+        .tabulator-row { 
+            border-bottom: 1px solid #F1F5F9 !important; 
+            border-left: 4px solid transparent !important;
+            border-right: none !important;
+            transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1); 
+            cursor: pointer; 
+        }
+        
+        /* 🚀 优化 3：完美落实奇偶行相间颜色逻辑 */
+        .tabulator-row:nth-child(odd) { background-color: #FFFFFF !important; } /* 奇数行：纯白 */
+        .tabulator-row:nth-child(even) { background-color: #F8FAFC !important; } /* 偶数行：柔和浅灰 */
+        
+        .tabulator-cell { 
+            padding: 16px 14px !important; 
+            border-right: none !important;
+            border-left: none !important;
+            color: #334155;
+            vertical-align: middle !important;
+        }
+        
+        /* 悬浮与选中过渡 */
+        .tabulator-row:hover { 
+            background-color: #F0F9FF !important; 
+            box-shadow: 0 6px 18px rgba(59, 130, 246, 0.06);
+            transform: translateY(-1px);
+            z-index: 10;
+            position: relative;
+            border-left-color: #93C5FD !important;
+        }
+        .tabulator-row.tabulator-selected { 
+            background-color: #E0F2FE !important; 
+            border-left: 4px solid #3B82F6 !important; 
+            font-weight: bold;
+        }
+        
+        .badge { 
+            display: inline-block;
+            padding: 5px 14px; 
+            border-radius: 20px; 
+            font-size: 18px;
+            font-weight: bold; 
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); 
+        }
+        .type-single { background: #E0E7FF; color: #1D4ED8; }
+        .type-multi { background: #FEF3C7; color: #B45309; }
+        .type-fill { background: #DCFCE7; color: #047857; }
+        .type-code { background: #F3E8FF; color: #7E22CE; }
+        
+        .tag-pill { 
+            display: inline-block;
+            background: #E2E8F0; 
+            color: #475569; 
+            border-radius: 14px; 
+            padding: 4px 12px; 
+            font-size: 18px;
+            font-weight: bold; 
+        }
+    </style>
+</head>
+<body>
+    <div id="problem-table"></div>
+
+    <script>
+        var table;
+        var cplusBridge = null;
+
+        if (typeof qt !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+                cplusBridge = channel.objects.tableBridge;
+            });
+        }
+
+        var typeFormatter = function(cell) {
+            var val = cell.getValue();
+            var cls = (val === 'OI题' || val === '代码提交题') ? 'type-oi' : (val === '单选题') ? 'type-single' : (val === '多选题') ? 'type-multi' : 'type-fill';
+            return "<span class='badge " + cls + "'>" + val + "</span>";
+        };
+
+        var tagFormatter = function(cell) {
+            return "<span class='tag-pill'>" + cell.getValue() + "</span>";
+        };
+
+        table = new Tabulator("#problem-table", {
+            height: "100%",
+            layout: "fitColumns",
+            selectable: 1,
+            placeholder: "<span style='color:#94A3B8; font-weight:bold;'>⏳ 暂无符合条件的试题</span>",
+            columns: [
+                {title: "题目UID", field: "id", width: 120, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", cssClass: "tabulator-col-title", headerSort: false},
+                {title: "题型", field: "type", width: 140, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", formatter: typeFormatter, headerSort: false},
+                {title: "题目标题", field: "title", width: 680, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "算法标签", field: "tag", hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", formatter: tagFormatter, headerSort: false}
+            ],
+        });
+
+        table.on("rowClick", function(e, row) {
+            if (cplusBridge) cplusBridge.onWebTableRowClicked(row.getData().id);
+        });
+
+        function loadTableData(b64Text) {
+            var data = JSON.parse(decodeURIComponent(escape(atob(b64Text))));
+            table.setData(data);
+        }
+    </script>
+</body>
+</html>

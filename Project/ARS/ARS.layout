@@ -1,0 +1,74 @@
+[
+    {
+        "caretX": 1,
+        "caretY": 34,
+        "filename": "D:/Program/Cpp/Project/ARS/passenger.cpp",
+        "focused": false,
+        "isOpen": false,
+        "left": 0,
+        "top": 945
+    },
+    {
+        "caretX": 16,
+        "caretY": 2,
+        "filename": "D:/Program/Cpp/Project/ARS/main.cpp",
+        "focused": false,
+        "isOpen": false,
+        "left": 0,
+        "top": 0
+    },
+    {
+        "caretX": 17,
+        "caretY": 16,
+        "filename": "D:/Program/Cpp/Project/ARS/flight.h",
+        "focused": false,
+        "isOpen": false,
+        "left": 0,
+        "top": 210
+    },
+    {
+        "caretX": 4,
+        "caretY": 144,
+        "filename": "D:/Program/Cpp/Project/ARS/pw.cpp",
+        "focused": false,
+        "isOpen": false,
+        "left": 0,
+        "top": 4719
+    },
+    {
+        "caretX": 10,
+        "caretY": 15,
+        "filename": "D:/Program/Cpp/Project/ARS/common.h",
+        "focused": false,
+        "isOpen": false,
+        "left": 0,
+        "top": 0
+    },
+    {
+        "caretX": 1,
+        "caretY": 1,
+        "filename": "D:/Program/Cpp/Project/ARS/passenger.h",
+        "focused": false,
+        "isOpen": false,
+        "left": 0,
+        "top": 420
+    },
+    {
+        "caretX": 1,
+        "caretY": 1,
+        "filename": "D:/Program/Cpp/Project/ARS/flight.cpp",
+        "focused": false,
+        "isOpen": false,
+        "left": 0,
+        "top": 3150
+    },
+    {
+        "caretX": 1,
+        "caretY": 178,
+        "filename": "D:/Program/Cpp/Project/ARS/construct.h",
+        "focused": false,
+        "isOpen": false,
+        "left": 0,
+        "top": 630
+    }
+]

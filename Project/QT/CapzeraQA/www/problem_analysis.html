@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <script src="./echarts/echarts.min.js"></script>
+    <link rel="stylesheet" href="./dist/index.css" />
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <script src="./dist/index.min.js"></script>
+    <style>
+        body { display: flex; flex-direction: column; height: 100vh; margin: 0; padding: 15px; box-sizing: border-box; font-family: "Microsoft YaHei", sans-serif; background: white; }
+
+        .stat-grid { flex-shrink: 0; display: flex; gap: 15px; margin-bottom: 15px; }
+        .stat-box { flex: 1; background: white; border: 1px solid #E2E8F0; border-top: 4px solid #3B82F6; border-radius: 8px; padding: 15px; text-align: center; }
+        .stat-val { font-size: 28px; font-weight: bold; font-family: Consolas; margin-top: 5px; color: #1E293B; }
+
+        .card { flex-shrink: 0; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+        .card-title { font-weight: bold; color: #1E293B; margin-bottom: 10px; font-size: 16px; border-bottom: 2px solid #E2E8F0; padding-bottom: 5px; display: inline-block;}
+
+        .vditor-reset { font-family: "Microsoft YaHei", sans-serif !important; color: #334155 !important; font-size: 15px !important; background: transparent !important; }
+        .vditor-reset p { margin-top: 0; }
+        .vditor-reset pre { background-color: #1E293B !important; color: #E2E8F0 !important; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="stat-grid">
+        <div class="stat-box"><div style="color:#64748B; font-size:13px; font-weight:bold;">本题分值</div><div class="stat-val" id="stat-score" style="color:#F59E0B;">--</div></div>
+        <div class="stat-box"><div style="color:#64748B; font-size:13px; font-weight:bold;">答题人次</div><div class="stat-val" id="stat-submits" style="color:#3B82F6;">--</div></div>
+        <div class="stat-box"><div style="color:#64748B; font-size:13px; font-weight:bold;">做对人次</div><div class="stat-val" id="stat-correct" style="color:#10B981;">--</div></div>
+        <div class="stat-box"><div style="color:#64748B; font-size:13px; font-weight:bold;">整体得分/正确率</div><div class="stat-val" id="stat-rate" style="color:#8B5CF6;">--</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom: 15px;">
+        <div class="card-title">📖 题目描述</div>
+        <div id="p-stem" class="vditor-reset"></div>
+    </div>
+
+    <div class="card" id="dynamic-area" style="flex:1; display:none; flex-direction:column; min-height: 350px;"></div>
+
+    <script>
+        var chartInstance = null;
+        var cplusBridge = null;
+        var localBasePath = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+
+        if (typeof qt !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+                cplusBridge = channel.objects.problemAnalysisBridge;
+                if(cplusBridge) cplusBridge.onWebPageLoaded();
+            });
+        }
+
+        function updateProblemAnalysis(b64Str) {
+            try {
+                // 🚀 核心替换：换上全宇宙最强、能抗住一切中文和公式的终极解码器！
+                var jsonStr = decodeURIComponent(escape(atob(b64Str)));
+                var data = JSON.parse(jsonStr);
+
+                // 刷新顶栏宏观数据
+                document.getElementById("stat-submits").innerText = data.stats.submitted;
+                document.getElementById("stat-correct").innerText = data.stats.correct === -1 ? "--" : data.stats.correct;
+                document.getElementById("stat-rate").innerText = data.stats.rate;
+                document.getElementById("stat-score").innerText = data.score + " 分";
+
+                // 渲染 Markdown 题干
+                Vditor.preview(document.getElementById("p-stem"), data.stem, {
+                    mode: 'light', cdn: localBasePath, math: { engine: 'KaTeX', inlineDigit: true }
+                });
+
+                var dynArea = document.getElementById("dynamic-area");
+                dynArea.innerHTML = ""; // 清空旧内容
+
+                if (chartInstance) {
+                    chartInstance.dispose();
+                    chartInstance = null;
+                }
+
+                // 根据题型分发渲染逻辑
+                if (data.type === "single" || data.type === "multi") {
+                    dynArea.style.display = "flex";
+                    var chartDiv = document.createElement("div");
+                    chartDiv.style.flex = "1";
+                    chartDiv.style.width = "100%";
+                    dynArea.appendChild(chartDiv);
+
+                    chartInstance = echarts.init(chartDiv);
+                    chartInstance.setOption({
+                        title: { text: '📊 各选项选择人次分布', textStyle: { fontSize: 16, color: '#1E293B' }, left: 'center' },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        grid: { left: '3%', right: '4%', bottom: '5%', containLabel: true },
+                        xAxis: {
+                            type: 'category',
+                            data: data.chartData.categories,
+                            axisTick: { alignWithLabel: true },
+                            axisLabel: { color: '#64748B', fontWeight: 'bold' }
+                        },
+                        yAxis: { type: 'value', minInterval: 1, splitLine: { lineStyle: { type: 'dashed' } } },
+                        series: [{
+                            name: '选择人次',
+                            data: data.chartData.values,
+                            type: 'bar',
+                            barWidth: '40%',
+                            itemStyle: {
+                                color: function(params) {
+                                    return params.name.includes("✅") ? '#10B981' : '#3B82F6';
+                                },
+                                borderRadius: [4, 4, 0, 0]
+                            },
+                            label: { show: true, position: 'top', color: '#1E293B', fontWeight: 'bold' }
+                        }]
+                    });
+
+                    // 强制重绘，防止 div 刚变为 block 导致图表被压缩成 0x0
+                    setTimeout(function() { if(chartInstance) chartInstance.resize(); }, 50);
+
+                } else if (data.type === "fill") {
+                    dynArea.style.display = "block";
+                    var html = "<h3 style='font-weight:bold; color:#1E293B; margin-top:0;'>🎯 标准答案：<span style='color:#10B981;'>" + data.stdAns + "</span></h3>";
+                    html += "<h4 style='color:#64748B; margin-bottom:10px; border-bottom:1px solid #E2E8F0; padding-bottom:5px;'>学生高频作答 Top 3：</h4>";
+
+                    if(data.topFills && data.topFills.length > 0) {
+                        data.topFills.forEach(function(f, i) {
+                            var color = f.isCorrect ? "#10B981" : "#EF4444";
+                            html += "<div style='background:#F1F5F9; padding:10px 15px; border-radius:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;'>";
+                            html += "<b style='color:" + color + "; font-size:16px;'>" + (i+1) + ". " + f.ans + "</b>";
+                            html += "<span style='color:#64748B; font-weight:bold;'>" + f.count + " 人提交</span></div>";
+                        });
+                    } else {
+                        html += "<div style='color:#94A3B8; padding:10px;'>暂无作答记录</div>";
+                    }
+                    dynArea.innerHTML = html;
+
+                } else {
+                    dynArea.style.display = "block";
+                    dynArea.innerHTML = "<h3 style='color:#3B82F6; margin-top:0;'>🎯 官方参考代码 / 题解：</h3><div id='ref-code' class='vditor-reset'></div>";
+                    var bt = String.fromCharCode(96, 96, 96);
+                    Vditor.preview(document.getElementById("ref-code"), bt + "cpp\n" + data.stdAns + "\n" + bt, {
+                        mode: 'light', cdn: localBasePath
+                    });
+                }
+            } catch(e) { console.error("解析渲染图表失败:", e); }
+        }
+
+        window.addEventListener('resize', function() {
+            if (chartInstance) chartInstance.resize();
+        });
+    </script>
+</body>
+</html>

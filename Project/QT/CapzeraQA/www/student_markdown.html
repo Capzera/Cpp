@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="./dist/index.css" />
+    <script src="./dist/index.min.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+        body { margin: 0; padding: 20px; background: #FFFFFF; font-family: "HYWenHei-65W", "Microsoft YaHei", sans-serif; color: #1E293B; }
+        .vditor-reset { font-family: "HYWenHei-65W", "Microsoft YaHei", sans-serif !important; color: #334155 !important; font-size: 16px !important; line-height: 1.8 !important;}
+        .vditor-reset p { margin-top: 0; }
+        .vditor-reset h2 { color: #1E293B; margin-top: 0; border-bottom: none; padding-bottom: 0; }
+        .vditor-reset pre { background-color: #1E293B !important; color: #E2E8F0 !important; border-radius: 8px; padding: 15px; font-family: 'Consolas', monospace; }
+
+        .options-container { margin-top: 10px; display: flex; flex-direction: column; gap: 12px; }
+        .option-card {
+            border: 2px solid #CBD5E1; /* 默认边框加深 */
+            border-radius: 10px;
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            background: #F8FAFC;
+        }
+        .option-card:hover { border-color: #E0E0E0; background: #EBEBEB; }
+        .option-card.selected { border-color: #7CC282; background: #F3FFF5; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1); }
+        .option-prefix { font-weight: bold; margin-right: 15px; color: #475569; font-size: 16px; }
+        .option-card.selected .option-prefix { color: #1E3A8A; }
+        .option-content { flex: 1; }
+        .option-content p { margin: 0; }
+    </style>
+</head>
+<body>
+    <div id="content" class="vditor-reset"></div>
+    <div id="options-area" class="options-container"></div> <script>
+    var localBasePath = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+    var currentType = '';
+    var selectedAnswers = [];
+
+    // 🚀 新增防穿透与并发隔离护盾
+    var currentRenderId = 0;   // 记录当前的渲染批次
+    var currentQIndex = -1;    // 记录当前是哪道题，防止快速切换导致答案错位
+
+    async function renderMarkdown(b64Str) {
+        currentRenderId++;
+        let myRenderId = currentRenderId; // 锁定当前批次的 ID
+
+        try {
+            if (!b64Str) return;
+            var jsonStr = new TextDecoder("utf-8").decode(Uint8Array.from(atob(b64Str), c => c.charCodeAt(0)));
+            var payload = JSON.parse(jsonStr);
+
+            var contentDiv = document.getElementById('content');
+            var optContainer = document.getElementById('options-area');
+
+            if (payload.qIndex !== undefined) {
+                currentQIndex = payload.qIndex;
+            }
+
+            // 1. 独立渲染题干
+            if (payload.md) {
+                contentDiv.style.display = 'block';
+                // 🚀 核心优化：去掉 await！让题干和选项同时并发渲染，题目秒开！
+                Vditor.preview(contentDiv, payload.md, {
+                    mode: 'light', cdn: localBasePath, math: { engine: 'KaTeX', inlineDigit: true }
+                });
+            } else {
+                contentDiv.style.display = 'none';
+            }
+
+            // 2. 独立渲染选项
+            if (payload.options && payload.options.length > 0) {
+                optContainer.style.display = 'flex';
+                optContainer.innerHTML = '';
+                currentType = payload.type;
+                selectedAnswers = payload.userAnswer || [];
+
+                for (let i = 0; i < payload.options.length; i++) {
+                    // 🚀 核心拦截：如果批次已过期（说明用户快速切题了），立刻中止并抛弃后续所有旧选项！
+                    if (myRenderId !== currentRenderId) return;
+
+                    let opt = payload.options[i];
+                    var card = document.createElement('div');
+                    card.className = 'option-card';
+                    card.id = 'opt-' + opt.id;
+                    if (selectedAnswers.includes(opt.id)) card.classList.add('selected');
+
+                    var prefix = document.createElement('div');
+                    prefix.className = 'option-prefix';
+                    prefix.innerText = opt.displayId + ".";
+                    card.appendChild(prefix);
+
+                    var content = document.createElement('div');
+                    content.className = 'option-content vditor-reset';
+                    card.appendChild(content);
+
+                    optContainer.appendChild(card);
+
+                    // 选项的公式仍然排队渲染，防止内部引擎冲突
+                    await new Promise(resolve => {
+                        Vditor.preview(content, opt.md, {
+                            mode: 'light', cdn: localBasePath, math: { engine: 'KaTeX', inlineDigit: true }, after: resolve
+                        });
+                    });
+
+                    card.onclick = () => handleSelect(opt.id);
+                }
+            } else {
+                optContainer.style.display = 'none';
+            }
+        } catch(e) { console.error("渲染失败:", e); }
+    }
+
+    // 3. 处理点击并通知 C++
+    function handleSelect(optId) {
+        if (currentType === 'single') {
+            selectedAnswers = [optId];
+            document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+            document.getElementById('opt-' + optId).classList.add('selected');
+        } else if (currentType === 'multi') {
+            var idx = selectedAnswers.indexOf(optId);
+            if (idx > -1) {
+                selectedAnswers.splice(idx, 1);
+                document.getElementById('opt-' + optId).classList.remove('selected');
+            } else {
+                selectedAnswers.push(optId);
+                document.getElementById('opt-' + optId).classList.add('selected');
+            }
+            selectedAnswers.sort();
+        }
+        // 🚀 黑科技降维打击：强行拼接上【真实题号】和【时间戳】！
+        // 即使连续两道题都选 A，Title 也会因为时间戳不同而强制触发 Qt 信号！
+        document.title = "ANS:" + currentQIndex + "|" + JSON.stringify(selectedAnswers) + "|" + Date.now();
+    }
+</script>
+</body>
+</html>

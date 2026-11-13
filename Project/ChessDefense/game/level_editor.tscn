@@ -1,0 +1,363 @@
+[gd_scene format=3 uid="uid://c2v3k8n7m8qw4"]
+
+[ext_resource type="Script" path="res://level_editor.gd" id="1_u3k5m"]
+
+[node name="LevelEditor" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_u3k5m")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.85, 0.85, 0.88, 1)
+
+[node name="MainContainer" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="LeftScrollContainer" type="ScrollContainer" parent="MainContainer"]
+custom_minimum_size = Vector2(270, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="LeftPanel" type="VBoxContainer" parent="MainContainer/LeftScrollContainer"]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel"]
+layout_mode = 2
+text = "关卡编辑器"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 22
+
+[node name="HSep0" type="HSeparator" parent="MainContainer/LeftScrollContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="SizeContainer" type="VBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel"]
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_constants/separation = 4
+
+[node name="SizeLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/SizeContainer"]
+layout_mode = 2
+text = "地图尺寸"
+theme_override_font_sizes/font_size = 14
+
+[node name="SizeXRow" type="HBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel/SizeContainer"]
+layout_mode = 2
+
+[node name="LabelX" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/SizeContainer/SizeXRow"]
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+text = "宽度："
+
+[node name="SizeX" type="SpinBox" parent="MainContainer/LeftScrollContainer/LeftPanel/SizeContainer/SizeXRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 3.0
+max_value = 20.0
+value = 6.0
+
+[node name="SizeYRow" type="HBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel/SizeContainer"]
+layout_mode = 2
+
+[node name="LabelY" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/SizeContainer/SizeYRow"]
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+text = "高度："
+
+[node name="SizeY" type="SpinBox" parent="MainContainer/LeftScrollContainer/LeftPanel/SizeContainer/SizeYRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 3.0
+max_value = 20.0
+value = 5.0
+
+[node name="ApplySize" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/SizeContainer"]
+layout_mode = 2
+text = "应用尺寸"
+
+[node name="HSep1" type="HSeparator" parent="MainContainer/LeftScrollContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="ModeTabContainer" type="TabContainer" parent="MainContainer/LeftScrollContainer/LeftPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="地形编辑" type="VBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TerrainLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/地形编辑"]
+layout_mode = 2
+text = "笔刷类型："
+
+[node name="TerrainOption" type="OptionButton" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/地形编辑"]
+layout_mode = 2
+
+[node name="TerrainTip" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/地形编辑"]
+layout_mode = 2
+text = "点击或拖拽涂抹地形"
+autowrap_mode = 2
+theme_override_font_sizes/font_size = 12
+
+[node name="路径绘制" type="VBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PathLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/路径绘制"]
+layout_mode = 2
+text = "已保存路径："
+
+[node name="PathList" type="ItemList" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/路径绘制"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 80)
+
+[node name="NewPathBtn" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/路径绘制"]
+layout_mode = 2
+text = "开始新路径（保存当前）"
+
+[node name="FinishPathBtn" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/路径绘制"]
+layout_mode = 2
+text = "完成当前路径"
+
+[node name="ClearPathBtn" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/路径绘制"]
+layout_mode = 2
+text = "清空所有路径"
+
+[node name="PathTip" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/路径绘制"]
+layout_mode = 2
+text = "依次点击格子添加节点\n拖拽可连续绘制"
+autowrap_mode = 2
+theme_override_font_sizes/font_size = 12
+
+[node name="出怪点" type="VBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SpawnLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/出怪点"]
+layout_mode = 2
+text = "已标记出怪点："
+
+[node name="SpawnList" type="ItemList" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/出怪点"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 80)
+
+[node name="ClearSpawnBtn" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/出怪点"]
+layout_mode = 2
+text = "清空所有出怪点"
+
+[node name="SpawnTip" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/出怪点"]
+layout_mode = 2
+text = "点击格子标记/取消出怪点"
+autowrap_mode = 2
+theme_override_font_sizes/font_size = 12
+
+[node name="基地位置" type="VBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="BaseLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/基地位置"]
+layout_mode = 2
+text = "已标记基地："
+
+[node name="BaseList" type="ItemList" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/基地位置"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 80)
+
+[node name="ClearBaseBtn" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/基地位置"]
+layout_mode = 2
+text = "清空所有基地"
+
+[node name="BaseTip" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/基地位置"]
+layout_mode = 2
+text = "点击格子标记/取消基地位置\n（绿色格子为基地）"
+autowrap_mode = 2
+theme_override_font_sizes/font_size = 12
+
+[node name="波次配置" type="VBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="WaveLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置"]
+layout_mode = 2
+text = "波次列表："
+
+[node name="WaveList" type="ItemList" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 60)
+
+[node name="WaveBtnRow" type="HBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置"]
+layout_mode = 2
+
+[node name="AddWaveBtn" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置/WaveBtnRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "添加波次"
+
+[node name="RemoveWaveBtn" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置/WaveBtnRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "删除波次"
+
+[node name="HSepW" type="HSeparator" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置"]
+layout_mode = 2
+
+[node name="WaveDetailLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置"]
+layout_mode = 2
+text = "当前波次编辑："
+
+[node name="EnemyTypeRow" type="HBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置"]
+layout_mode = 2
+
+[node name="EnemyTypeLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置/EnemyTypeRow"]
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+text = "敌人类型"
+
+[node name="EnemyTypeOption" type="OptionButton" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置/EnemyTypeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EnemyCountRow" type="HBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置"]
+layout_mode = 2
+
+[node name="EnemyCountLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置/EnemyCountRow"]
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+text = "数量"
+
+[node name="EnemyCountSpin" type="SpinBox" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置/EnemyCountRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 1.0
+max_value = 50.0
+value = 5.0
+
+[node name="SpawnIntervalRow" type="HBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置"]
+layout_mode = 2
+
+[node name="SpawnIntervalLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置/SpawnIntervalRow"]
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+text = "出怪间隔"
+
+[node name="SpawnIntervalSpin" type="SpinBox" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置/SpawnIntervalRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.1
+max_value = 10.0
+step = 0.1
+value = 1.0
+
+[node name="WaveIntervalRow" type="HBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置"]
+layout_mode = 2
+
+[node name="WaveIntervalLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置/WaveIntervalRow"]
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+text = "波次间隔"
+
+[node name="WaveIntervalSpin" type="SpinBox" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置/WaveIntervalRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 1.0
+max_value = 60.0
+step = 0.5
+value = 10.0
+
+[node name="SaveWaveBtn" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/ModeTabContainer/波次配置"]
+layout_mode = 2
+text = "保存当前波次"
+
+[node name="HSep2" type="HSeparator" parent="MainContainer/LeftScrollContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="ActionContainer" type="VBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ExportBtn" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/ActionContainer"]
+layout_mode = 2
+text = "导出 JSON"
+
+[node name="ImportBtn" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/ActionContainer"]
+layout_mode = 2
+text = "导入 JSON"
+
+[node name="BackBtn" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/ActionContainer"]
+layout_mode = 2
+text = "返回选关"
+
+[node name="HSep4" type="HSeparator" parent="MainContainer/LeftScrollContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="PreviewContainer" type="VBoxContainer" parent="MainContainer/LeftScrollContainer/LeftPanel"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="PreviewLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/PreviewContainer"]
+layout_mode = 2
+text = "预览"
+theme_override_font_sizes/font_size = 14
+
+[node name="PreviewBtn" type="Button" parent="MainContainer/LeftScrollContainer/LeftPanel/PreviewContainer"]
+layout_mode = 2
+text = "显示路径预览"
+
+[node name="InfoLabel" type="Label" parent="MainContainer/LeftScrollContainer/LeftPanel/PreviewContainer"]
+layout_mode = 2
+text = "地图信息将在此显示"
+theme_override_font_sizes/font_size = 11
+autowrap_mode = 2
+
+[node name="VSeparator" type="VSeparator" parent="MainContainer"]
+layout_mode = 2
+
+[node name="GridScrollContainer" type="ScrollContainer" parent="MainContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+clip_contents = true
+
+[node name="GridDisplay" type="GridContainer" parent="MainContainer/GridScrollContainer"]
+layout_mode = 2
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 6
+
+[node name="FileDialog" type="FileDialog" parent="."]
+title = "文件操作"
+initial_position = 2
+size = Vector2i(800, 600)
+ok_button_text = "确认"
+file_mode = 0
+access = 2
+filters = PackedStringArray("*.json ; JSON 关卡文件")

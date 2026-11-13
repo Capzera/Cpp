@@ -1,0 +1,112 @@
+[gd_scene format=3 uid="uid://main_level_2"]
+
+[ext_resource type="PackedScene" uid="uid://da28rglvlwvak" path="res://operator.tscn" id="2_0xm2m"]
+[ext_resource type="Script" uid="uid://cojdovgeffeiu" path="res://hud.gd" id="3_1bvp3"]
+[ext_resource type="PackedScene" uid="uid://bv86swkk4ffhw" path="res://enemy.tscn" id="3_h2yge"]
+[ext_resource type="PackedScene" uid="uid://duwdm4cv5p0f6" path="res://card_button.tscn" id="3_lquwl"]
+[ext_resource type="PackedScene" path="res://queen.tscn" id="4_queen"]
+[ext_resource type="PackedScene" path="res://enemy_runner.tscn" id="5_runner"]
+[ext_resource type="PackedScene" path="res://enemy_tank.tscn" id="6_tank"]
+[ext_resource type="Script" path="res://level_config_2.gd" id="7_cfg"]
+[ext_resource type="Script" path="res://wave_manager_2.gd" id="8_wave"]
+[ext_resource type="Script" path="res://level_init.gd" id="9_init"]
+
+[sub_resource type="CardStats" id="CardStats_king"]
+piece_type = "King"
+deploy_cost = 0
+max_hp = 600
+physical_atk = 0
+physical_def = 15
+attack_interval = 99.0
+block_count = 99
+range_map = "O"
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_king"]
+
+[node name="Node3D" type="Node3D"]
+script = ExtResource("7_cfg")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.70710677, 0.49999997, -0.49999997, 0, 0.70710677, 0.70710677, 0.70710677, -0.49999997, 0.49999997, 0, 0, 0)
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.70710677, 0.70710677, 0, -0.70710677, 0.70710677, 0, 8, 8)
+fov = 87.1875
+
+[node name="ChessBoard" type="ChessBoard" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.9999998, 0, 0, 0, 0.9999998, 0, -1, 0)
+columns = 6
+rows = 5
+base_grid = Vector2i(0, 4)
+
+[node name="WaveManager2" type="Node" parent="."]
+script = ExtResource("8_wave")
+enemy_scene = ExtResource("3_h2yge")
+runner_scene = ExtResource("5_runner")
+tank_scene = ExtResource("6_tank")
+wave_interval = 9.0
+spawn_interval = 0.7
+first_wait = 2.5
+
+[node name="King" type="ChessPiece" parent="."]
+stats = SubResource("CardStats_king")
+is_king = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0, 4)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="King"]
+mesh = SubResource("CapsuleMesh_king")
+
+[node name="BattleManager" type="BattleManager" parent="."]
+
+[node name="PlayerController" type="PlayerController" parent="."]
+
+[node name="LevelInit" type="Node" parent="."]
+script = ExtResource("9_init")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("3_1bvp3")
+
+[node name="UI_Root" type="Control" parent="HUD"]
+layout_mode = 3
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="EconomyContainer" type="VBoxContainer" parent="HUD/UI_Root"]
+layout_mode = 0
+offset_left = 1073.0
+offset_top = -137.0
+offset_right = 1113.0
+offset_bottom = -56.0
+scale = Vector2(1.8, 1.6400025)
+
+[node name="MoneyLable" type="Label" parent="HUD/UI_Root/EconomyContainer"]
+layout_mode = 2
+
+[node name="ProgressBar" type="ProgressBar" parent="HUD/UI_Root/EconomyContainer"]
+custom_minimum_size = Vector2(0, 4)
+layout_mode = 2
+show_percentage = false
+
+[node name="MoneyGrowthRateLable" type="Label" parent="HUD/UI_Root/EconomyContainer"]
+layout_mode = 2
+
+[node name="CardSlot" type="HBoxContainer" parent="HUD/UI_Root"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = -155.0
+offset_right = 253.0
+offset_bottom = -35.0
+scale = Vector2(1.1773942, 1.2400026)
+alignment = 1
+
+[node name="PawnCard" parent="HUD/UI_Root/CardSlot" instance=ExtResource("3_lquwl")]
+layout_mode = 2
+op_scene = ExtResource("2_0xm2m")
+
+[node name="QueenCard" parent="HUD/UI_Root/CardSlot" instance=ExtResource("3_lquwl")]
+layout_mode = 2
+op_scene = ExtResource("4_queen")

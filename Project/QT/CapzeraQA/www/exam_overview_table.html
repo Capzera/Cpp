@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link href="./tabulator/tabulator.min.css" rel="stylesheet">
+    <script type="text/javascript" src="./tabulator/tabulator.min.js"></script>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+        html, body { height: 100%; margin: 0; padding: 10px; box-sizing: border-box; font-family: "HYWenHei-65W", sans-serif; background: transparent; overflow: hidden; }
+        
+        .tabulator { 
+            border: none !important; background: #FFFFFF !important; font-size: 18px;
+            font-family: "HYWenHei-65W", sans-serif !important; border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(148, 163, 184, 0.08); overflow: hidden;
+        }
+        .tabulator-header { background: #DEEAFC !important; border-bottom: 2px solid #CBD5E1 !important; border-top: none !important; }
+        .tabulator-col {
+            background: transparent !important;
+            border-right: none !important;
+            border-left: none !important;
+            padding: 16px 12px !important;
+            color: #1E293B !important;
+            font-weight: bold !important;
+            font-size: 20px !important;
+        }
+        .tabulator-col-title {
+            color: #1E293B !important;
+            font-family: "HYWenHei-85W", sans-serif !important;
+            font-size: 20px;
+        }
+        .tabulator-row { border-bottom: 1px solid #F1F5F9 !important; border-left: 4px solid transparent !important; border-right: none !important; transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer;}
+        .tabulator-row:nth-child(odd) { background-color: #FFFFFF !important; } 
+        .tabulator-row:nth-child(even) { background-color: #F8FAFC !important; } 
+        
+        .tabulator-cell { padding: 16px 14px !important; border-right: none !important; border-left: none !important; color: #334155; vertical-align: middle !important; }
+        
+        .tabulator-row:hover { background-color: #F0F9FF !important; box-shadow: 0 6px 18px rgba(59, 130, 246, 0.06); transform: translateY(-1px); z-index: 10; position: relative; border-left-color: #93C5FD !important; }
+        .tabulator-row.tabulator-selected { background-color: #E0F2FE !important; border-left: 4px solid #3B82F6 !important; font-weight: bold; }
+        
+        .switch-container { display: inline-flex; justify-content: center; align-items: center; vertical-align: middle; }
+        .switch { position: relative; display: inline-block; width: 46px; height: 26px; margin-right: 10px;}
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #E2E8F0; transition: .3s; border-radius: 26px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        input:checked + .slider { background-color: #10B981; }
+        input:checked + .slider:before { transform: translateX(20px); }
+    </style>
+</head>
+<body>
+    <div id="overview-table"></div>
+    <script>
+        var table; var cplusBridge = null;
+        if (typeof qt !== 'undefined') { new QWebChannel(qt.webChannelTransport, function(channel) { cplusBridge = channel.objects.examOverviewBridge; }); }
+        
+        var countFmt = function(cell) { return "<span style='color:#3B82F6;font-weight:bold; font-family:Consolas; font-size:18px;'>" + cell.getValue() + " 题</span>"; };
+        
+        var statusFmt = function(cell) { 
+            var isChecked = (cell.getValue() === "启用") ? "checked" : "";
+            var rowData = cell.getRow().getData();
+            return `<div class="switch-container" onclick="event.stopPropagation();">
+                        <label class='switch'>
+                            <input type='checkbox' ${isChecked} onchange='toggleExamStatus("${rowData.examId}", this.checked)'>
+                            <span class='slider'></span>
+                        </label>
+                        <span style="color:${isChecked ? '#10B981' : '#94A3B8'}; font-weight:bold; font-size:15px; min-width:40px; text-align:left;">
+                            ${isChecked ? '启用' : '禁用'}
+                        </span>
+                    </div>`;
+        };
+
+        function toggleExamStatus(examId, isEnabled) { if(cplusBridge) { cplusBridge.webSignalToggleExamStatus(examId, isEnabled); } }
+
+        table = new Tabulator("#overview-table", {
+            height: "100%", layout: "fitColumns", selectable: 1,
+            placeholder: "<span style='color:#94A3B8; font-weight:bold;'>⏳ 暂无已发布的试卷</span>",
+            columns: [
+                {title: "试卷编号", field: "examId", width: 220, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "试卷名称", field: "title", width: 700, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "目标班级", field: "targetClass", width: 170, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "考场状态", field: "status", formatter: statusFmt, width: 220, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "题目总数", field: "qCount", formatter: countFmt, width: 220, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "开考时间", field: "startTime", width: 280, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "结束时间", field: "endTime", hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false}
+            ],
+        });
+
+        table.on("rowClick", function(e, row) { if (cplusBridge) cplusBridge.onWebOverviewRowClicked(row.getData().examId); });
+
+        function loadTableData(b64Str) { 
+            try {
+                var jsonStr = new TextDecoder("utf-8").decode(Uint8Array.from(atob(b64Str), c => c.charCodeAt(0)));
+                table.replaceData(JSON.parse(jsonStr)); 
+            } catch (err) { console.error("数据解码失败:", err); }
+        }
+    </script>
+</body>
+</html>

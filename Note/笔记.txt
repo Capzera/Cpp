@@ -1,0 +1,10 @@
+元组 列表 字典
+
+n = int(input())
+a = int(input())
+b = int(input())
+c = int(input())
+d = int(input())
+e = int(input())
+ans = a + b + c + d + e
+print(ans)

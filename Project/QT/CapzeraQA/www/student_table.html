@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link href="./tabulator/tabulator.min.css" rel="stylesheet">
+    <script type="text/javascript" src="./tabulator/tabulator.min.js"></script>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <style>
+        /* 原神牛逼字体注入 */
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+
+        html, body { height: 100%; margin: 0; padding: 10px; box-sizing: border-box; font-family: "HYWenHei-65W", "Microsoft YaHei", sans-serif; background: transparent; overflow: hidden; }
+
+        /* 单元格 */
+        .tabulator {
+            border: none !important;
+            background: transparent !important;
+            font-size: 16px;
+            font-family: "HYWenHei-65W", sans-serif !important;
+        }
+
+        /* 表头 */
+        .tabulator-header {
+            background: #DEEAFC !important;
+            border: none !important;
+            border-radius: 10px 10px 0 0;
+        }
+        .tabulator-col {
+            background: #DEEAFC !important;
+            border-right: none !important;
+            padding: 12px 4px !important;
+        }
+        .tabulator-col-title {
+            color: #1E293B !important;
+            font-family: "HYWenHei-85W", sans-serif !important;
+            font-size: 20px;
+        }
+
+        /* 数据行 */
+        .tabulator-tableHolder {
+            background: transparent !important;
+        }
+        .tabulator-row {
+            border: none !important;
+            background-color: #FFFFFF !important;
+            margin-bottom: 8px !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 12px rgba(148, 163, 184, 0.05);
+            transition: all 0.2s ease;
+        }
+        .tabulator-row.tabulator-row-even {
+            background-color: #FFFFFF !important;
+        }
+
+        .tabulator-row:nth-child(odd) { background-color: #FFFFFF !important; } /* 奇数行：纯白 */
+        .tabulator-row:nth-child(even) { background-color: #F8FAFC !important; } /* 偶数行：柔和浅灰 */
+
+        /* 鼠标悬浮 */
+        .tabulator-row:hover {
+            background-color: #F0F7FF !important;
+            transform: translateX(4px);
+        }
+        .tabulator-cell {
+            border-right: none !important;
+            padding: 14px 10px !important;
+            color: #334155;
+            display: flex;
+            align-items: center;
+        }
+
+        /* 标签与文本美化 */
+        .class-pill { background: #E0E7FF; color: #1D4ED8; padding: 4px 12px; border-radius: 12px; font-size: 16px; font-weight: bold; }
+        .class-unassigned { background: #F1F5F9; color: #64748B; padding: 4px 12px; border-radius: 12px; font-size: 16px; }
+        .time-text { color: #64748B; font-family: Consolas, monospace; font-size: 16px; }
+        .active-text { color: #10B981; font-family: Consolas, monospace; font-size: 16px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="student-table"></div>
+
+    <script>
+        var table;
+        var cplusBridge = null;
+
+        if (typeof qt !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+                cplusBridge = channel.objects.studentTableBridge;
+            });
+        }
+
+        var classFormatter = function(cell) {
+            var val = cell.getValue();
+            var cls = (val === "未分班" || !val) ? "class-unassigned" : "class-pill";
+            return "<span class='" + cls + "'>" + (val || "未分班") + "</span>";
+        };
+
+        var timeFormatter = function(cell) {
+            return "<span class='time-text'>" + (cell.getValue() || "暂无记录") + "</span>";
+        };
+
+        var activeFormatter = function(cell) {
+            var val = cell.getValue();
+            return "<span class='" + (val && val !== "" ? "active-text" : "time-text") + "'>" + (val || "从未登录") + "</span>";
+        };
+
+        table = new Tabulator("#student-table", {
+            height: "100%", layout: "fitColumns", selectable: 1,
+            placeholder: "<span style='color:#94A3B8; font-weight:bold; font-family: HYWenHei-85W;'>⏳ 没有找到符合条件的学员</span>",
+            columns: [
+                {title: "UID", field: "account", width: 150, headerSort: false},
+                {title: "学员姓名", field: "name", width: 130, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "归属班级", field: "className", width: 140, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", formatter: classFormatter, headerSort: false},
+                {title: "注册时间", field: "regTime", hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", formatter: timeFormatter, headerSort: false},
+                {title: "最近登录", field: "lastLoginTime", hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", formatter: activeFormatter, headerSort: false}
+            ],
+        });
+
+        table.on("rowClick", function(e, row) {
+            if (cplusBridge) {
+                var originalIndex = row.getData()._index;
+                cplusBridge.onWebRowClicked(originalIndex);
+            }
+        });
+
+        function loadTableData(jsonStr) {
+            try {
+                var data = JSON.parse(decodeURIComponent(escape(atob(jsonStr))));
+                table.setData(data);
+            } catch(e) { console.error("加载学生列表数据失败", e); }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://deck_config"]
+
+[ext_resource type="Script" path="res://deck_config.gd" id="1_deck_config"]
+
+[node name="DeckConfig" type="Control"]
+script = ExtResource("1_deck_config")

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; background: #F8FAFC; font-family: "Microsoft YaHei", sans-serif !important; overflow: hidden; user-select: none; }
+        @font-face {font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype');}
+        @font-face {font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype');}
+
+        /* 将字体名替换进全局配置 */
+        html, body { font-family: "HYWenHei-65W", "Microsoft YaHei", sans-serif !important; }
+        
+        .logo-text, .nav-item, .nav-parent { font-family: "HYWenHei-85W", "Microsoft YaHei", sans-serif !important; }
+		
+        .sidebar-container { display: flex; flex-direction: column; height: 100%; padding: 25px 15px; box-sizing: border-box; }
+        
+        /* 🚀 顶部公司/组织级全称通栏 */
+        .logo-area { display: flex; align-items: center; margin-bottom: 30px; padding: 0 10px; }
+        .logo-icon { font-size: 26px; margin-right: 8px; }
+        .logo-text { font-size: 26px; color: #1E293B; letter-spacing: 0.5px; line-height: 1.3; font-family: "Microsoft YaHei"; }
+        
+        /* 导航菜单主容器 */
+        .nav-menu { flex: 1; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; padding-right: 4px; }
+        
+        /* 🚀 全局高定：大号、微软雅黑、强行加粗菜单项 */
+        .nav-item, .nav-parent { 
+            display: flex; align-items: center; padding: 12px 14px; 
+            border-radius: 10px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            color: #475569; font-size: 20px !important; font-weight: bold !important; font-family: "Microsoft YaHei" !important;
+        }
+        
+        .nav-icon { font-size: 20px; margin-right: 12px; }
+        
+        /* 🚀 专属三角形折叠指示器样式 */
+        .arrow-icon { font-size: 12px; margin-right: 8px; color: #94A3B8; transition: transform 0.2s ease; width: 14px; text-align: center; }
+        
+        /* 悬浮微动效 */
+        .nav-item:hover, .nav-parent:hover { background: #F1F5F9; color: #3B82F6; }
+        
+        /* 🚀 激活选中的高亮样式 */
+        .nav-item.active { background: #E0F2FE; color: #2563EB; }
+        
+        /* 🚀 子菜单归属容器（自带丝滑折叠动画机制） */
+        .nav-children { 
+            max-height: 0; opacity: 0; overflow: hidden; 
+            transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+            display: flex; flex-direction: column; gap: 4px; padding-left: 24px; 
+        }
+        
+        /* 展开状态的激活夹鞭 */
+        .nav-children.expanded { max-height: 200px; opacity: 1; margin-top: 2px; margin-bottom: 4px; }
+        
+        /* 子菜单项的微调字号（保持16px大字，确保呼吸层级） */
+        .nav-children .nav-item { padding: 10px 16px; font-size: 18px !important; font-family: "Microsoft YaHei"; color: #64748B; }
+        .nav-children .nav-item:hover { color: #3B82F6; background: #F8FAFC; }
+        .nav-children .nav-item.active { background: #EFF6FF; color: #2563EB; }
+    </style>
+</head>
+<body>
+    <div class="sidebar-container">
+        <div class="logo-area">
+            <span class="logo-icon">💠</span>
+            <span class="logo-text">量子鸿蒙</span>
+        </div>
+
+        <div class="nav-menu" id="menuList">
+            
+            <div class="nav-item" data-index="0" onclick="switchPage(this)">
+                <span class="nav-icon">⚙️</span><span>个人设置</span>
+            </div>
+            
+            <div class="nav-parent" onclick="toggleSection(this)">
+                <span class="arrow-icon">▶</span><span class="nav-icon">👥</span><span>学生管理</span>
+            </div>
+            <div class="nav-children">
+                <div class="nav-item" data-index="1" onclick="switchPage(this)">学生总览</div>
+                <div class="nav-item" data-index="2" onclick="switchPage(this)">学生设置</div>
+                <div class="nav-item" data-index="3" onclick="switchPage(this)">新增学生</div>
+            </div>
+
+            <div class="nav-parent" onclick="toggleSection(this)">
+                <span class="arrow-icon">▶</span><span class="nav-icon">🏛️</span><span>班级管理</span>
+            </div>
+            <div class="nav-children">
+                <div class="nav-item" data-index="4" onclick="switchPage(this)">班级总览</div>
+                <div class="nav-item" data-index="5" onclick="switchPage(this)">班级调整</div>
+                <div class="nav-item" data-index="6" onclick="switchPage(this)">创建班级</div>
+            </div>
+
+            <div class="nav-item" data-index="7" onclick="switchPage(this)">
+                <span class="nav-icon">📚</span><span>题库管理</span>
+            </div>
+
+            <div class="nav-item" data-index="8" onclick="switchPage(this)">
+                <span class="nav-icon">📝</span><span>测试管理</span>
+            </div>
+
+            <div class="nav-item" data-index="12" onclick="switchPage(this)">
+                <span class="nav-icon">💯</span><span>批阅中心</span>
+            </div>
+
+            <div class="nav-parent" onclick="toggleSection(this)">
+                <span class="arrow-icon">▶</span><span class="nav-icon">📊</span><span>学情分析</span>
+            </div>
+            <div class="nav-children">
+                <div class="nav-item" data-index="9" onclick="switchPage(this)">大屏总览</div>
+                <div class="nav-item" data-index="10" onclick="switchPage(this)">题目分析</div>
+                <div class="nav-item" data-index="11" onclick="switchPage(this)">测试分析</div>
+            </div>
+
+            <div class="nav-item" data-index="13" onclick="switchPage(this)">
+                <span class="nav-icon">📜</span><span>版本日志</span>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        var cplusBridge = null;
+        if (typeof qt !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+                cplusBridge = channel.objects.teacherSidebarBridge;
+            });
+        }
+
+        // 🚀 核心控制：处理父级菜单的一键折叠与展开
+        function toggleSection(parentElement) {
+            var arrow = parentElement.querySelector('.arrow-icon');
+            var childrenContainer = parentElement.nextElementSibling;
+            
+            if (childrenContainer && childrenContainer.classList.contains('nav-children')) {
+                var isExpanded = childrenContainer.classList.toggle('expanded');
+                if (isExpanded) {
+                    arrow.innerText = "▼";
+                    arrow.style.color = "#3B82F6";
+                } else {
+                    arrow.innerText = "▶";
+                    arrow.style.color = "#94A3B8";
+                }
+            }
+        }
+
+        // 🚀 核心控制：处理页面激活切换
+        function switchPage(element) {
+            // 清理全量 active 选中态
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            // 为当前被点击的子项/独立项赋予 active 高亮
+            element.classList.add('active');
+            
+            // 路由透传至 C++ 后台
+            if (cplusBridge) {
+                var targetIndex = parseInt(element.getAttribute('data-index'));
+                cplusBridge.webSignalSwitchPage(targetIndex);
+            }
+        }
+    </script>
+</body>
+</html>

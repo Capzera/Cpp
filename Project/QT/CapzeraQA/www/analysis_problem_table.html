@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link href="./tabulator/tabulator.min.css" rel="stylesheet">
+    <script type="text/javascript" src="./tabulator/tabulator.min.js"></script>
+    <script src="./qwebchannel.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+
+        /* 🚀 启用超级弹性布局，确保下拉框和表格完美分配空间 */
+        html, body { height: 100%; margin: 0; padding: 10px; box-sizing: border-box; font-family: "HYWenHei-65W", sans-serif; background: transparent; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* 🚀 绝美高定下拉框栏 (被回档删掉的代码回来了！) */
+        .top-bar { flex-shrink: 0; display: flex; align-items: center; margin-bottom: 12px; background: #FFFFFF; padding: 12px 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(148, 163, 184, 0.05); }
+        .combo-label { color: #475569; font-weight: bold; font-size: 15px; margin-right: 10px; font-family: "HYWenHei-85W", sans-serif; white-space: nowrap; }
+        .cap-combo { flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-family: "HYWenHei-65W", sans-serif; font-size: 15px; color: #1E293B; outline: none; transition: all 0.2s ease; cursor: pointer; background: #F8FAFC; }
+        .cap-combo:focus, .cap-combo:hover { border-color: #3B82F6; background: #FFFFFF; }
+
+        /* 表格容器弹性撑满 */
+        #table-container { flex: 1; min-height: 0; width: 100%; }
+
+        .tabulator { border: none !important; background: transparent !important; font-size: 17px; font-family: "HYWenHei-65W", sans-serif !important; }
+        .tabulator-header { background: #DEEAFC !important; border: none !important; border-radius: 10px 10px 0 0; }
+        .tabulator-col { background: #DEEAFC !important; border-right: none !important; padding: 12px 4px !important; }
+        .tabulator-col-title { color: #1E293B !important; font-family: "HYWenHei-85W", sans-serif !important; font-size: 16px; }
+        .tabulator-tableHolder { background: transparent !important; }
+        .tabulator-row { border: none !important; background-color: #FFFFFF !important; margin-bottom: 8px !important; border-radius: 8px !important; box-shadow: 0 4px 12px rgba(148, 163, 184, 0.05); transition: all 0.2s ease; }
+        .tabulator-row:hover { background-color: #F0F7FF !important; transform: translateX(4px); }
+        .tabulator-cell { border-right: none !important; padding: 14px 10px !important; color: #334155; display: flex; align-items: center; }
+
+        .type-badge { padding: 4px 10px; border-radius: 6px; font-size: 14px; font-weight: bold; }
+        .type-single { background: #E0E7FF; color: #1D4ED8; }
+        .type-multi { background: #FEF3C7; color: #B45309; }
+        .type-fill { background: #DCFCE7; color: #047857; }
+        .type-code { background: #F3E8FF; color: #7E22CE; }
+        .rate-text { font-family: Consolas, monospace; font-weight: bold; color: #0F172A; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="combo-label">📌 请选择测验场次：</div>
+        <select id="exam-combo" class="cap-combo" onchange="if(cplusBridge) cplusBridge.onExamIndexChanged(parseInt(this.value));"></select>
+    </div>
+
+    <div id="table-container"></div>
+    <script>
+        var table;
+        var cplusBridge = null;
+        if (typeof qt !== 'undefined') new QWebChannel(qt.webChannelTransport, function(channel) { cplusBridge = channel.objects.analysisProblemTableBridge; });
+
+        var typeFormatter = function(cell) {
+            var val = cell.getValue();
+            var cls = val.includes("单选") ? "type-single" : (val.includes("多选") ? "type-multi" : (val.includes("填空") ? "type-fill" : "type-code"));
+            return "<span class='type-badge " + cls + "'>" + val + "</span>";
+        };
+
+        table = new Tabulator("#table-container", {
+            height: "100%", layout: "fitColumns", selectable: 1,
+            placeholder: "<span style='color:#94A3B8; font-weight:bold; font-family: HYWenHei-85W;'>⏳ 请先选择一份试卷</span>",
+            columns: [
+                {title: "题目UID", field: "id", hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", width: 140, headerSort: false},
+                {title: "题型", field: "type", hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", width: 180, formatter: typeFormatter, headerSort: false},
+                {title: "得分率 / 均分", field: "rate", hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", cssClass: "rate-text", headerSort: false}
+            ],
+        });
+
+        table.on("rowClick", function(e, row) { if (cplusBridge) cplusBridge.onWebRowClicked(row.getData()._index); });
+
+        function loadTableData(jsonStr) {
+            try { table.setData(JSON.parse(decodeURIComponent(escape(atob(jsonStr))))); } catch(e) { console.error("加载数据失败", e); }
+        }
+
+        // 🚀 被找回的加载下拉框核心函数！
+        function loadExamCombo(b64Str) {
+            try {
+                let titles = JSON.parse(decodeURIComponent(escape(atob(b64Str))));
+                let combo = document.getElementById('exam-combo');
+                combo.innerHTML = '';
+                titles.forEach((t, i) => {
+                    let opt = document.createElement('option');
+                    opt.value = i; opt.innerText = t;
+                    combo.appendChild(opt);
+                });
+            } catch(e) { console.error("渲染下拉框失败", e); }
+        }
+    </script>
+</body>
+</html>

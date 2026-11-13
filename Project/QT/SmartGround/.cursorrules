@@ -1,0 +1,61 @@
+# SmartGround Project Rules (C++ Qt6)
+
+## 0. 快速启动指令 (SmartGround 新对话恢复记忆)
+当在本项目开启新对话时，先读取以下资料：
+1. docs/ProjectSummary.md：项目状态和核心问题。
+2. Cursor_Workflow.md：动画分镜工作流与视觉设计要求。
+3. docs/DevGuide.md：架构和模块开发流程。
+4. docs/ModuleStatus.md：模块实现状态和优先级。
+5. docs/outlines.md：算法教学需求。
+6. docs/BugLog.md：已知问题与修复记录。
+7. 未经用户确认动画分镜，不得开始新算法模块的 C++ 实现。
+## 1. 核心代码规范 (极度重要)
+*   **绝对禁止添加任何代码注释** (包括 `//` 和 `/* */`)。
+*   **保持标准缩进与换行**：函数之间空一行，语句块内部保持清晰的缩进（4空格），代码应该紧凑但可读。
+*   **禁止冗余空行**：函数内部连续逻辑之间不要有多余空行，但函数与函数之间必须空一行。
+*   底层算法实现必须严格采用 **C++ 信息学奥赛 (CSP-J/S, NOIP) 的竞赛模板风格**。例如：尽量静态一维数组模拟链表 (`head`, `to`, `nxt`)、模拟栈 (`stk[N]`, `top`)、模拟队列 (`q[N]`, `head`, `tail`)，减少使用 STL 容器（如 `std::stack`, `std::queue`）来做底层演示逻辑，但是遇到std::map, std::set这种好用的，无可替代的容器可以减少代码量的，该用就得用。
+
+## 2. 架构与模块化原则
+*   **单一职责（一课一模块）**：绝对不允许将不同的算法概念杂糅在一个模块中。哪怕逻辑非常相似（如二分查找的闭区间和左闭右开），也必须拆分为完全独立的两个类。
+*   所有算法模块必须继承自 `IModule` 接口。
+*   派生模块统一使用基类 IModule::m_scene，禁止声明同名场景指针。
+*   必须实现 `m_animated` 动画锁机制：当 `m_animated = false` 时，渲染引擎必须瞬间完成图元状态的更新与位移，**绝对不允许**创建或触发任何 `QPropertyAnimation`，以保证“撤销（上一步）”功能的极速重绘。
+
+## 3. 回复与代码交付格式
+*   **新建文件**：告诉我新建文件的名称，并直接对代码替换即可，并告诉我你已经完成了。注意：绝对不要输出全量代码，以减少你的Token消耗。
+*   **修改现有文件**：绝对不要输出全量代码。只需告诉我修改了哪个文件的哪个函数，并直接对代码替换即可。
+
+## 4. 动画架构重构规约 (DRY 原则)
+*   **严禁在子类中硬编码动画**：不允许在每个 Module 的 `renderFrame` 中反复手写 `QPropertyAnimation` 和 `FloatingText` 的创建逻辑。
+*   **提取公共动画引擎**：后续开发中，若遇到“数值飞入互换(Swap)”、“数值覆盖(Shift)”、“指针移动(PointerMove)”等通用视觉效果，Cursor 必须先将这些逻辑提取到 `IModule` 基类或独立的 `AnimEngine` 工具类中封装成公共函数（例如 `playSwapAnim(b1, b2)`）。
+*   **子类只负责调用**：子类的 `renderFrame` 应该非常清爽，只负责解析 `ActionType` 并调用基类的动画接口。
+## 5. 跨会话项目约束与缺陷日志
+*   本文件是 SmartGround 项目规则的原始依据；AGENTS.md 与 .cursor/rules/smartground-project.mdc 用于让 Codex 和 Cursor 在新会话中持续读取这些约束。
+*   每次修复缺陷或调整模块状态，都必须同步更新 docs/BugLog.md、docs/ModuleStatus.md 和 docs/ProjectSummary.md。
+
+## 6. 协作模式：PM 授权 + 批量执行（重要）
+*   **用户是项目经理（Rodriguez）**：只关注最终效果与质量，不参与实现细节。Cursor 承担完整的技术决策与执行责任。
+*   **全自动执行，禁止中途打断**：收到一批修改要求后，必须一次性完成「评估 → 编码 → 编译 → 测试 → 文档同步」全流程，**禁止**在中途停下来询问「是否继续 / 是否要这样改 / 是否可以开始」。除非遇到以下硬阻塞才允许提问：
+    *   需要引入外部第三方库、插件或网络依赖（必须先出方案供用户遴选）。
+    *   需求之间存在互斥冲突且无法自行消解。
+    *   涉及破坏用户本地数据或删除已有资产的破坏性操作。
+*   **批量合并策略**：用户常在同一轮提出 10+ 条建议。必须先自行评估，把能够合并到同一处改动的需求打包一次性完成，禁止逐条串行交付。推荐拆分为：「底层重构类」「视觉/UI 类」「交互/动画类」「文档类」四组同批落地。
+*   **优先改源码而非引依赖**：能用现有代码 + 少量自研实现的，一律直接改源码。只有当自研成本极高且社区已有成熟方案时，才写文字方案让用户从选项中遴选。
+*   **自研优先于外部库**：本项目 UI 已全面自研（`src/ui/widgets/` + `src/ui/UiTheme.h`），保持零第三方依赖，避免 Qt 版本绑定与打包体积膨胀。
+
+## 7. UI 控件规范（自研，禁止回退原生控件）
+*   控件库位置：`src/ui/widgets/`，设计令牌位于 `src/ui/UiTheme.h`。
+    *   `MyButton`（Solid / Soft / Ghost 三种变体）、`MyToggleSwitch`（iOS 风格滑动开关）、`MyRadioButton`、`MyCheckBox`、`MyComboBox`（自绘下拉浮层）、`MyTextEdit`、`MyCollapsible`（可折叠面板，带流线高度动画）。
+*   **新增控件一律自绘**：不得再使用 `QPushButton` / `QRadioButton` / `QCheckBox` / `QComboBox` / `QTextEdit` 等原生控件直接呈现给用户。
+*   所有颜色、圆角、间距、字体必须取自 `UiTheme`，禁止在业务代码里写死十六进制色值。
+*   字体统一使用 `UiTheme::uiFont()` / `UiTheme::monoFont()`，并开启 `PreferQuality` 渲染策略，避免文字锐化过度出现棱角。
+
+## 8. 画布与网格规范
+*   画布居中与缩放统一走 `src/core/ViewportFitter.h`（`fitInView` + 缩放上下限 + `centerOn`），禁止在 `MainWindow` 里手写变换矩阵。
+*   隐形对齐网格由 `src/render/SceneGrid.h` 统一管理：`magneticAlign()` 做节点间磁吸对齐，`snapToCell()` 做单元格吸附，按住 `Ctrl` 临时关闭吸附自由拖动。
+*   图节点必须通过 `node->addEdge(edge)` 注册边，否则拖动节点会导致画布撕裂。
+
+## 9. 全局接口前瞻性设计
+*   允许（且鼓励）在全局类中预先声明尚未实现的虚接口，供未来模块直接复用，例如 `IModule` 中的 `getCategoryName()`、`getComplexityNote()`、`getTeachingTip()`、`getStepCost()`、`validateInput()`、`onCanvasDoubleClick()`、`applyTheme()`。
+*   允许在全局类中预置 `TODO` 语义的方法骨架（空实现 + 默认返回值），保证子类可选择性覆盖。
+*   开发阶段不追求代码精简；项目整体完工后再统一做删减与瘦身。

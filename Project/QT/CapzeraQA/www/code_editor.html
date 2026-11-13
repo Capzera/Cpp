@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #1E1E1E; }
+        #editor-container { width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+    <div id="editor-container"></div>
+    <script src="./monaco/vs/loader.js"></script>
+    <script>
+        // 核心寻路：告诉 AMD 加载器去哪里找 Monaco 的核心文件
+        require.config({ paths: { 'vs': './monaco/vs' } });
+        
+        var editor = null;
+        require(['vs/editor/editor.main'], function() {
+            // 初始化 VSCode 级编辑器
+            editor = monaco.editor.create(document.getElementById('editor-container'), {
+                value: "// 👈 请在左侧选择一份需要人工批阅的代码答卷",
+                language: 'cpp',
+                theme: 'vs-dark', // 极其炫酷的暗黑主题
+                readOnly: true,   // 教师批阅不可篡改学生原始代码
+                automaticLayout: true,
+                fontSize: 16,
+                fontFamily: 'Consolas, "Courier New", monospace',
+                minimap: { enabled: false }, // 批阅时关掉右侧缩略图以节省空间
+                scrollBeyondLastLine: false,
+                wordWrap: "on",
+                renderLineHighlight: "all",
+                smoothScrolling: true
+            });
+        });
+
+        // 供 C++ 调用的注入接口
+        function setCode(b64Code, lang) {
+            if (editor) {
+                var code = decodeURIComponent(escape(atob(b64Code)));
+                editor.setValue(code);
+                monaco.editor.setModelLanguage(editor.getModel(), lang || 'cpp');
+            } else {
+                // 如果引擎还没加载完就收到指令，进入轮询等待
+                setTimeout(function() { setCode(b64Code, lang); }, 100);
+            }
+        }
+    </script>
+</body>
+</html>

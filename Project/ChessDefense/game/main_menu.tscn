@@ -1,0 +1,85 @@
+[gd_scene format=3 uid="uid://d1k7vpkgwkr27"]
+
+[ext_resource type="Script" uid="uid://dpwj8r1g6ptmj" path="res://main_menu.gd" id="1_06t4h"]
+
+[sub_resource type="SystemFont" id="SystemFont_abi3o"]
+font_names = PackedStringArray("Consolas")
+hinting = 2
+
+[sub_resource type="LabelSettings" id="LabelSettings_ifow5"]
+font = SubResource("SystemFont_abi3o")
+font_size = 60
+
+[sub_resource type="SystemFont" id="SystemFont_06t4h"]
+font_names = PackedStringArray("Microsoft YaHei")
+
+[node name="MainMenu" type="Control" unique_id=1953108572]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_06t4h")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=892763324]
+propagate_maximum_size = true
+layout_mode = 0
+offset_left = 1.0
+offset_top = 2.0
+offset_right = 1148.0
+offset_bottom = 651.0
+color = Color(0.37413925, 0.37413928, 0.37413922, 1)
+
+[node name="TitleLabel" type="Label" parent="." unique_id=252011526]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -214.0
+offset_top = 50.0
+offset_right = 215.0
+offset_bottom = 111.0
+grow_horizontal = 2
+text = "Chess Defense"
+label_settings = SubResource("LabelSettings_ifow5")
+horizontal_alignment = 1
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1368370594]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -76.0
+offset_top = -362.0
+offset_right = 76.0
+offset_bottom = -50.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 28
+
+[node name="StartButton" type="Button" parent="VBoxContainer" unique_id=332454650]
+layout_mode = 2
+theme_override_fonts/font = SubResource("SystemFont_06t4h")
+theme_override_font_sizes/font_size = 36
+text = "开始游戏"
+
+[node name="OptionsButton" type="Button" parent="VBoxContainer" unique_id=501526840]
+layout_mode = 2
+theme_override_fonts/font = SubResource("SystemFont_06t4h")
+theme_override_font_sizes/font_size = 36
+text = "选项"
+
+[node name="HelpButton" type="Button" parent="VBoxContainer" unique_id=1992417340]
+layout_mode = 2
+theme_override_fonts/font = SubResource("SystemFont_06t4h")
+theme_override_font_sizes/font_size = 36
+text = "帮助"
+
+[node name="QuitButton" type="Button" parent="VBoxContainer" unique_id=1191959195]
+layout_mode = 2
+theme_override_fonts/font = SubResource("SystemFont_06t4h")
+theme_override_font_sizes/font_size = 36
+text = "退出游戏"

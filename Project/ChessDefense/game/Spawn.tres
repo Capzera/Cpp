@@ -1,0 +1,7 @@
+[gd_resource type="CardStats" format=3 uid="uid://cb3cmbo7v75l8"]
+
+[resource]
+max_hp = 400
+physical_atk = 100
+attack_interval = 0.5
+attack_range = 6

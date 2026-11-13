@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://c8runner00001"]
+
+[sub_resource type="CardStats" id="CardStats_runner"]
+piece_type = "R"
+max_hp = 28
+physical_atk = 8
+physical_def = 0
+attack_interval = 1.6
+move_speed = 3.6
+projectile_speed = 12.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_runner"]
+size = Vector3(0.7, 0.7, 0.7)
+
+[node name="ChessPiece" type="ChessPiece"]
+stats = SubResource("CardStats_runner")
+faction = 1
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_runner")

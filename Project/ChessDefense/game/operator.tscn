@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://da28rglvlwvak"]
+
+[sub_resource type="CardStats" id="CardStats_h2yge"]
+piece_type = "P"
+deploy_cost = 10
+max_hp = 220
+physical_atk = 18
+physical_def = 8
+attack_interval = 1.0
+block_count = 2
+move_speed = 0.0
+projectile_speed = 42.0
+is_ranged = false
+range_map = ". . . .
+O X . .
+. . . ."
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_ibjym"]
+
+[node name="ChessPiece" type="ChessPiece"]
+stats = SubResource("CardStats_h2yge")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_ibjym")

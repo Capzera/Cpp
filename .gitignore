@@ -1,0 +1,25 @@
+# ===== 编译输出 =====
+build/
+**/build/
+**/release/
+**/debug/
+
+# ===== 压缩包 =====
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+
+# ===== 编译中间文件 =====
+*.o
+*.obj
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.qrc
+
+# ===== 系统杂项 =====
+.DS_Store
+Thumbs.db

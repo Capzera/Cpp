@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="./dist/index.css" />
+    <script src="./dist/index.min.js"></script>
+    <style>
+        body { margin: 0; padding: 20px; font-family: "Microsoft YaHei", sans-serif; background: white; }
+        #stem-box { background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 8px; padding: 20px; font-size: 16px; margin-bottom: 20px; }
+        .opt-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #E2E8F0; background: #FFFFFF; }
+        .opt-text { font-size: 16px; color: #334155; }
+        .opt-tag { font-weight: bold; font-size: 14px; }
+        
+        /* 状态样式 */
+        .correct-both { background: #ECFDF5; border-color: #10B981; }
+        .correct-both .opt-text { color: #10B981; font-weight: bold; }
+        .correct-both .opt-tag { color: #10B981; }
+
+        .wrong-stu { background: #FEF2F2; border-color: #EF4444; }
+        .wrong-stu .opt-text { color: #EF4444; text-decoration: line-through; }
+        .wrong-stu .opt-tag { color: #EF4444; }
+
+        .missed-std { background: #F8FAFC; border: 1px dashed #10B981; }
+        .missed-std .opt-text { color: #10B981; }
+        .missed-std .opt-tag { color: #10B981; }
+
+        .code-box { background: #1E293B; color: #E2E8F0; padding: 15px; border-radius: 8px; font-family: Consolas; white-space: pre-wrap; overflow-x: auto; font-size: 15px;}
+    </style>
+</head>
+<body>
+    <h2 id="q-title" style="color:#1E293B; margin-top:0;"></h2>
+    <div id="stem-box"></div>
+    <div id="ans-area"></div>
+
+    <script>
+        function renderTest(b64Text) {
+            if (!b64Text) { document.body.innerHTML = "<h2 style='color:#EF4444; text-align:center;'>⚠ 该学生尚未生成有效答卷</h2>"; return; }
+            var d = JSON.parse(decodeURIComponent(escape(atob(b64Text))));
+            
+            document.body.innerHTML = '<h2 id="q-title" style="color:#1E293B; margin-top:0;">第 ' + d.index + ' 题 <span style="color:#3B82F6; font-size:16px;">[' + d.score + '分]</span></h2><div id="stem-box"></div><div id="ans-area"></div>';
+
+            Vditor.preview(document.getElementById('stem-box'), d.stem, { cdn: './dist', math: { engine: 'KaTeX', inlineDigit: true }});
+            
+            var ansHtml = "";
+            var isAnswered = (d.stuAns !== null);
+
+            if (d.type === "single" || d.type === "multi") {
+                d.options.forEach(function(opt, i) {
+                    var isStd = false; var isStu = false;
+                    if(d.type === "single") {
+                        isStd = (i == parseInt(d.stdAns)); if(isAnswered) isStu = (i == parseInt(d.stuAns));
+                    } else {
+                        isStd = d.stdAns.includes(i); if(isAnswered) isStu = d.stuAns.includes(i);
+                    }
+
+                    var cls = "", tag = "";
+                    if (isStd && isStu) { cls = "correct-both"; tag = "✅ 学生做对 & 标准答案"; }
+                    else if (!isStd && isStu) { cls = "wrong-stu"; tag = "❌ 学生错选"; }
+                    else if (isStd && !isStu) { cls = "missed-std"; tag = "🎯 标准答案 (漏选)"; }
+
+                    ansHtml += "<div class='opt-row " + cls + "'><div class='opt-text'>" + String.fromCharCode(65+i) + ". " + opt + "</div><div class='opt-tag'>" + tag + "</div></div>";
+                });
+            } else if (d.type === "fill") {
+                ansHtml += "<h3 style='color:#10B981;'>🎯 标准答案：" + d.stdAns + "</h3>";
+                if(isAnswered) {
+                    var color = (d.stuAns.trim() === d.stdAns.trim()) ? "#10B981" : "#EF4444";
+                    var bg = (d.stuAns.trim() === d.stdAns.trim()) ? "#ECFDF5" : "#FEF2F2";
+                    ansHtml += "<div style='border:2px solid "+color+"; background:"+bg+"; color:"+color+"; padding:15px; border-radius:8px; font-size:18px; font-weight:bold;'>" + d.stuAns + "</div>";
+                } else {
+                    ansHtml += "<div style='border:2px solid #CBD5E1; background:#F8FAFC; color:#94A3B8; padding:15px; border-radius:8px; font-size:18px;'>该生未作答</div>";
+                }
+            } else {
+                ansHtml += "<h3 style='color:#F59E0B;'>⚠️ 此题需人工批改</h3>";
+                ansHtml += "<div class='code-box'>" + (isAnswered ? d.stuAns : "// 该生未交代码") + "</div>";
+            }
+            document.getElementById('ans-area').innerHTML = ansHtml;
+        }
+    </script>
+</body>
+</html>

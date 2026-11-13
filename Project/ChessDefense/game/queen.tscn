@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://bq8queen00001"]
+
+[sub_resource type="CardStats" id="CardStats_queen"]
+piece_type = "Q"
+deploy_cost = 25
+max_hp = 260
+physical_atk = 32
+physical_def = 6
+attack_interval = 0.85
+move_speed = 0.0
+projectile_speed = 16.0
+is_ranged = true
+range_map = "X X X X
+O X X X
+X X X X"
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_queen"]
+
+[node name="ChessPiece" type="ChessPiece" unique_id=89564040]
+stats = SubResource("CardStats_queen")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1627106592]
+transform = Transform3D(1.15, 0, 0, 0, 1.15, 0, 0, 0, 1.15, 0, 0, 0)
+mesh = SubResource("CapsuleMesh_queen")

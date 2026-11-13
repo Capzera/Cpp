@@ -1,0 +1,90 @@
+[gd_scene format=3 uid="uid://d2j8lan6m7qw3"]
+
+[ext_resource type="Script" path="res://options_menu.gd" id="1_options"]
+
+[node name="OptionsMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_options")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.15, 0.15, 0.2, 1)
+
+[node name="MainContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -150.0
+offset_right = 200.0
+offset_bottom = 150.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="MainContainer"]
+layout_mode = 2
+text = "选项设置"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
+
+[node name="HSep1" type="HSeparator" parent="MainContainer"]
+layout_mode = 2
+
+[node name="DevModeContainer" type="VBoxContainer" parent="MainContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DevModeLabel" type="Label" parent="MainContainer/DevModeContainer"]
+layout_mode = 2
+text = "开发者模式"
+theme_override_font_sizes/font_size = 18
+
+[node name="DevModeCheck" type="CheckBox" parent="MainContainer/DevModeContainer"]
+layout_mode = 2
+text = "启用开发者功能（关卡编辑器等）"
+
+[node name="DevModeTip" type="Label" parent="MainContainer/DevModeContainer"]
+layout_mode = 2
+text = "开启后，选关界面将显示关卡编辑器按钮"
+theme_override_font_sizes/font_size = 12
+autowrap_mode = 2
+
+[node name="HSep2" type="HSeparator" parent="MainContainer"]
+layout_mode = 2
+
+[node name="ClearSaveLabel" type="Label" parent="MainContainer"]
+layout_mode = 2
+text = "存档管理"
+theme_override_font_sizes/font_size = 18
+
+[node name="ClearSaveBtn" type="Button" parent="MainContainer"]
+layout_mode = 2
+text = "清除所有存档"
+theme_override_colors/font_color = Color(1, 0.3, 0.3, 1)
+
+[node name="HSep3" type="HSeparator" parent="MainContainer"]
+layout_mode = 2
+
+[node name="BackBtn" type="Button" parent="MainContainer"]
+layout_mode = 2
+text = "返回主菜单"
+
+[node name="ConfirmDialog" type="ConfirmationDialog" parent="."]
+initial_position = 2
+size = Vector2i(400, 150)
+ok_button_text = "确认清除"
+cancel_button_text = "取消"

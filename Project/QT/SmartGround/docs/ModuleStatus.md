@@ -1,0 +1,375 @@
+# SmartGround 模块开发状态跟踪
+
+> **更新时间**: 2026-11-13 - 单元格单线边框轮 + 就地编辑稳定性轮
+> **当前进度**: 31 个菜单可运行模块 | 1 个头文件骨架待实现
+> **核心变化**: 数组单元格交界处只剩 1 条竖线（Excel 式连续表格）、双击就地编辑彻底消除闪退
+
+## 2026-11-13 单元格单线边框与编辑稳定性轮
+
+| 能力 | 覆盖范围 | 实现要点 |
+|------|----------|----------|
+| Excel 式连续表格 | 全局 `ArrayBlock::paint()` | 描边由 `drawRect(1,1,W-2,H-2)` 改为 `drawRect(0,0,W,H)`，相邻格的右/左描边中心精确重合于同一坐标，交界处只剩 1 条 2px 竖线，不再出现「双线 + 白缝」（BUG-086）；`boundingRect()` 扩为 `(-1,-27,W+2,H+28)` 容纳描边外扩 |
+| 格宽可配置 | 全局 `ArrayBlock` | 新增 `setCellSize(w,h)` / `cellWidth()` / `cellHeight()` / `bodyRect()`；已接入 `SandboxArrayModule`(62px)、`SegmentTreeBuildModule`(58/54px)、`SegmentTreeEditBase`(58/54px)、`KMPNextModule`(56px)、`KMPMatchModule`(52px)，格宽严格等于列距，描边完全重合 |
+| 编辑器延迟销毁 | 全局 `GraphElements` | 新增公共 `destroyEditor()`：`setParentItem(nullptr)` → `removeItem()` → `deleteLater()`，绝不在事件过滤器回调内同步销毁被过滤对象（BUG-087） |
+| 事件消费 | 全局 `EditorWatcher` | `FocusOut` 分支处理完立即 `return true`，不再回落到 `QObject::eventFilter(obj, event)` 触碰可能已释放的 `receiver` |
+| 指针化编辑器 | 全局 `ArrayBlock` / `GraphNode` / `GraphEdge` | `m_editor` 由裸指针改为 `QPointer`；watcher 回调用 `QPointer<Self>` 守卫宿主对象，并加 `m_editor.data() != editor` 身份校验，丢弃过期回调 |
+| 编辑器自适应居中 | 全局 `ArrayBlock::beginEdit()` | 编辑器定位改用 `m_cellW / m_cellH`，不再硬编码 `30.0 / 20.0`，非 60px 宽模块同样居中 |
+| 边框回归测试 | `tests/BorderDiagTest.cpp` | 像素级扫描单元格所在行的暗色游程宽度：边框恒 2px、数字笔画 1px，禁止出现 >3px 的双线暗带；另校验同行相邻格列距严格等于格宽 |
+| 编辑崩溃回归测试 | `tests/EditCrashTest.cpp` | 17 项断言覆盖「开始编辑 → 焦点丢失提交 → 回车提交 → Esc 取消 → 编辑中清空场景 → 连续编辑两格时旧回调不得关闭新编辑器」 |
+| 双平台回归 | `tests/` 全量 | 27 个测试套件在 `offscreen` 与 `windows` 两种平台下各跑一遍，全部零失败 |
+| 构建体积治理 | `tests/CMakeLists.txt` | 提取共享静态库 `SgCore` / `SgWidgets` / `SgUi`，测试不再各自重复编译全部模块源码；build 目录从 7539 MB 降至 233 MB（BUG-088） |
+| 工具链固化 | `tools/sg.ps1` | 显式指定 MinGW 编译器、make 程序与 Qt 前缀路径，避免构建缓存被外部工具改写导致配置失败 |
+
+## 2026-11-12 包围盒与指针消解轮
+
+| 能力 | 覆盖范围 | 实现要点 |
+|------|----------|----------|
+| 固定格身包围盒 | 全局 `ArrayBlock` | `boundingRect()` 由动态计算改为固定尺寸：宽度严格等于该行单元格节距，彻底消除 01 背包 DP 表 140 对重叠（BUG-083）。注：该轮采用的「`drawRect` 内缩 1px」做法在后续 BUG-086 中已被推翻，现改为描边绘制在格身边界上，相邻格描边中心重合为同一条 2px 线 |
+| 跨组指针消解 | 全局 `IModule::layoutPointerSlots()` | 所有指针按 x 排序后反复把侵入的相邻对各推一半，直到互不重叠；相邻格上的指针（如二分查找 `mid` 与 `R`）不再互相压字（BUG-084） |
+| 排布逻辑收敛 | `playPointerArrange` / `playPointersSync` | 两个入口共用同一套消解逻辑，避免规则漂移 |
+| 无字体环境兜底 | 全局 `PointerBlock::labelWidth()` | `horizontalAdvance()` 返回 0 时按「字符数 × 9px」估算宽度，避免无头测试环境指针宽度塌缩（BUG-085） |
+| 双平台回归 | `tests/` 全量 | 25 个测试套件在 `offscreen` 与 `windows` 两种平台下各跑一遍，全部零失败 |
+
+## 2026-11-11 实时可编辑数据与残影修复轮
+
+| 能力 | 覆盖范围 | 实现要点 |
+|------|----------|----------|
+| 实时覆盖值存储 | 全局 `src/render/EditableModel.h` | 按 `scope|row#index` 存放老师改过的数值；`scope` 取模块名，不同模块互不干扰；重新绘制时按 scope 整体清空 |
+| 槽位登记机制 | 全局 `IModule` | `registerArraySlot(block,row,index)` / `registerNodeSlot(id,row,index)` / `registerEdgeSlot(key,row,index)` 把画布图元映射到数据行与下标；`liveValue(row,index,computed)` 在算法计算时优先取覆盖值，缺失时回落到算法算出的值 |
+| 自动开启编辑 | 全局 `MainWindow` | `rebuildCurrentLayout()` 建图后自动 `enableLiveEditing()`，无需模块逐个接线 |
+| 修改真实重算 | 全局 `MainWindow` | 编辑事件经 `setLiveEditCallback` → `applyLiveEditsAndReplay()`：非动画重建场景 → 重跑 `runAlgorithm()` → 快进到原帧位置；下游状态随改后的数值重新推导（如改 `S[2]` 后 `S[3]`、`S[4]` 同步重算） |
+| 数组行可编辑 | 前缀和、差分、冒泡/选择/插入/快速/归并排序、单调栈、LIS、三个线段树模块 | 原数组行 `a`、前缀和行 `s`、差分行 `d`、线段树 `a`/`tr`/`add`/`mul` 全部登记为可编辑槽位 |
+| 结点与边权可编辑 | 朴素 Dijkstra、Kruskal、BFS、拓扑排序 | 结点值 `v`、边权 `w`、Dijkstra 的 `dis`/`vis`/`pa` 数组登记为可编辑槽位；算法读取覆盖值重新推导 |
+| 就地编辑器 | `ArrayBlock` / `GraphNode` / `GraphEdge` | 双击进入编辑，编辑态抑制本体文字绘制避免新旧数字重叠；`EditorWatcher` 事件过滤器统一处理回车提交、Esc 取消、焦点丢失提交 |
+| 指针残影根治 | 全局 `GraphElements` | `PointerBlock` 包围盒宽度公式与 `paint()` 统一为 `labelWidth()`，杜绝绘制超出脏区导致旧像素残留；`GraphNode`/`FloatingText` 包围盒改用 `QFontMetrics` 动态计算；文本变化补 `prepareGeometryChange()` |
+| 瞬态图元清理 | 全局 `IModule` | `m_transientItems` 登记飞行数字等临时文字，`purgeTransientItems()` 在帧边界统一清理，动画中断不留孤儿 |
+| 移除「动画帧计算」 | 全局 `MainWindow` | `btnRun` 与 `onBtnRunClicked()` 移除；点击「绘制可视化效果」后自动 `computeFrames()` 完成后台录制 |
+| 新增测试 | `SmartGroundLiveEdit` | 8 项断言，验证 `s[2]` 改值后 `S[3]`/`S[4]` 真实重算、冒泡排序改 `a[0]` 后帧内容同步更新 |
+
+## 2026-11-11 沙盒结构与渲染健壮性轮
+
+| 能力 | 覆盖范围 | 实现要点 |
+|------|----------|----------|
+| 沙盒 - 数组 | 新模块 `SandboxArrayModule` | 纯数据结构草稿，无算法；`ArrayBlock` 双击进入就地编辑，输入即改写格子数值并广播 `valueEdited` |
+| 沙盒 - 矩阵 / 行列式 | 新模块 `SandboxMatrixModule` | 行列数可配置，默认 3×3；`MatrixBlock` 负责网格绘制，行列式以方括号包裹呈现 |
+| 沙盒 - 树形结构 | 新模块 `SandboxTreeModule` | 复用 `GraphNode` / `GraphEdge`，节点可拖动，边随动 |
+| 沙盒 - 图结构 | 新模块 `SandboxGraphModule` | 有向 / 无向 / 双向三态切换，复用图选项管线 |
+| 沙盒 - LaTeX 公式 | 新模块 `SandboxLatexModule` | 构建期用 MathJax 预渲染 SVG 存 `latex_formulas.json`，运行时 `LatexBlock` + `QSvgRenderer` 渲染；公式库经 `src/resources.qrc` 编入二进制 |
+| 集中动画注册表 | `IModule` | `m_animRegistry` 以 `target + property` 为键复用动画，从当前插值位置重定向，杜绝并发帧同时写入同一 `"pos"` 造成撕裂；新增 `playScalePulse()` / `playRowShift()` |
+| 帧滑条 | `MySlider` + `MainWindow` | 自绘轨道 / 滑块 / 散光辉光，状态栏右侧接入；`seekToFrame()` 重建布局后非动画快进；右侧帧徽标显示 `x / total` |
+| 线段树动态布局 | 三个线段树模块 | `SegmentTreeCommon::computeLayout()` 按树高把数组首行下移到最深树层之下；`collectNodeIds()` 只渲染真实节点槽位（$2n-1$），不再留 `4n` 尾部空位 |
+| 节点标签自适应 | `GraphNode` | `QFontMetrics` 驱动 `subLabel` / `valueText` / `tagText` 宽度；徽标移出圆外，`boundingRect()` 扩大容纳附属文本 |
+| 图元类型唯一化 | `GraphElements.h` 等 | 八个 `QGraphicsObject` 子类各自分配 `UserType + N`，`qgraphicsitem_cast` 不再误判 |
+| KMP 窗格与平移 | `KMPMatchModule` / `KMPNextModule` | 窗格无缝拼接；模式串行经 `playRowShift()` 以 `InOutCubic` 平移，无瞬移 |
+| 新增测试 | `SmartGroundSandboxVisual` / `SmartGroundFrameSlider` | 沙盒可视化 17 项断言（布局间距、紧凑槽位、窗格无缝、标签不重叠、公式库加载）+ 帧滑条 8 项断言（存在性、禁用态、紧凑宽度、范围、跳转） |
+
+## 2026-11-10 线段树与 KMP 匹配轮（依据课堂模板对齐）
+
+| 能力 | 覆盖范围 | 实现要点 |
+|------|----------|----------|
+| 线段树 - 建树 | 新模块 `SegmentTreeBuildModule` | 严格对齐课堂模板：`build(node, l, r, a)`、`mul[node]=1` 首行、`tr[node]=a[l]%p` 叶子赋值、`push_up` 用 `% mod`；`ls=node<<1` / `rs=node<<1\|1` 移位关系打在分裂瞬间；`node` 编号与 `tr[]` 槽位一一对应 |
+| 线段树 - 区间乘/区间加（懒标记） | 新模块 `SegmentTreeTagModule` | `changeMul` / `changeAdd` / `push_down` 完整流程；懒标记以徽章形式挂在节点右上角（紫 `×k` / 蓝 `+k`），下放时徽章沿弧线坠向左右孩子；父节点标记清空后 `mul=1, add=0` |
+| 线段树 - 区间查询 | 新模块 `SegmentTreeQueryModule` | `querySum` 递归 + `ans` 暂存方块，逐段命中值飞入累加；查询前先 `push_down` 结算欠账 |
+| KMP 匹配过程 | 新模块 `KMPMatchModule` | 1-indexed + `#` 哨兵；`p[j+1]` 严格对齐 `s[i]` 正下方；`i` 永不回退、`j` 回退时模式串整体右跳；命中起点 `i-j+1` 追加到结果列表 |
+| KMP pi 数组改造 | 改造 `KMPNextModule` | `next[]` → `pi[]`，0-indexed → 1-indexed，首格加 `#` 哨兵，公式文本改用 `p[i]` / `p[j+1]` / `pi[j]` 写法 |
+| `GraphNode` 扩展 | 全局渲染 | 新增 `subLabel`（区间 `[l,r]`）、`valueText`（`tr=值`）、`customValueText`、`tagText`+`tagColor`（懒标记徽章）；`boundingRect()` 相应放大 |
+| 公共动画扩展 | `IModule` | 新增 `playDualValueFlight()`（双值同时飞入同一目标，供 `push_up` 使用）与 `playTagDrop()`（标记徽章下坠动画） |
+| 帧动作扩展 | `AnimFrame.h` | 追加 `SEG_RESET` / `SEG_INIT_MUL` / `SEG_DESCEND` / `SEG_LEAF` / `SEG_PUSHUP` / `SEG_DONE` / `SEG_OP_START` / `SEG_COVER_MUL` / `SEG_COVER_ADD` / `SEG_PARTIAL` / `SEG_PUSH_DOWN` / `SEG_TAG_CLEAR` / `SEG_QUERY_COVER` / `SEG_QUERY_ACC` / `SEG_QUERY_DONE` / `KMPM_RESET` / `KMPM_COMPARE` / `KMPM_FALLBACK` / `KMPM_ADVANCE` / `KMPM_HIT` / `KMPM_PI_SET` / `KMPM_DONE` |
+| 共享基类 | `SegmentTreeEditBase` | 懒标记与查询两模块共用树布局、`tr`/`add`/`mul` 三条物理数组、节点高亮与指针移动逻辑，避免重复代码 |
+| 新增测试 | `SmartGroundNewModule` | 24 项断言覆盖建树帧序、懒标记三动作、查询答案 9、KMP 命中位置 1、非法输入降级，并输出 5 张渲染截图供人工复核 |
+
+## 2026-11-08 输入框绘制管线重构轮（全局能力，非单模块）
+
+| 能力 | 覆盖范围 | 实现要点 |
+|------|----------|----------|
+| 输入框四层绘制管线 | 全局 `MyTextEdit` | 严格顺序：`renderBackground()`（不透明圆角底色）→ `QTextEdit::paintEvent()`（原生文字与光标）→ `renderPlaceholder()`（灰色多行提示）→ `renderBorder()`（只描边不填充）。全部落在 viewport 层，彻底解决「文字被自绘白底覆盖」导致的输入框全白、光标不可见、无法键入（BUG-058） |
+| 空态灰色提示 | 全局 `MyTextEdit` | `toPlainText()` 为空时以 `UiTheme::textMuted()` 逐行绘制 OI 输入格式说明；`setPlaceholderText()` 维护 `m_hint` 并触发重绘；清空后提示立即重现（BUG-059） |
+| 样式表作用域隔离 | 全局 | 移除 `MainWindow::applyStyleSheet()` 中的全局 `QTextEdit` 规则，改由控件自身按 `objectName` 作用域控制，避免样式表优先级互相覆盖（BUG-060） |
+| 输入框回归测试 | 全局 | 新增 `SmartGroundTextEditRegression`（控件级 8 项断言）与 `SmartGroundTextEditUiShot`（`MainWindow` 全流程 5 态截图），以 `textMuted()` 灰色像素计数判定占位符可见性 |
+
+## 2026-11-08 指针挤占与画布质感轮（全局能力，非单模块）
+
+| 能力 | 覆盖范围 | 实现要点 |
+|------|----------|----------|
+| 全局指针挤占 `IModule::playPointerArrange()` | 二分查找×2、LIS、KMP、队列、拓扑排序、广搜 | 按锚点分组；同格多指针按各自文本宽度依次排开（间距 6px）；随后由 `layoutPointerSlots()` 跨组消解，保证相邻格指针也不压字 |
+| 顶点指针锚点绑定 | 朴素 Dijkstra | `GraphNode::pointerList` + `PointerBlock::setAnchorNode()/syncToAnchor()`；`GraphNode::itemChange()` 位置变化时同步指针，`u` / `v` 如权值徽标般随节点拖动 |
+| `ArrayBlock::customValue` | 广搜、Dijkstra | 方块直接承载 `∞` / `—` / `0` / `1` 等非数值内容，取代冗余的独立文本项叠加层 |
+| 紧凑型 iOS 滑动开关 | 全局 | 轨道 50×24px；「有向图」在滑块右侧（OFF 态）、「无向图」在左侧（ON 态），当前态深色、另一态浅灰 |
+| 淡蓝输入框边框 | 全局 | `UiTheme::borderSoft()` (#C4D8F3)，聚焦切换 `borderFocus()` |
+| 手写占位提示 | 全局 | `MyTextEdit` 自持 `m_hint` 并逐行绘制灰色 OI 输入格式，摆脱 Qt 原生占位符的样式限制；提示绘制在文字层之上、边框层之下，清空文本即刻重现 |
+| 画布复位 | 全局 | 切回「请选择...」立即清空画布、清空输入框、隐藏图面板、复位状态栏与缩放 |
+| 末帧暂停 | 全局 | 自动播放播完末帧即停，状态栏提示「播放完毕。」，不再循环回播 |
+| 短数组行标题 | 拓扑排序 / Dijkstra / Kruskal / 广搜 / LIS | `ind` `q` `out` / `dis` `vis` `pa` / `e[]` `pa` / `q` `dis` `pa` / `a[]` `dp` `g` |
+| 短指针标签 | 拓扑排序、广搜、队列 | 队头队尾指针由 `head` / `tail` 改为 `H` / `T` |
+
+## 2026-11-08 UI 全面自研轮（全局能力，非单模块）
+
+| 能力 | 覆盖范围 | 实现要点 |
+|------|----------|----------|
+| 自研控件库 `src/ui/widgets/` | 全局 UI | `MyButton`（Solid/Soft/Ghost）、`MyToggleSwitch`、`MyRadioButton`、`MyCheckBox`、`MyComboBox`（自绘浮层）、`MyTextEdit`、`MyCollapsible`（可折叠 + 高度动画） |
+| 设计令牌 `src/ui/UiTheme.h` | 全局 UI | 颜色、圆角、间距、`uiFont()`/`monoFont()` 字体策略，禁止业务代码写死色值 |
+| iOS 风格图类型开关 | BFS / 拓扑排序 / 朴素 Dijkstra | 灰色 OFF = 有向图，iOS 绿 ON = 无向图；子选项「无向边加双向箭头」随开关做 `ratio` 透明度 + 高度动画 |
+| 画布居中与自适应缩放 | 全局 | `src/core/ViewportFitter.h` 统一 `fitInView(KeepAspectRatio)` + 缩放钳制（0.25 - 2.4）+ `centerOn` |
+| 隐形对齐网格 | 所有图模块 | `src/render/SceneGrid.h`，18px 磁吸对齐 + 56px 单元格吸附，`Ctrl` 临时自由拖动 |
+| LaTeX 三角箭头 | 所有图模块 | `GraphEdge::paint()` 等腰实心三角（15px / 半宽 7px）+ 白色描边 |
+| 启动态图面板隐藏 | 全局 | `graphPanelHost` 在 `setupUI()` 即隐藏，杜绝左上角残留色块 |
+| 前瞻性全局接口 | `IModule` | 新增 `getCategoryName()` / `getComplexityNote()` / `getTeachingTip()` / `getStepCost()` / `validateInput()` / `onCanvasDoubleClick()` / `applyTheme()` 空实现钩子 |
+
+## 图例说明
+- ✅ **已完成**: 代码实现、动画锁、渲染逻辑均已就绪
+- 🔄 **已重构**: 已迁移到 IModule 动画引擎（DRY 原则）
+- 🚧 **开发中**: 正在实现
+- ⏳ **待开发**: 尚未开始
+- 🏗️ **骨架存在**: 仅有头文件，待实现
+
+---
+
+## 图结构选项支持矩阵
+
+| 模块 | 有向/无向可切换 | 双向箭头 | 权值 | 说明 |
+|------|------------------|----------|------|------|
+| BFS | ✅ | ✅ | 自动判定 | 无向时双向入邻接表 |
+| 拓扑排序 | ✅（默认有向） | ✅ | 自动判定 | 有向环检测依赖方向语义 |
+| 朴素 Dijkstra | ✅ | ✅ | 自动判定 | 拒绝负权 |
+| Kruskal | ❌ 强制无向 | ✅ | 必需 | 生成树定义在无向图 |
+| Tarjan | ❌ 强制有向 | ❌ | 自动判定 | SCC 依赖有向语义 |
+
+> 权值判定规则：输入中只要有一行边为 3 个元素即整体视为带权图；否则为无权图。
+
+---
+
+## 2026-11-08 全模块通用增强
+
+| 能力 | 覆盖模块 | 实现要点 |
+|------|----------|----------|
+| `getInputHint()` 输入格式占位提示 | 全部 22 个模块 | `MyTextEdit::setPlaceholderText()` 自持 `m_hint`，空态时以 `textMuted()` 逐行绘制灰色 OI 输入格式说明 |
+| `releaseSceneItems()` 图元指针释放 | 全部 22 个模块 | 清场前先释放裸指针，杜绝 `scene->clear()` 后的悬垂访问 |
+| `captureNodePositions()/restoreNodePositions()` | BFS、拓扑排序、朴素 Dijkstra、Kruskal、Tarjan、并查集 | 切换图选项时保持教师手工排布的节点坐标 |
+| 边跟随拖动 | 并查集、堆 | 建边时补齐 `addEdge()` 注册 |
+| 箭头几何重做 | 全部图模块 | 端点按节点半径裁剪，箭头尖端落在节点外侧 |
+| 纯文本边权 | 全部图模块 | 去掉白色圆角底框 |
+
+---
+
+## 一、排序算法 (9 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| 冒泡排序 | ✅ | BubbleSortModule | Gemini → Kiro | 已从 ArrayModule 独立 |
+| 选择排序 | 🔄 | SelectionSortModule | Kiro | 已迁移到动画引擎 |
+| 插入排序 | 🔄 | InsertionSortModule | Kiro | 已迁移到动画引擎 |
+| 希尔排序 | ⏳ | ShellSortModule | - | 需多组颜色区分 gap |
+| 快速排序 | 🔄 | QuickSortModule | Kiro | 已使用 playPointersSync |
+| 归并排序 | ✅ | MergeSortModule | Kiro | 辅助数组双视图已实现 |
+| 计数排序 | ⏳ | CountingSortModule | - | 需频次数组 + 前缀和 |
+| 桶排序 | ⏳ | BucketSortModule | - | 需桶容器可视化 |
+| 基数排序 | ⏳ | RadixSortModule | - | 需 10 个队列可视化 |
+
+---
+
+## 二、线性数据结构 (8 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| 前缀和 | ✅ | PrefixSumModule | Gemini | 已完成 |
+| 差分 | ✅ | DifferenceModule | Gemini | 已完成 |
+| 栈模拟 | ✅ | StackModule | Gemini | 已完成 |
+| 队列模拟 | ✅ | QueueModule | Gemini | 已完成 |
+| 循环队列 | ⏳ | CircularQueueModule | - | 需取模折返特效 |
+| 静态数组基础 | ⏳ | StaticArrayModule | - | 插入/删除整体移动 |
+| 单向链表 | ⏳ | SinglyLinkedListModule | - | 静态数组模拟 |
+| 双向链表 | ⏳ | DoublyLinkedListModule | - | 四步指针重连 |
+
+---
+
+## 三、堆与优先队列 (6 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| 堆基础映射 | ✅ | HeapBasicsModule | Kiro | 数组与树双视图已完成 |
+| 自底向上建堆 | ⏳ | HeapBuildBottomUpModule | - | O(N) 建堆 |
+| 自顶向下建堆 | ⏳ | HeapBuildTopDownModule | - | O(N log N) |
+| 堆 up/down | ⏳ | HeapAdjustModule | - | 核心调整函数 |
+| 堆综合操作 | ⏳ | HeapOperationsModule | - | Insert/Pop/Modify |
+| 堆排序 | ⏳ | HeapSortModule | - | 堆顶交换下沉 |
+
+---
+
+## 四、基础算法与搜索 (5 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| 二分查找(闭区间) | ✅ | BinarySearchClosedModule | Gemini | 已完成 |
+| 二分查找(左闭右开) | ✅ | BinarySearchHalfOpenModule | Gemini | 已完成 |
+| 双指针 | ⏳ | TwoPointersModule | - | 滑动窗口 |
+| 深度优先搜索 | ⏳ | DFSModule | - | 递归树 + 回溯 |
+| 广度优先搜索 | ✅ | BFSModule | Codex | 数组队列、距离、父节点和层级着色；支持有向/无向切换 |
+
+---
+
+## 五、树形结构与树上 DP (6 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| 树的深度与层级 | ⏳ | TreeDepthModule | - | DFS/BFS 深度传递 |
+| 子树大小统计 | ⏳ | TreeSubtreeSizeModule | - | 树形 DP 入门 |
+| 树的重心 | ⏳ | TreeCentroidModule | - | 切断连通块计算 |
+| 树的直径 | ⏳ | TreeDiameterModule | - | 两次 DFS/BFS |
+| LCA 暴力向上爬 | ⏳ | LCANaiveModule | - | 双指针碰撞 |
+| LCA 倍增法 | ⏳ | LCADoublingModule | - | 2^k 跳跃 |
+
+---
+
+## 六、进阶数据结构 (10 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| 单调栈 | ✅ | MonotonicStackModule | Kiro | 下一个更大元素已实现 |
+| 单调队列 | ⏳ | MonotonicQueueModule | - | 滑动窗口 |
+| 并查集基础 | ✅ | DSUBasicModule | Kiro | Find & Union 已实现 |
+| 并查集路径压缩 | ⏳ | DSUPathCompressionModule | - | 压扁树形 |
+| 树状数组 | ⏳ | FenwickTreeModule | - | lowbit 跳跃 |
+| 线段树建树 | 🏗️ | SegmentTreeBuildModule | - | 骨架已创建 |
+| 线段树单点修改 | ⏳ | SegmentTreePointUpdateModule | - | 链式回溯更新 |
+| 线段树区间查询 | ⏳ | SegmentTreeRangeQueryModule | - | 拼凑目标区间 |
+| 线段树延迟标记 | ⏳ | SegmentTreeLazyTagModule | - | pushdown 下坠 |
+| 字典树 | ⏳ | TrieModule | - | 多叉树字符流 |
+
+---
+
+## 七、经典图论模板 (9 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| 链式前向星存图 | ⏳ | ForwardStarModule | - | 静态数组存图 |
+| 拓扑排序 | ✅ | TopologicalSortModule | Codex | 入度队列、输出序列与有向环提示；有向/无向可切换 |
+| 朴素 Dijkstra | ✅ | DijkstraNaiveModule | Codex | O(N²) 选点、非负权松弛与前驱数组；有向/无向可切换 |
+| 堆优化 Dijkstra | ⏳ | DijkstraHeapModule | - | O(M log N) |
+| Bellman-Ford/SPFA | ⏳ | BellmanFordModule | - | 负权边松弛 |
+| Floyd 多源最短路 | ⏳ | FloydModule | - | 3D DP 矩阵 |
+| Kruskal 最小生成树 | ✅ | KruskalModule | Codex | 排序边、并查集合并与成环舍弃；强制无向图 |
+| Prim 最小生成树 | ⏳ | PrimModule | - | 类 Dijkstra 扩展 |
+| Tarjan 强连通分量 | ✅ | TarjanModule | Gemini | 已完成 |
+
+---
+
+## 八、高级图论与二分图 (6 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| Tarjan 割点与桥 | ⏳ | TarjanCutVertexBridgeModule | - | dfn/low 判定 |
+| Tarjan 双连通分量 | ⏳ | TarjanBCCModule | - | v-BCC/e-BCC |
+| 二分图染色判定 | ⏳ | BipartiteColoringModule | - | 黑白交替染色 |
+| 匈牙利算法 | ⏳ | HungarianModule | - | 增广路推倒重来 |
+| 欧拉路径/回路 | ⏳ | EulerianPathModule | - | Hierholzer 算法 |
+| 网络流 (选修) | ⏳ | MaxFlowModule | - | Dinic/EK 算法 |
+
+---
+
+## 九、字符串算法 (4 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| 字符串暴力匹配 | ⏳ | BruteForceMatchModule | - | KMP 前置对比 |
+| KMP Next 数组 | ✅ | KMPNextModule | Codex | 前缀函数、双指针回退 |
+| KMP 匹配过程 | ⏳ | KMPMatchModule | - | 模式串滑动 |
+| 字符串哈希 | ⏳ | StringHashModule | - | 前缀哈希 O(1) |
+
+---
+
+## 十、动态规划 (9 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| 01 背包 | ✅ | Knapsack01Module | Codex | 二维 DP、选/不选候选状态飞入；教科书式表格排版（首行列下标 + 左侧行下标） |
+| 完全背包 | ⏳ | KnapsackCompleteModule | - | 同行左侧飞来 |
+| 最长递增子序列 | ✅ | LISModule | Codex | O(N²) DP 与 O(N log N) tails 对照 |
+| 最长公共子序列 | ⏳ | LCSModule | - | 二维网格字符匹配 |
+| 区间 DP 石子合并 | ⏳ | IntervalDPModule | - | 三角矩阵逐层 |
+| 树形 DP 没有上司 | ⏳ | TreeDPModule | - | dp[u][0/1] |
+| 状压 DP 蒙德里安 | ⏳ | StateBitmaskDPModule | - | 二进制兼容判定 |
+| 数位 DP | ⏳ | DigitDPModule | - | 记忆化搜索 |
+| 记忆化搜索对比 | ⏳ | MemoizationVsDPModule | - | 递归树剪枝 |
+
+---
+
+## 十一、数论与基础数学 (5 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| 埃氏筛 | ⏳ | SieveOfEratosthenesModule | - | 倍数扫荡 |
+| 线性筛/欧拉筛 | ⏳ | LinearSieveModule | - | 最小质因子精准击杀 |
+| 辗转相除 GCD | ⏳ | GCDModule | - | 几何矩形缩短 |
+| 快速幂 | ⏳ | FastPowModule | - | 二进制拆分 |
+| 扩展欧几里得 | ⏳ | ExgcdModule | - | 递归栈推演 |
+
+---
+
+## 十二、贪心算法 (2 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| 区间调度 | ⏳ | IntervalSchedulingModule | - | 扫描线淘汰 |
+| 哈夫曼树 | ⏳ | HuffmanTreeModule | - | 森林合并 |
+
+---
+
+## 十三、哈希与基础匹配 (3 模块)
+| 模块名 | 状态 | 文件名 | 负责人 | 备注 |
+|--------|------|--------|--------|------|
+| 哈希表拉链法 | ⏳ | HashTableChainingModule | - | 链表头插 |
+| 哈希表开放寻址 | ⏳ | HashTableOpenAddressingModule | - | 探测空槽 |
+| 字符串哈希 | ⏳ | StringHashModule | - | 与 KMP 对比 |
+
+---
+
+## 开发优先级建议
+
+### P0 (已完成 ✅)
+1. ✅ **选择排序** - 最简单的排序，已验证数组模块基类，已重构使用动画引擎
+2. ✅ **插入排序** - 为希尔排序打基础，已重构使用 playExtractAnim 等新特性
+3. ✅ **堆基础映射** - 为后续堆模块打地基
+
+### P1 (已完成 ✅)
+1. ✅ **快速排序** - 高频算法，递归可视化技术已突破，已迁移 playPointersSync
+2. ✅ **归并排序** - 辅助数组技术已实现
+3. ✅ **单调栈** - 中等难度，已完成实现
+4. ✅ **并查集基础** - 路径压缩前置模块
+
+### P2 (本批已完成 ✅)
+1. ✅ **拓扑排序** - 入度队列和有向环检测
+2. ✅ **朴素 Dijkstra** - O(N²) 选点与松弛
+3. ✅ **Kruskal** - 排序边与并查集合并
+4. ✅ **BFS** - 队列遍历和层次状态
+
+### P3 (进行中)
+1. **线段树系列** - 线段树建树骨架待实现
+2. **KMP 匹配过程** - Next 数组已完成，匹配过程待实现
+3. **完全背包** - 01 背包已完成，继续演示同一行转移
+
+### P4 (长期规划)
+1. **高级图论（割点/桥/双连通）** - 难度高但视觉效果好
+2. **状压 DP** - 需要位运算可视化创新
+3. **网络流** - 选修内容
+
+---
+
+## 维护说明
+- 每完成一个模块，将状态从 ⏳ 改为 ✅
+- 迁移到动画引擎后，将状态从 ✅ 改为 🔄
+- 在备注栏记录重要技术难点或依赖关系
+- 定期同步到主 README.md
+
+## 当前基线与维护记录
+
+- 菜单注册 22 个可运行模块；只剩 SegmentTreeBuildModule 一个头文件骨架。
+- 图模块统一接入"图结构选项"面板：IModule 提供 `supportsGraphOptions/supportsDirected/supportsBidirectional/getGraphOptions/setGraphOptions`，MainWindow 渲染单选与复选控件并按模块能力禁用。
+- 边权徽标绘制在 `GraphEdge::paint()` 内，沿曲线中点法向偏移，节点拖动与边弯曲时权值同步跟随。
+- 图边改为可交互 `GraphEdge`（二次贝塞尔曲线 + shape() 命中检测 + 拖拽弯曲），供教师在课堂上直接拖动演示。
+- 全项目动画结束回调统一使用 `QPointer` 包装图元，避免 `scene->clear()` 后的悬垂指针访问。
+- `GraphNode` 与 `GraphEdge` 析构时互相解绑，防止节点先于边释放造成崩溃。
+- SelectionSortModule、InsertionSortModule、QuickSortModule 已使用 IModule 动画辅助函数。
+- TopologicalSortModule 与 BFSModule 共用 playValueFlight 实现图节点入队；DP 候选值也使用该公共动画。
+- 其余已完成模块仍有可逐步迁移的重复渲染动画。
+- 派生模块统一使用 IModule::m_scene；禁止重新声明同名场景指针。
+- 自动重播和撤销按录制输入重建布局，并在快速重放期间关闭动画锁。
+- Tarjan 算法启动时只重置遍历数组，不清除 buildLayout 生成的邻接表。
+- 新模块顺序：先确认动画分镜，再实现算法帧、渲染、输入和重置流程。
+- Bug 状态与修复验证记录在 docs/BugLog.md。
+- `tests/` 提供 27 个无头测试可执行程序（共享静态库构建，build 目录约 233 MB）：覆盖极端输入压力测试、动画中断清理测试、边权跟随测试、像素级边框/箭头/控件渲染断言、UI 状态机、就地编辑崩溃回归；用 `cmake -S tests -B build/tests` 单独构建，不影响主程序。
+
+## 下一步优先级
+
+> 以下 1–3 项均已完成并注册，当前清单已全部完成，无头文件骨架。后续候选见 `docs/outlines.md` 各章节的 ⏳ 条目。
+
+1. ~~SegmentTreeBuildModule：区间递归拆分与自底向上 pushup。~~ ✅ 已完成
+2. ~~KMP 匹配过程：主串/模式串游标与失配滑动。~~ ✅ 已完成
+3. ~~完全背包、线段树操作和堆系列。~~ 部分完成（线段树三部曲已齐，堆系列待补）

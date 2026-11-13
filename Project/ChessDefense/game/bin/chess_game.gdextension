@@ -1,0 +1,8 @@
+[configuration]
+entry_symbol = "chess_library_init"
+compatibility_minimum = "4.3"
+
+[libraries]
+windows.editor.x86_64 = "res://bin/libchess.windows.template_debug.x86_64.dll"
+windows.debug.x86_64 = "res://bin/libchess.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "res://bin/libchess.windows.template_debug.x86_64.dll"

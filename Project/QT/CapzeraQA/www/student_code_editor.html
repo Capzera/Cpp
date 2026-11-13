@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="./dist/index.css" />
+    <script src="./dist/index.min.js"></script>
+    <style>
+        /* 🚀 恢复纯净亮色主题，弹性撑满 100% 高度 */
+        body { margin: 0; padding: 0px; background: #FFFFFF; font-family: "Microsoft YaHei", sans-serif; height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; }
+        .header-tip { color: #8B5CF6; font-weight: bold; font-size: 15px; margin-bottom: 12px; flex-shrink: 0; }
+        #vditor {
+            flex: 1;
+            border: 1px solid #CBD5E1 !important;
+            border-radius: 6px !important;
+            width: 100% !important;
+        }
+        .vditor-toolbar { display: none !important; }
+        .vditor-ir, .vditor-wysiwyg, .vditor-sv {
+            padding: 12px !important;
+            box-sizing: border-box !important;
+        }
+        .vditor-reset {
+            max-width: 100% !important;
+            width: 100% !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="header-tip">💻 请在下方区域编写或粘贴你的 C++ 代码：</div>
+    <div id="vditor"></div>
+
+    <script>
+        var vditorInstance;
+        var localBasePath = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+        var currentQIndex = -1;
+
+        function initEditor(qIndex, b64Code) {
+            currentQIndex = qIndex;
+            let initialCode = new TextDecoder("utf-8").decode(Uint8Array.from(atob(b64Code), c => c.charCodeAt(0)));
+
+            if (vditorInstance) {
+                vditorInstance.setValue(initialCode);
+                return;
+            }
+
+            vditorInstance = new Vditor('vditor', {
+                mode: 'ir',
+                cache: { enable: false },
+                toolbar: [],
+                tab: '    ', /* 🚀 核心修复：强制设定 Tab 键为 4 个空格，保护光标焦点！*/
+                cdn: localBasePath,
+                value: initialCode,
+                after: () => {
+                    vditorInstance.setValue(initialCode);
+                },
+                input(value) {
+                    let safeValue = btoa(unescape(encodeURIComponent(value)));
+                    document.title = "CODE:" + currentQIndex + "|" + safeValue; // 🚀 触发 C++ 实时捕获！
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+[gd_scene format=3 uid="uid://d4fvuaveo583e"]
+
+[node name="SaveManager" type="SaveManager" unique_id=319160983]

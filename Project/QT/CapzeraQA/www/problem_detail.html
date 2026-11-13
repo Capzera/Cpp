@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="./dist/index.css" />
+    <script src="./dist/index.min.js"></script>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+
+        body { margin: 0; padding: 25px; font-family: "HYWenHei-65W", "Microsoft YaHei", sans-serif; background: #FAFAFA; color: #1E293B; }
+
+        .header { margin-bottom: 25px; }
+        .title { font-size: 22px; font-family: "HYWenHei-85W"; color: #1E293B; margin-bottom: 12px; }
+        .meta { font-family: "HYWenHei-85W"; color: #64748B; background: #F1F5F9; padding: 8px 12px; border-radius: 6px; display: inline-block; font-size: 14px; }
+        .section-title { font-size: 16px; font-family: "HYWenHei-85W"; color: #334155; margin-top: 25px; margin-bottom: 10px; border-bottom: 2px solid #E2E8F0; padding-bottom: 5px; display: inline-block;}
+        .vditor-reset { background: transparent !important; color: #334155 !important; font-size: 16px !important; font-family: "HYWenHei-65W", sans-serif !important; }
+        .vditor-reset p { margin: 0 0 10px 0; }
+
+        .options-list { list-style: none; padding: 0; margin: 0; }
+        .option-item { display: flex; margin-bottom: 12px; align-items: flex-start; }
+        .opt-label { font-family: "HYWenHei-85W"; font-size: 16px; font-weight: bold; margin-right: 10px; margin-top: 2px; color: #3B82F6; }
+        .opt-content { flex: 1; min-width: 0; }
+
+        .correct-ans-box { background: #ECFDF5; border-left: 4px solid #10B981; padding: 12px 15px; border-radius: 4px; margin-top: 20px; display: flex; align-items: center; }
+        .correct-ans-title { color: #059669; font-family: "HYWenHei-85W"; font-size: 16px; margin-right: 10px; }
+        .correct-ans-content { color: #10B981; font-size: 18px; font-family: "HYWenHei-85W"; }
+
+        .sample-box { background: #1E293B; color: #E2E8F0; padding: 15px; border-radius: 8px; font-family: 'Consolas', monospace; white-space: pre-wrap; font-size: 15px; }
+        .info-box { background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 12px; border-radius: 4px; color: #1D4ED8; font-size: 15px; margin-top: 15px; font-family: "HYWenHei-85W";}
+    </style>
+</head>
+<body>
+    <div id="empty-state" style="text-align:center; padding-top:100px; color:#94A3B8; font-size:20px; font-family:'HYWenHei-85W';">
+        👈 请先在左侧表格点击一位学员
+    </div>
+
+    <div id="detail-content" style="display:none;">
+        <div class="header">
+            <div class="title" id="p-title"></div>
+            <div class="meta" id="p-meta"></div>
+        </div>
+
+        <div class="section-title">题目描述</div>
+        <div id="p-stem" class="vditor-reset"></div>
+
+        <div id="p-options-area" style="display:none;">
+            <div class="section-title">候选项</div>
+            <ul class="options-list" id="p-options"></ul>
+        </div>
+
+        <div id="p-answer-area" class="correct-ans-box" style="display:none;">
+            <div class="correct-ans-title">核对情况: </div>
+            <div class="correct-ans-content" id="p-answer"></div>
+        </div>
+
+        <div id="p-oi-area" style="display:none;">
+            <div class="section-title">输入样例</div>
+            <div class="sample-box" id="p-in"></div>
+            <div class="section-title">输出样例</div>
+            <div class="sample-box" id="p-out"></div>
+        </div>
+
+        <div id="p-code-area" class="info-box" style="display:none;">
+            ⚠️ 系统提示：此类型无需验证输入输出，学生直接编写函数。
+        </div>
+    </div>
+
+    <script>
+        var cplusBridge = null;
+        if (typeof qt !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+                cplusBridge = channel.objects.problemDetailBridge;
+                if(cplusBridge) cplusBridge.onDetailWebLoaded();
+            });
+        }
+
+        async function renderDetail(b64Str) {
+            try {
+                document.getElementById('empty-state').style.display = 'none';
+                document.getElementById('detail-content').style.display = 'block';
+
+                // 🚀 核心修复：升级无敌版解码器
+                var jsonStr = decodeURIComponent(escape(atob(b64Str)));
+                var p = JSON.parse(jsonStr);
+
+                document.getElementById('p-title').innerText = "【" + p.id + "】 " + p.title;
+                document.getElementById('p-meta').innerText = "题型: " + (p.typeStr || "未知") + "  |  标签: " + p.tag + "  |  难度: " + p.difficulty;
+
+                var localBasePath = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+
+                document.getElementById('p-options-area').style.display = 'none';
+                document.getElementById('p-answer-area').style.display = 'none';
+                document.getElementById('p-oi-area').style.display = 'none';
+                document.getElementById('p-code-area').style.display = 'none';
+
+                await new Promise(resolve => {
+                    Vditor.preview(document.getElementById('p-stem'), p.stem, {
+                        mode: 'light', cdn: localBasePath, math: { engine: 'KaTeX', inlineDigit: true }, after: resolve
+                    });
+                });
+
+                if (p.type === 'single' || p.type === 'multi') {
+                    document.getElementById('p-options-area').style.display = 'block';
+                    document.getElementById('p-answer-area').style.display = 'flex';
+
+                    var optsHtml = '';
+                    var optsArr = p.options || []; // 🚀 防御性处理
+                    optsArr.forEach((opt, i) => {
+                        optsHtml += `<li class='option-item'>
+                                        <div class='opt-label'>${String.fromCharCode(65 + i)}.</div>
+                                        <div class='opt-content vditor-reset' id='opt_${i}'></div>
+                                     </li>`;
+                    });
+                    document.getElementById('p-options').innerHTML = optsHtml;
+
+                    for (let i = 0; i < optsArr.length; i++) {
+                        await new Promise(resolve => {
+                            Vditor.preview(document.getElementById('opt_' + i), optsArr[i], {
+                                mode: 'light', cdn: localBasePath, math: { engine: 'KaTeX', inlineDigit: true }, after: resolve
+                            });
+                        });
+                    }
+                    document.getElementById('p-answer').innerText = p.ansStr;
+
+                } else if (p.type === 'fill') {
+                    document.getElementById('p-answer-area').style.display = 'flex';
+                    document.getElementById('p-answer').innerText = p.ansStr;
+                } else if (p.type === 'oi') {
+                    document.getElementById('p-oi-area').style.display = 'block';
+                    document.getElementById('p-in').innerText = p.inputSample;
+                    document.getElementById('p-out').innerText = p.outputSample;
+                } else if (p.type === 'code_snippet') {
+                    document.getElementById('p-code-area').style.display = 'block';
+                }
+            } catch(e) { console.error("渲染题目详情失败", e); }
+        }
+    </script>
+</body>
+</html>

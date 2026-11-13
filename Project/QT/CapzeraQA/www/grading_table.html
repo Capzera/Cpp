@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link href="./tabulator/tabulator.min.css" rel="stylesheet">
+    <script type="text/javascript" src="./tabulator/tabulator.min.js"></script>
+    <script src="./qwebchannel.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+
+        html, body { height: 100%; margin: 0; padding: 10px; box-sizing: border-box; font-family: "HYWenHei-65W", sans-serif; background: transparent; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* 🚀 绝美高定下拉框栏 */
+        .top-bar { flex-shrink: 0; display: flex; align-items: center; margin-bottom: 12px; background: #FFFFFF; padding: 12px 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(148, 163, 184, 0.05); }
+        .combo-label { color: #475569; font-weight: bold; font-size: 22px; margin-right: 10px; font-family: "HYWenHei-85W", sans-serif; white-space: nowrap; }
+        .cap-combo { flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-family: "HYWenHei-65W", sans-serif; font-size: 22px; color: #1E293B; outline: none; transition: all 0.2s ease; cursor: pointer; background: #F8FAFC; }
+        .cap-combo:focus, .cap-combo:hover { border-color: #3B82F6; background: #FFFFFF; }
+
+        #table-container { flex: 1; min-height: 0; width: 100%; }
+        .tabulator-row:nth-child(odd) { background-color: #FFFFFF !important; } /* 奇数行：纯白 */
+        .tabulator-row:nth-child(even) { background-color: #F8FAFC !important; } /* 偶数行：柔和浅灰 */
+        .tabulator { border: none !important; background: transparent !important; font-size: 18px; font-family: "HYWenHei-65W", sans-serif !important; }
+        .tabulator-header { background: #DEEAFC !important; border: none !important; border-radius: 10px 10px 0 0; }
+        .tabulator-col { background: #DEEAFC !important; border-right: none !important; padding: 12px 4px !important; }
+        .tabulator-col-title { color: #1E293B !important; font-family: "HYWenHei-85W", sans-serif !important; font-size: 22px; }
+        .tabulator-tableHolder { background: transparent !important; }
+        .tabulator-row { border: none !important; background-color: #FFFFFF !important; margin-bottom: 8px !important; border-radius: 8px !important; box-shadow: 0 4px 12px rgba(148, 163, 184, 0.05); transition: all 0.2s ease; cursor: pointer; }
+        .tabulator-row:hover { background-color: #F0F7FF !important; transform: translateX(4px); }
+        .tabulator-cell { border-right: none !important; padding: 14px 10px !important; color: #334155; display: flex; align-items: center; }
+
+        .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 18px; font-weight: bold; }
+        .status-done { background: #DCFCE7; color: #059669; }
+        .status-waiting { background: #FEF3C7; color: #B45309; }
+        .score-text { font-family: Consolas, monospace; font-weight: bold; color: #2563EB; }
+    </style>
+</head>
+<body>
+    <div class="top-bar" id="top-bar-container" style="display: none;">
+        <div class="combo-label">📌 筛选测验：</div>
+        <select id="exam-combo" class="cap-combo" onchange="if(cplusBridge) cplusBridge.onExamFilterChanged(this.value);"></select>
+    </div>
+
+    <div id="table-container"></div>
+
+    <script>
+        var table;
+        var cplusBridge = null;
+        if (typeof qt !== 'undefined') new QWebChannel(qt.webChannelTransport, function(channel) { cplusBridge = channel.objects.gradingTableBridge; });
+
+        var statusFormatter = function(cell) {
+            var val = cell.getValue();
+            var cls = val.includes("已批阅") ? "status-done" : "status-waiting";
+            return "<span class='status-badge " + cls + "'>" + val + "</span>";
+        };
+
+        table = new Tabulator("#table-container", {
+            height: "100%", layout: "fitColumns", selectableRows: 1,
+            placeholder: "<span style='color:#94A3B8; font-weight:bold; font-family: HYWenHei-85W; font-size: 22px'>当前暂无批阅待办事项...</span>",
+            columns: [
+                {title: "试卷名称", field: "examTitle", minWidth: 160, headerSort: false},
+                {title: "学员姓名", field: "name", width: 120, hozAlign: "center", headerHozAlign: "center", headerSort: false},
+                {title: "题号", field: "qIndex", width: 100, hozAlign: "center", headerHozAlign: "center", headerSort: false},
+                {title: "得分 / 满分", field: "score", width: 120, hozAlign: "center", headerHozAlign: "center", cssClass: "score-text", headerSort: false},
+                {title: "批阅状态", field: "status", width: 120, hozAlign: "center", headerHozAlign: "center", formatter: statusFormatter, headerSort: false}
+            ]
+        });
+
+        table.on("rowClick", function(e, row) { if (cplusBridge) cplusBridge.onWebRowClicked(row.getData()._index); });
+
+        function loadTableData(jsonStr) {
+            try { table.setData(JSON.parse(decodeURIComponent(escape(atob(jsonStr))))); } catch(e) { console.error("加载数据失败", e); }
+        }
+
+        function loadExamCombo(b64Str) {
+            try {
+                let data = JSON.parse(decodeURIComponent(escape(atob(b64Str))));
+                let combo = document.getElementById('exam-combo');
+                let topBar = document.getElementById('top-bar-container');
+
+                if (data.length <= 1) {
+                    topBar.style.display = 'none';
+                } else {
+                    topBar.style.display = 'flex';
+                }
+
+                let currentVal = combo.value;
+                combo.innerHTML = '';
+
+                let hasCurrent = false;
+                data.forEach(item => {
+                    let opt = document.createElement('option');
+                    opt.value = item.id;
+                    opt.innerText = item.title;
+                    combo.appendChild(opt);
+                    if (item.id === currentVal) hasCurrent = true;
+                });
+
+                if (hasCurrent) combo.value = currentVal;
+                else if (cplusBridge) cplusBridge.onExamFilterChanged(combo.value);
+
+            } catch(e) { console.error("渲染下拉框失败", e); }
+        }
+    </script>
+</body>
+</html>

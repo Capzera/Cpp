@@ -1,0 +1,16 @@
+{
+  "terminalAllowlist": [
+    "pwsh -File",
+    "powershell -File",
+    "pwsh -NoProfile -File",
+    "powershell -NoProfile -File",
+    "git",
+    "cmake",
+    "make",
+    "qmake",
+    "node"
+  ],
+  "defaultAllowlist": [
+    "Shell"
+  ]
+}

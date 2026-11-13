@@ -1,0 +1,6 @@
+# depslib dependency file v1.0
+1653362694 source:d:\program\c++\project\testgra\main.cpp
+	"ege.h"
+	"graphics.h"
+	"gdiplus.h"
+

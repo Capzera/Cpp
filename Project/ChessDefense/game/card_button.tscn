@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://duwdm4cv5p0f6"]
+
+[ext_resource type="Script" uid="uid://d0s6btvqf8ttd" path="res://card_button.gd" id="1_1yldv"]
+
+[node name="CardButton" type="Button" unique_id=862249409]
+custom_minimum_size = Vector2(80, 120)
+offset_right = 8.0
+offset_bottom = 8.0
+script = ExtResource("1_1yldv")

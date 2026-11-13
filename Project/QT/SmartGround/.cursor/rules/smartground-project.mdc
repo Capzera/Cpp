@@ -1,0 +1,34 @@
+---
+description: Persistent SmartGround project requirements and collaboration workflow
+alwaysApply: true
+---
+
+# SmartGround project rules
+
+Treat `.cursorrules` and `Cursor_Workflow.md` as the product requirements for every task in this repository. Read the current project summary, module status, algorithm outline, and bug log before substantial work; update the relevant docs with every implementation or bug fix.
+
+- For a new algorithm module, first present an animation storyboard specifying pointers, auxiliary visual structures, labels, and color/state meanings. Wait for the user's approval before implementing the module.
+- Add no C++ code comments. Use readable four-space indentation and compact C++17 style.
+- Keep one algorithm concept per class; all modules inherit `IModule`.
+- Use the protected `IModule::m_scene`; never shadow it in subclasses.
+- When `m_animated` is false, apply state changes instantly and never create or start Qt property animations.
+- Reuse `IModule` animation helpers. Add shared helpers before repeating a reusable effect in modules.
+- Preserve the recording/playback split and validate scene/input state for build, undo, and replay.
+- Follow the OI/CSP-J/S algorithm style and visual design rules in `Cursor_Workflow.md`.
+- Replies must name changed files/functions, summarize work, and report verification. Never dump whole source files.
+- On bug fixes or module status changes, update `docs/BugLog.md`, `docs/ModuleStatus.md`, and `docs/ProjectSummary.md`.
+
+## Collaboration mode: PM authorization and batched execution
+
+- The user (Rodriguez) is the project manager: they only review the final result. The agent owns all technical decisions and the full implementation.
+- Execute autonomously end to end: evaluate, code, compile, test, and sync docs in one pass. Never stop to ask "should I proceed" mid-task.
+- Only escalate for: external third-party dependencies (present a written proposal first), mutually exclusive requirements that cannot be reconciled, or destructive operations on user data.
+- Batch related requests. Group work into refactor, visual/UI, interaction/animation, and docs clusters and land them together instead of one request at a time.
+- Prefer editing existing source over pulling in external libraries.
+- Keep the app dependency-free: the UI is fully custom-drawn in `src/ui/widgets/` with design tokens in `src/ui/UiTheme.h`. Never reintroduce native `QPushButton`, `QRadioButton`, `QCheckBox`, `QComboBox`, or `QTextEdit` widgets in the user-facing UI.
+
+## Canvas and layout conventions
+
+- Route viewport centering and zoom through `src/core/ViewportFitter.h`; never hand-code transforms in `MainWindow`.
+- Manage invisible alignment snapping through `src/render/SceneGrid.h`: magnetic node alignment plus cell snapping, with `Ctrl` held for free dragging.
+- Always register graph edges via `node->addEdge(edge)` so dragging a node does not tear the canvas.

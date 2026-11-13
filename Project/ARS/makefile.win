@@ -1,0 +1,49 @@
+# Project: ARS
+# Makefile created by Red Panda C++ 3.2.2958
+
+CXX      = "g++.exe"
+CC       = "gcc.exe"
+WINDRES  = "windres.exe"
+RM       = del /q /f
+CD       = cd /d
+LIBS     = "-s" "-static"
+INCS     = 
+CXXINCS  = 
+CXXFLAGS = $(CXXINCS) "-O2" "-pipe"
+CFLAGS   = $(INCS) "-O2" "-pipe"
+WINDRESFLAGS = 
+RES      = ARS_private.res
+OBJ      = passenger.o pw.o flight.o main.o menu.o $(RES)
+BIN      = ARS.exe
+LINKOBJ  = "passenger.o" "pw.o" "flight.o" "main.o" "menu.o" "ARS_private.res"
+CLEANOBJ = "passenger.o" "pw.o" "flight.o" "main.o" "menu.o" "ARS_private.res" "ARS.exe"
+
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before $(BIN) all-after
+
+clean: clean-custom
+	-$(RM) $(CLEANOBJ) >NUL 2>&1
+
+ARS.exe: $(OBJ)
+
+	$(CXX) $(LINKOBJ) -o "ARS.exe" $(LIBS)
+
+passenger.o: passenger.cpp passenger.h menu.h construct.h pw.h common.h flight.h
+	$(CXX) -c "passenger.cpp" -o "passenger.o" $(CXXFLAGS) 
+
+pw.o: pw.cpp passenger.h menu.h construct.h pw.h common.h flight.h
+	$(CXX) -c "pw.cpp" -o "pw.o" $(CXXFLAGS) 
+
+flight.o: flight.cpp passenger.h menu.h construct.h pw.h common.h flight.h
+	$(CXX) -c "flight.cpp" -o "flight.o" $(CXXFLAGS) 
+
+main.o: main.cpp passenger.h menu.h construct.h pw.h common.h flight.h
+	$(CXX) -c "main.cpp" -o "main.o" $(CXXFLAGS) 
+
+menu.o: menu.cpp passenger.h menu.h construct.h pw.h common.h flight.h
+	$(CXX) -c "menu.cpp" -o "menu.o" $(CXXFLAGS) 
+
+ARS_private.res: ARS_private.rc 
+	$(WINDRES) -i "ARS_private.rc" --input-format=rc -o "ARS_private.res" -O coff $(WINDRESFLAGS) 
+

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <title>Capzera 高定富文本引擎</title>
+    <link rel="stylesheet" href="./dist/index.css" />
+    <script src="./dist/index.min.js"></script>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #fff; }
+        #vditor { height: 100vh !important; border: none !important; }
+        .vditor-toolbar { border-top: none; border-left: none; border-right: none; background-color: #F8FAFC; }
+    </style>
+</head>
+<body>
+    <div id="vditor"></div>
+
+    <script>
+        var vditorInstance;
+        var cplusBridge = null;
+
+        if (typeof qt !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+                cplusBridge = channel.objects.coreEditorBridge;
+            });
+        }
+        var localBasePath = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+        var absoluteCdnPath = localBasePath;
+
+        // 初始化本地 Vditor，并开启离线文件黑科技
+        vditorInstance = new Vditor('vditor', {
+            height: window.innerHeight,
+            mode: 'ir',
+            toolbarConfig: { pin: true },
+            cache: { enable: false },
+            cdn: absoluteCdnPath,
+            preview: {
+                math: { engine: 'KaTeX', inlineDigit: true }
+            },
+            upload: {
+                accept: 'image/*,.pdf,.zip,.rar,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt',
+                multiple: true,
+                handler(files) {
+                    Array.from(files).forEach(file => {
+                        let reader = new FileReader();
+                        reader.onload = function(e) {
+                            let base64DataUrl = e.target.result;
+                            let isImage = file.type.startsWith('image/');
+                            let insertText = isImage ? `\n![${file.name}](${base64DataUrl})\n` : `\n[📎 下载附件: ${file.name}](${base64DataUrl})\n`;
+                            vditorInstance.insertValue(insertText);
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                    return null; // 阻止默认上传动作
+                }
+            },
+            input(value) {
+                if (cplusBridge) {
+                    cplusBridge.receiveTextFromWeb(value);
+                }
+            }
+        });
+
+        function setRawTextBase64(b64Text) {
+            var rawText = decodeURIComponent(escape(atob(b64Text)));
+            if (vditorInstance) {
+                vditorInstance.setValue(rawText);
+            }
+        }
+    </script>
+</body>
+</html>

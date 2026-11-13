@@ -1,0 +1,117 @@
+[gd_scene format=3 uid="uid://b6vogr11rk0nr"]
+
+[ext_resource type="Script" uid="uid://cwwqhuqsilwe7" path="res://level_select.gd" id="1_il3u1"]
+
+[sub_resource type="SystemFont" id="SystemFont_il3u1"]
+
+[sub_resource type="SystemFont" id="SystemFont_ifow5"]
+font_names = PackedStringArray("HYWenHei 85W")
+
+[sub_resource type="LabelSettings" id="LabelSettings_wvhbo"]
+font = SubResource("SystemFont_ifow5")
+font_size = 36
+font_color = Color(0, 0, 0, 1)
+
+[sub_resource type="SystemFont" id="SystemFont_06t4h"]
+font_names = PackedStringArray("HYWenHei 65W")
+
+[node name="LevelSelect" type="Control" unique_id=1022645094]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_il3u1")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=489713517]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="BackButton" type="Button" parent="ColorRect" unique_id=794657396]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -70.0
+offset_right = 240.0
+offset_bottom = -20.0
+grow_vertical = 0
+theme_override_fonts/font = SubResource("SystemFont_il3u1")
+theme_override_font_sizes/font_size = 30
+text = "返回主菜单"
+
+[node name="DepotButton" type="Button" parent="ColorRect"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 260.0
+offset_top = -70.0
+offset_right = 480.0
+offset_bottom = -20.0
+grow_vertical = 0
+theme_override_fonts/font = SubResource("SystemFont_il3u1")
+theme_override_font_sizes/font_size = 30
+text = "卡牌仓库"
+
+[node name="EditorButton" type="Button" parent="ColorRect"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 500.0
+offset_top = -70.0
+offset_right = 720.0
+offset_bottom = -20.0
+grow_vertical = 0
+theme_override_fonts/font = SubResource("SystemFont_il3u1")
+theme_override_font_sizes/font_size = 30
+text = "关卡编辑器"
+
+[node name="Label" type="Label" parent="ColorRect" unique_id=870749876]
+layout_mode = 0
+offset_left = 13.0
+offset_top = 22.0
+offset_right = 171.0
+offset_bottom = 70.0
+text = "选择关卡"
+label_settings = SubResource("LabelSettings_wvhbo")
+
+[node name="MainContainer" type="VBoxContainer" parent="." unique_id=1573906105]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -492.0
+offset_top = -207.0
+offset_right = 481.0
+offset_bottom = 282.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="GridContainer" type="GridContainer" parent="MainContainer" unique_id=1853523517]
+layout_mode = 2
+columns = 3
+
+[node name="Button" type="Button" parent="MainContainer/GridContainer" unique_id=532905163]
+layout_mode = 2
+theme_override_fonts/font = SubResource("SystemFont_06t4h")
+theme_override_font_sizes/font_size = 30
+
+[node name="Button2" type="Button" parent="MainContainer/GridContainer" unique_id=199158421]
+layout_mode = 2
+theme_override_fonts/font = SubResource("SystemFont_06t4h")
+theme_override_font_sizes/font_size = 30
+
+[node name="Button3" type="Button" parent="MainContainer/GridContainer" unique_id=672236651]
+layout_mode = 2
+theme_override_fonts/font = SubResource("SystemFont_06t4h")
+theme_override_font_sizes/font_size = 30

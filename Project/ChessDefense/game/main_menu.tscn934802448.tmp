@@ -1,0 +1,65 @@
+[gd_scene format=3 uid="uid://d1k7vpkgwkr27"]
+
+[ext_resource type="Script" uid="uid://dpwj8r1g6ptmj" path="res://main_menu.gd" id="1_06t4h"]
+
+[sub_resource type="SystemFont" id="SystemFont_abi3o"]
+font_names = PackedStringArray("Consolas")
+hinting = 2
+
+[sub_resource type="LabelSettings" id="LabelSettings_ifow5"]
+font = SubResource("SystemFont_abi3o")
+font_size = 60
+
+[node name="MainMenu" type="Control" unique_id=1953108572]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_06t4h")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=892763324]
+propagate_maximum_size = true
+layout_mode = 0
+offset_left = 1.0
+offset_top = 2.0
+offset_right = 1148.0
+offset_bottom = 651.0
+color = Color(0.37413925, 0.37413928, 0.37413922, 1)
+
+[node name="TitleLabel" type="Label" parent="." unique_id=252011526]
+layout_mode = 0
+offset_left = 369.0
+offset_top = 78.0
+offset_right = 798.0
+offset_bottom = 139.0
+text = "Chess Defense"
+label_settings = SubResource("LabelSettings_ifow5")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1368370594]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 560.0
+offset_top = 344.0
+offset_right = 592.0
+offset_bottom = 480.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="StartButton" type="Button" parent="VBoxContainer" unique_id=332454650]
+layout_mode = 2
+text = "开始游戏"
+
+[node name="OptionsButton" type="Button" parent="VBoxContainer" unique_id=501526840]
+layout_mode = 2
+text = "选项"
+
+[node name="HelpButton" type="Button" parent="VBoxContainer" unique_id=1992417340]
+layout_mode = 2
+text = "帮助"
+
+[node name="QuitButton" type="Button" parent="VBoxContainer" unique_id=1191959195]
+layout_mode = 2
+text = "退出游戏"

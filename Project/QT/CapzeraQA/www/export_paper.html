@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="./dist/index.css" />
+    <script src="./dist/index.min.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+
+        body { font-family: "HYWenHei-65W", "Microsoft YaHei", sans-serif; padding: 30px; background: white; color: #1E293B; }
+        h1 { text-align: center; font-size: 26px; margin-bottom: 40px; font-family: "HYWenHei-85W"; letter-spacing: 1px; }
+
+        /* 🚀 极简排版布局：Flex 完美对齐序号与正文 */
+        .question-wrapper { display: flex; flex-direction: row; margin-bottom: 35px; page-break-inside: avoid; }
+
+        /* 序号样式 */
+        .q-index { font-size: 16px; margin-right: 8px; margin-top: 2px; font-family: "HYWenHei-85W"; font-weight: bold; }
+
+        /* 题目核心容器 */
+        .q-content { flex: 1; min-width: 0; }
+
+        /* 覆盖 Vditor 默认样式，使其融入纸质卷面，不再加粗 */
+        .vditor-reset { background: transparent !important; color: #1E293B !important; font-size: 16px !important; font-family: "HYWenHei-65W", sans-serif !important; }
+        .vditor-reset p { margin: 0 0 10px 0; }
+
+        /* 选项布局 */
+        .options-container { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+        .option-item { font-size: 16px; display: flex; align-items: flex-start; }
+        .opt-label { margin-right: 8px; font-family: "HYWenHei-85W"; font-weight: bold; }
+
+        /* 底部版权声明 */
+        .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #94A3B8; border-top: 1px dashed #E2E8F0; padding-top: 20px;}
+    </style>
+</head>
+<body>
+    <h1 id="paper-title"></h1>
+    <div id="exam-content"></div>
+    <div class="footer">- 内部教研资料，请勿外传 -</div>
+
+    <script>
+        // 🚀 核心：改为 async 函数，强制排队渲染，解决 Vditor 并发白屏 Bug
+        async function renderPaper(title, b64Str) {
+            try {
+                document.getElementById('paper-title').innerText = title;
+                var jsonStr = new TextDecoder("utf-8").decode(Uint8Array.from(atob(b64Str), c => c.charCodeAt(0)));
+                var questions = JSON.parse(jsonStr);
+
+                var container = document.getElementById('exam-content');
+                var localBasePath = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+
+                for (let index = 0; index < questions.length; index++) {
+                    let q = questions[index];
+
+                    var wrapper = document.createElement('div');
+                    wrapper.className = 'question-wrapper';
+
+                    // 1. 创建左侧的纯净序号
+                    var qIndex = document.createElement('div');
+                    qIndex.className = 'q-index';
+                    qIndex.innerText = (index + 1) + ".";
+                    wrapper.appendChild(qIndex);
+
+                    // 2. 创建右侧内容大容器 (不渲染标题和分值)
+                    var qContent = document.createElement('div');
+                    qContent.className = 'q-content';
+
+                    var stem = document.createElement('div');
+                    stem.className = 'vditor-reset';
+                    stem.id = 'stem_' + index;
+                    qContent.appendChild(stem);
+
+                    // 如果有选项，一并加入
+                    if (q.options && q.options.length > 0) {
+                        var opts = document.createElement('div');
+                        opts.className = 'options-container';
+                        q.options.forEach(function(optText, optIndex) {
+                            var optItem = document.createElement('div');
+                            optItem.className = 'option-item';
+                            optItem.innerHTML = "<span class='opt-label'>" + String.fromCharCode(65 + optIndex) + ". </span> <span>" + optText + "</span>";
+                            opts.appendChild(optItem);
+                        });
+                        qContent.appendChild(opts);
+                    }
+
+                    wrapper.appendChild(qContent);
+                    container.appendChild(wrapper);
+
+                    // 🚀 核心排队机制：等待当前 Vditor 解析完毕 KaTeX 等资源，再放行！
+                    await new Promise(resolve => {
+                        Vditor.preview(document.getElementById('stem_' + index), q.stem, {
+                            mode: 'light',
+                            cdn: localBasePath,
+                            math: { engine: 'KaTeX', inlineDigit: true },
+                            after: () => { resolve(); } // 渲染完成回调
+                        });
+                    });
+                }
+
+                // 🚀 全部题目渲染完毕，通知 C++ 触发 PDF 导出！
+                document.title = "RENDER_COMPLETE";
+
+            } catch(e) {
+                console.error("渲染试卷失败:", e);
+                document.title = "RENDER_COMPLETE"; // 容错处理
+            }
+        }
+    </script>
+</body>
+</html>

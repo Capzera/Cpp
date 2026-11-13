@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://c8tank0000001"]
+
+[sub_resource type="CardStats" id="CardStats_tank"]
+piece_type = "T"
+max_hp = 220
+physical_atk = 18
+physical_def = 6
+attack_interval = 2.4
+move_speed = 1.2
+projectile_speed = 8.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_tank"]
+size = Vector3(1.4, 1.4, 1.4)
+
+[node name="ChessPiece" type="ChessPiece"]
+stats = SubResource("CardStats_tank")
+faction = 1
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_tank")

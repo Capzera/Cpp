@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link href="./tabulator/tabulator.min.css" rel="stylesheet">
+    <script type="text/javascript" src="./tabulator/tabulator.min.js"></script>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+
+        /* 🚀 启用超级弹性布局，字体放大 */
+        html, body { height: 100%; margin: 0; padding: 15px; box-sizing: border-box; font-family: "HYWenHei-65W", sans-serif; background: transparent; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* 🚀 顶部标题栏 */
+        .top-bar { flex-shrink: 0; display: flex; align-items: center; margin-bottom: 15px; background: #FFFFFF; padding: 18px 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(148, 163, 184, 0.05); border: 1px solid #E2E8F0;}
+        .icon { width: 38px; height: 38px; background: #E0E7FF; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #4F46E5; font-weight: bold; }
+        .title { font-size: 24px; font-weight: bold; font-family: "HYWenHei-85W"; color: #0F172A; margin-left: 15px; }
+
+        #table-container { flex: 1; min-height: 0; width: 100%; }
+
+        /* 🚀 100% 复刻 teacher 端的卡片表格风格，并调大字号 */
+        .tabulator { border: none !important; background: transparent !important; font-size: 18px; font-family: "HYWenHei-65W", sans-serif !important; }
+        .tabulator-header { background: #DEEAFC !important; border: none !important; border-radius: 10px 10px 0 0; }
+        .tabulator-col { background: #DEEAFC !important; border-right: none !important; padding: 14px 4px !important; }
+        .tabulator-col-title { color: #1E293B !important; font-family: "HYWenHei-85W", sans-serif !important; font-size: 20px; }
+        .tabulator-tableHolder { background: transparent !important; }
+
+        /* 独立的行卡片，右滑悬浮动画 */
+        .tabulator-row { border: none !important; background-color: #FFFFFF !important; margin-bottom: 12px !important; border-radius: 10px !important; box-shadow: 0 4px 12px rgba(148, 163, 184, 0.05); transition: all 0.2s ease; cursor: pointer; }
+        .tabulator-row:hover { background-color: #F0F7FF !important; transform: translateX(6px); }
+        .tabulator-cell { border-right: none !important; padding: 20px 12px !important; color: #334155; display: flex; align-items: center; }
+
+        /* 大号状态气泡 */
+        .status-badge { padding: 6px 14px; border-radius: 12px; font-size: 16px; font-weight: bold; }
+        .status-done { background: #DCFCE7; color: #059669; }
+        .status-waiting { background: #FEF3C7; color: #B45309; }
+        .score-text { font-family: Consolas, monospace; font-size: 22px; font-weight: bold; color: #2563EB; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="icon">🏆</div>
+        <div class="title">历次答题战绩列表</div>
+    </div>
+    <div id="table-container"></div>
+
+    <script>
+        var table;
+        var cplusBridge = null;
+        if (typeof qt !== 'undefined') new QWebChannel(qt.webChannelTransport, function(channel) { cplusBridge = channel.objects.studentHistoryBridge; });
+
+        var statusFormatter = function(cell) {
+            var val = cell.getValue();
+            var cls = val.includes("成绩有效") ? "status-done" : "status-waiting";
+            return "<span class='status-badge " + cls + "'>" + val + "</span>";
+        };
+
+        table = new Tabulator("#table-container", {
+            height: "100%", layout: "fitColumns", selectable: 1,
+            placeholder: "<span style='color:#94A3B8; font-weight:bold; font-family: HYWenHei-85W; font-size: 20px;'>🎉 暂无历史成绩，去大厅参加考试吧！</span>",
+            columns: [
+                {title: "试卷名称", field: "title", hozAlign: "left", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "成绩", field: "score", hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", width: 140, cssClass: "score-text", headerSort: false},
+                {title: "状态", field: "status", hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", width: 160, formatter: statusFormatter, headerSort: false},
+                {title: "交卷时间", field: "time", hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", width: 220, color: "#64748B", headerSort: false}
+            ],
+        });
+
+        table.on("rowClick", function(e, row) { if (cplusBridge) cplusBridge.onWebRowClicked(row.getData().examId); });
+
+        function loadTableData(jsonStr) {
+            try { table.setData(JSON.parse(decodeURIComponent(escape(atob(jsonStr))))); } catch(e) { console.error("加载数据失败", e); }
+        }
+    </script>
+</body>
+</html>

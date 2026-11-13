@@ -1,0 +1,31 @@
+[gd_scene format=3 uid="uid://y0x43m4oem53"]
+
+[sub_resource type="CardStats" id="CardStats_castle"]
+piece_type = "R"
+display_name = "城堡(常见)"
+card_attribute = "物理"
+deploy_cost = 20
+redeploy_time = 35.0
+max_hp = 480
+physical_atk = 22
+physical_def = 12
+attack_interval = 2.2
+block_count = 4
+move_speed = 0.0
+projectile_speed = 28.0
+is_ranged = true
+hits_all_in_range = true
+range_map = ". X 
+O X
+. X"
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_castle"]
+radius = 0.45
+height = 1.4
+
+[node name="ChessPiece" type="ChessPiece" unique_id=2066696065]
+stats = SubResource("CardStats_castle")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1235891868]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 0, 0, 0)
+mesh = SubResource("CapsuleMesh_castle")

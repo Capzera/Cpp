@@ -1,0 +1,27 @@
+ssh 服务器地址
+输入root用户名 密码
+sudo useradd 用户名//新建用户
+sudo passwd 用户名//设置密码
+bash中输入：
+curl -sLf https://gitee.com/hairrrrr/VimForCpp/raw/master/install.sh -o ./install.sh && bash ./install.sh
+//安装vimforcpp
+source ~/.bashrc
+输入 vim ~/.vimrc //配置vimrc文件
+修改set relative -> set number //相对行号-->绝对行号
+set tabstop=4 //tab键缩进4个空格
+autocmd BufNewFile *.cpp,*.sh ":SetTitle()"
+func SetTitle()
+    if &filetype == 'sh'
+
+    endif
+    if &filetype == 'cpp'
+        call append(line(".")+行数, "内容")//自动化配置创建文件的头
+    endif
+    autocmd BufNewFile * normal G //将光标定位到文件末尾
+endfunc
+
+#涉及到的函数
+.expend("%") //获取文件带拓展名
+.expend("%:e")//获取文件拓展名
+.strftime("%c")//获取当前时间
+.getcwd()//获取当前路径

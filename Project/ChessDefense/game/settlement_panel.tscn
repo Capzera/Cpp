@@ -1,0 +1,68 @@
+[gd_scene format=3 uid="uid://cf3g68vrnvtwh"]
+
+[ext_resource type="Script" path="res://settlement_panel.gd" id="1_script"]
+
+[sub_resource type="SystemFont" id="SystemFont_title"]
+font_names = PackedStringArray("HYWenHei 85W")
+
+[sub_resource type="SystemFont" id="SystemFont_btn"]
+font_names = PackedStringArray("HYWenHei 65W")
+
+[node name="SettlementPanel" type="CanvasLayer"]
+process_mode = 3
+layer = 10
+script = ExtResource("1_script")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.7)
+
+[node name="TitleLabel" type="Label" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -240.0
+offset_right = 180.0
+offset_bottom = -140.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = SubResource("SystemFont_title")
+theme_override_font_sizes/font_size = 72
+text = "胜利"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ButtonContainer" type="VBoxContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -60.0
+offset_right = 160.0
+offset_bottom = 140.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 28
+
+[node name="ActionBtn" type="Button" parent="ButtonContainer"]
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+theme_override_fonts/font = SubResource("SystemFont_btn")
+theme_override_font_sizes/font_size = 42
+text = "下一关"
+
+[node name="MenuBtn" type="Button" parent="ButtonContainer"]
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+theme_override_fonts/font = SubResource("SystemFont_btn")
+theme_override_font_sizes/font_size = 42
+text = "返回菜单"

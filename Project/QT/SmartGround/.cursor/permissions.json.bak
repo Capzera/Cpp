@@ -1,0 +1,8 @@
+{
+    "terminalAllowlist": [
+      "cmake",
+      "make",
+      "git",
+      "qmake"
+    ]
+  }

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+
+        body { margin: 0; padding: 40px; background: #F8FAFC; font-family: "HYWenHei-65W", "Microsoft YaHei", sans-serif; color: #1E293B; }
+
+        /* 主信息卡片 */
+        .card { background: white; border-radius: 12px; border: 1px solid #E2E8F0; padding: 40px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); transition: 0.3s; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #F1F5F9; padding-bottom: 20px; margin-bottom: 30px; }
+        .title { font-size: 26px; font-family: "HYWenHei-85W"; color: #0F172A; }
+
+        /* 顶部只读状态栏 */
+        .readonly-bar { display: flex; gap: 20px; margin-bottom: 40px; }
+        .badge { background: #F1F5F9; padding: 14px 20px; border-radius: 8px; font-size: 22px; color: #475569; font-weight: bold; flex: 1; text-align: center; border: 1px solid #E2E8F0; }
+        .badge span { color: #0F172A; font-family: "HYWenHei-65W"; margin-left: 8px; font-size: 22px; }
+
+        /* 表单双列 Grid 布局 */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group.full { grid-column: span 2; }
+        .form-group label { font-size: 18px; color: #475569; font-weight: bold; margin-bottom: 8px; }
+        .form-control { font-family: "HYWenHei-65W", "Microsoft YaHei"; font-size: 18px; padding: 14px; border: 2px solid #CBD5E1; border-radius: 8px; outline: none; transition: 0.2s; color: #1E293B; background: #FFFFFF; }
+        .form-control:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); background: #F8FAFC; }
+
+        /* 操作按钮区 */
+        .actions { margin-top: 40px; display: flex; justify-content: center; gap: 20px; }
+        .btn { font-family: "HYWenHei-85W"; font-size: 18px; padding: 14px 35px; border-radius: 8px; cursor: pointer; border: none; transition: 0.2s; outline: none; }
+        .btn-primary { background: #3B82F6; color: white; box-shadow: 0 4px 12px rgba(59,130,246,0.25); }
+        .btn-primary:hover { background: #2563EB; transform: translateY(-2px); }
+        .btn-primary:disabled { background: #94A3B8; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-danger { background: #1E293B; color: white; box-shadow: 0 4px 12px rgba(30,41,59,0.25); }
+        .btn-danger:hover { background: #0F172A; transform: translateY(-2px); }
+
+        /* 独立密码修改对话框 (Modal) */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.6); display: none; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; z-index: 100; backdrop-filter: blur(4px);}
+        .modal { background: white; padding: 40px; border-radius: 16px; width: 420px; transform: scale(0.9); transition: 0.3s; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+        .modal.show { transform: scale(1); }
+        .modal-overlay.show { display: flex; opacity: 1; }
+        .modal h3 { margin-top: 0; color: #1E293B; font-family: "HYWenHei-85W"; font-size: 22px; margin-bottom: 25px; text-align: center; }
+        .modal .form-group { margin-bottom: 20px; }
+        .modal .actions { justify-content: center; margin-top: 35px; gap: 15px; }
+        .btn-cancel { background: #F1F5F9; color: #475569; }
+        .btn-cancel:hover { background: #E2E8F0; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <div class="title">⚙️ 个人中心与信息设置</div>
+        </div>
+
+        <div class="readonly-bar">
+            <div class="badge">🆔 用户名：<span id="lblAccount">--</span></div>
+            <div class="badge">🏫 班级：<span id="lblClassName">--</span></div>
+            <div class="badge">📅 注册时间：<span id="lblRegTime">--</span></div>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>👤 姓名：</label>
+                <input type="text" id="editName" class="form-control" placeholder="请输入真实姓名">
+            </div>
+            <div class="form-group">
+                <label>⚧️ 性别：</label>
+                <select id="comboGender" class="form-control">
+                    <option value="保密">保密</option>
+                    <option value="男">男</option>
+                    <option value="女">女</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>📱 手机号：</label>
+                <input type="text" id="editPhone" class="form-control" placeholder="请输入手机号">
+            </div>
+            <div class="form-group">
+                <label>📧 E-Mail：</label>
+                <input type="text" id="editEmail" class="form-control" placeholder="请输入电子邮箱">
+            </div>
+            <div class="form-group full">
+                <label>💳 ID-Card：</label>
+                <input type="text" id="editIdCard" class="form-control" placeholder="请输入身份证号">
+            </div>
+            <div class="form-group full">
+                <label>✍️ 个性签名：</label>
+                <textarea id="editMotto" class="form-control" placeholder="写下一句座右铭激励自己吧！" rows="4" style="resize: vertical;"></textarea>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" onclick="saveProfile()" id="btnSave">💾 保存修改</button>
+            <button class="btn btn-danger" onclick="openModal()">🔑 修改密码</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="pwdModalOverlay">
+        <div class="modal" id="pwdModal">
+            <h3>🔑 修改登录密码</h3>
+            <div class="form-group">
+                <label>请输入新密码：</label>
+                <input type="password" id="newPwd1" class="form-control" placeholder="请输入新密码">
+            </div>
+            <div class="form-group">
+                <label>请再次输入新密码：</label>
+                <input type="password" id="newPwd2" class="form-control" placeholder="请再次确认新密码">
+            </div>
+            <div class="actions">
+                <button class="btn btn-cancel" onclick="closeModal()">取消修改</button>
+                <button class="btn btn-primary" onclick="submitPassword()">确认更新</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var backend = null;
+        new QWebChannel(qt.webChannelTransport, function(channel) {
+            backend = channel.objects.studentSettingBridge;
+        });
+
+        // 接收 C++ 传来的全量画像数据并渲染
+        function renderProfile(info) {
+            document.getElementById('lblAccount').innerText = info.account || "--";
+            document.getElementById('lblClassName').innerText = info.className || "--";
+            document.getElementById('lblRegTime').innerText = info.regTime || "--";
+
+            document.getElementById('editName').value = info.realName || "";
+            let gender = info.gender || "保密";
+            let combo = document.getElementById('comboGender');
+            for(let i=0; i<combo.options.length; i++) {
+                if(combo.options[i].value === gender) combo.selectedIndex = i;
+            }
+            document.getElementById('editPhone').value = info.phone || "";
+            document.getElementById('editEmail').value = info.email || "";
+            document.getElementById('editIdCard').value = info.idCard || "";
+
+            // textarea 的赋值方式和 input 一模一样，完美兼容
+            document.getElementById('editMotto').value = info.motto || "";
+
+            let btn = document.getElementById('btnSave');
+            btn.innerText = "💾 保存修改";
+            btn.disabled = false;
+        }
+
+        function saveProfile() {
+            if(!backend) return;
+            let btn = document.getElementById('btnSave');
+            btn.innerText = "正在保存...";
+            btn.disabled = true;
+
+            let name = document.getElementById('editName').value.trim();
+            let gender = document.getElementById('comboGender').value;
+            let phone = document.getElementById('editPhone').value.trim();
+            let email = document.getElementById('editEmail').value.trim();
+            let idCard = document.getElementById('editIdCard').value.trim();
+            let motto = document.getElementById('editMotto').value.trim();
+
+            backend.webSaveProfile(name, gender, phone, email, idCard, motto);
+        }
+
+        // --- Modal 交互逻辑 ---
+        function openModal() {
+            document.getElementById('newPwd1').value = "";
+            document.getElementById('newPwd2').value = "";
+            let overlay = document.getElementById('pwdModalOverlay');
+            let modal = document.getElementById('pwdModal');
+            overlay.style.display = 'flex';
+            void overlay.offsetWidth;
+            overlay.classList.add('show');
+            modal.classList.add('show');
+        }
+
+        function closeModal() {
+            let overlay = document.getElementById('pwdModalOverlay');
+            let modal = document.getElementById('pwdModal');
+            overlay.classList.remove('show');
+            modal.classList.remove('show');
+            setTimeout(() => { overlay.style.display = 'none'; }, 300);
+        }
+
+        function submitPassword() {
+            let p1 = document.getElementById('newPwd1').value;
+            let p2 = document.getElementById('newPwd2').value;
+            if(!p1) { alert("新密码不能为空！"); return; }
+            if(p1 !== p2) { alert("两次输入的密码不一致，请重新输入！"); return; }
+
+            if(backend) {
+                backend.webChangePassword(p1);
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>

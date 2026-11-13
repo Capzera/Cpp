@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link href="./tabulator/tabulator.min.css" rel="stylesheet">
+    <script type="text/javascript" src="./tabulator/tabulator.min.js"></script>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+        html, body { height: 100%; margin: 0; padding: 10px; box-sizing: border-box; font-family: "HYWenHei-65W", sans-serif; background: transparent; overflow: hidden; }
+        
+        .tabulator { 
+            border: none !important; 
+            background: #FFFFFF !important; 
+            font-size: 17px;
+            font-family: "HYWenHei-65W", sans-serif !important;
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(148, 163, 184, 0.08);
+            overflow: hidden;
+        }
+        
+        .tabulator-header { 
+            background: #DEEAFC !important; 
+            border-bottom: 2px solid #CBD5E1 !important; 
+            border-top: none !important; 
+        }
+
+        .tabulator-col { 
+            background: transparent !important; 
+            border-right: none !important; 
+            border-left: none !important;
+            padding: 16px 12px !important; 
+            color: #1E293B !important; 
+            font-weight: bold !important; 
+            font-size: 18px !important;
+        }
+        
+        .tabulator-row { 
+            border-bottom: 1px solid #F1F5F9 !important; 
+            border-left: 4px solid transparent !important;
+            border-right: none !important;
+            transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1); 
+            cursor: pointer; 
+        }
+        
+        .tabulator-col-title {
+            color: #1E293B !important;
+            font-family: "HYWenHei-85W", sans-serif !important;
+            font-size: 20px;
+        }
+
+
+        .tabulator-row:nth-child(odd) { background-color: #FFFFFF !important; } 
+        .tabulator-row:nth-child(even) { background-color: #F8FAFC !important; } 
+        
+        /* 🚀 物理级绝对垂直居中恢复！干掉 flex！ */
+        .tabulator-cell { 
+            padding: 16px 14px !important; 
+            border-right: none !important;
+            border-left: none !important;
+            color: #334155;
+            vertical-align: middle !important; 
+        }
+        
+        .tabulator-row:hover { 
+            background-color: #F0F9FF !important; 
+            box-shadow: 0 6px 18px rgba(59, 130, 246, 0.06);
+            transform: translateY(-1px);
+            z-index: 10;
+            position: relative;
+            border-left-color: #93C5FD !important;
+        }
+        .tabulator-row.tabulator-selected { 
+            background-color: #E0F2FE !important; 
+            border-left: 4px solid #3B82F6 !important; 
+            font-weight: bold;
+        }
+        
+        /* 🚀 白字 + 蓝橙原版气泡恢复！ */
+        .badge {
+            display: inline-block;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .type-single { background: #E0E7FF; color: #1D4ED8; }
+        .type-multi { background: #FEF3C7; color: #B45309; }
+        .type-fill { background: #DCFCE7; color: #047857; }
+        .type-code { background: #F3E8FF; color: #7E22CE; }
+        
+        .tag-pill { 
+            display: inline-block;
+            background: #E2E8F0; 
+            color: #475569; 
+            border-radius: 14px; 
+            padding: 4px 12px; 
+            font-size: 17px;
+            font-weight: bold; 
+        }
+
+        /* 仅增加本页面专属操作按钮的样式 */
+        .btn-add { background: #3B82F6; color: white; border: none; border-radius: 6px; padding: 6px 12px; font-weight: bold; cursor: pointer; font-family: "HYWenHei-65W"; font-size: 17px; transition: 0.2s; width: 100%; box-sizing: border-box;}
+        .btn-add:hover { background: #1D4ED8; }
+        .btn-added { background: #10B981; color: white; border: none; border-radius: 6px; padding: 6px 12px; font-weight: bold; cursor: default; width: 100%; box-sizing: border-box;}
+    </style>
+</head>
+<body>
+    <div id="bank-table"></div>
+
+    <script>
+        var table;
+        var cplusBridge = null;
+
+        if (typeof qt !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+                cplusBridge = channel.objects.examBankBridge;
+            });
+        }
+
+        var typeFmt = function(cell) {
+            var val = cell.getValue(); 
+            var typeMap = { "single": "单选题", "multi": "多选题", "fill": "填空题", "code": "代码补全题", "oi": "OI题", "": "OI题", "code_snippet": "代码补全题"};
+            var cnType = typeMap[val] || val;
+            var cls = (val === 'OI' || val === 'code' || val === '' || val === 'code_snippet') ? 'type-oi' : (val === 'single') ? 'type-single' : (val === 'multi') ? 'type-multi' : 'type-fill';
+            return "<span class='badge " + cls + "'>" + cnType + "</span>";
+        };
+
+        var tagFmt = function(cell) {
+            return "<span class='tag-pill'>" + (cell.getValue() || "无标签") + "</span>";
+        };
+
+        var addBtnFmt = function() {
+            return "<button class='btn-add'>➕添加试题</button>";
+        };
+
+        table = new Tabulator("#bank-table", {
+            height: "100%",
+            layout: "fitColumns",
+            selectable: false,
+            placeholder: "<span style='color:#94A3B8; font-weight:bold;'>⏳ 暂无备选试题</span>",
+            columns: [
+                {title: "题目UID", field: "id", width: 120, cssClass: "tabulator-col-title", hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "题型", field: "type", width: 140, formatter: typeFmt, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "题目名称", field: "title", widthGrow: 1, minWidth: 400, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "标签", field: "tag", width: 140, formatter: tagFmt, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "操作", formatter: addBtnFmt, width: 160, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false}
+            ],
+        });
+
+        table.on("cellClick", function(e, cell) {
+            if (cell.getColumn().getField() === undefined) {
+                var btn = cell.getElement().querySelector("button");
+                if (btn && btn.classList.contains("btn-added")) return; 
+                
+                if (cplusBridge) cplusBridge.onWebBankRowClicked(cell.getRow().getData().id);
+                if (btn) { btn.className = "btn-added"; btn.innerText = "✔ 已加入"; }
+            }
+        });
+
+        function loadTableData(b64Str) { 
+            try {
+                var jsonStr = new TextDecoder("utf-8").decode(Uint8Array.from(atob(b64Str), c => c.charCodeAt(0)));
+                table.replaceData(JSON.parse(jsonStr)); 
+            } catch (err) { console.error("数据解码失败:", err); }
+        }
+    </script>
+</body>
+</html>

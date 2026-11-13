@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="./dist/index.css" />
+    <script src="./dist/index.min.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+        body { margin: 0; padding: 20px; background: #FFFFFF; font-family: "HYWenHei-65W", "Microsoft YaHei", sans-serif; color: #1E293B; }
+        .vditor-reset { font-family: "HYWenHei-65W", "Microsoft YaHei", sans-serif !important; color: #334155 !important; font-size: 16px !important; line-height: 1.8 !important;}
+        .vditor-reset p { margin-top: 0; }
+        .vditor-reset pre { background-color: #1E293B !important; color: #E2E8F0 !important; border-radius: 8px; }
+
+        .option-card { border: 2px solid #E2E8F0; padding: 15px; margin-bottom: 15px; border-radius: 8px; display: flex; align-items: flex-start; }
+        .opt-label { font-size: 18px; font-weight: bold; margin-right: 15px; margin-top: 2px; font-family: "HYWenHei-85W"; }
+        .opt-content { flex: 1; min-width: 0; }
+
+        /* 🟢 学生选对：绿色底，白色字 */
+        .opt-selected-correct { background-color: #10B981; border-color: #10B981; }
+        .opt-selected-correct .opt-label { color: #FFFFFF !important; }
+        .opt-selected-correct .vditor-reset { color: #FFFFFF !important; }
+
+        /* 🔵 学生选错：蓝色底凸显，白色字 */
+        .opt-selected-wrong { background-color: #3B82F6; border-color: #3B82F6; }
+        .opt-selected-wrong .opt-label { color: #FFFFFF !important; }
+        .opt-selected-wrong .vditor-reset { color: #FFFFFF !important; }
+
+        /* 🔴 遗漏的正确答案：红色粗方框凸显 */
+        .opt-correct-missed { border: 3px solid #EF4444; background-color: #FEF2F2; }
+        .opt-correct-missed .opt-label { color: #EF4444 !important; }
+
+        /* ⚪ 正常未选项 */
+        .opt-normal { background-color: #FFFFFF; }
+        .opt-normal .opt-label { color: #64748B; }
+    </style>
+</head>
+<body>
+    <div id="content" class="vditor-reset" style="display:none;"></div>
+    <div id="options-container" style="display:none;"></div>
+
+    <script>
+        var localBasePath = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+
+        async function renderMarkdown(b64Str) {
+            try {
+                let jsonStr = decodeURIComponent(escape(atob(b64Str)));
+                let payload = JSON.parse(jsonStr);
+
+                if (payload.md) {
+                    document.getElementById('content').style.display = 'block';
+                    await new Promise(resolve => Vditor.preview(document.getElementById('content'), payload.md, {
+                        mode: 'light', cdn: localBasePath, math: { engine: 'KaTeX', inlineDigit: true }, after: resolve
+                    }));
+                } else {
+                    document.getElementById('content').style.display = 'none';
+                }
+
+                if (payload.options && payload.options.length > 0) {
+                    document.getElementById('options-container').style.display = 'block';
+                    let html = '';
+                    payload.options.forEach(opt => {
+                        let cls = 'opt-normal';
+                        if (opt.status === 'selected-correct') cls = 'opt-selected-correct';
+                        else if (opt.status === 'selected-wrong') cls = 'opt-selected-wrong';
+                        else if (opt.status === 'correct-missed') cls = 'opt-correct-missed';
+
+                        html += `<div class="option-card ${cls}" id="opt-card-${opt.id}">
+                                    <div class="opt-label">${opt.displayId}.</div>
+                                    <div class="opt-content vditor-reset" id="opt-md-${opt.id}"></div>
+                                 </div>`;
+                    });
+                    document.getElementById('options-container').innerHTML = html;
+
+                    for(let i=0; i<payload.options.length; i++) {
+                        let opt = payload.options[i];
+                        await new Promise(resolve => Vditor.preview(document.getElementById('opt-md-'+opt.id), opt.md, {
+                            mode: 'light', cdn: localBasePath, math: { engine: 'KaTeX', inlineDigit: true }, after: resolve
+                        }));
+                    }
+                } else {
+                    document.getElementById('options-container').style.display = 'none';
+                }
+            } catch(e) { console.error("Markdown 渲染失败", e); }
+        }
+    </script>
+</body>
+</html>

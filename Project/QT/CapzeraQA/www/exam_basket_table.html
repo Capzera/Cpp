@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link href="./tabulator/tabulator.min.css" rel="stylesheet">
+    <script type="text/javascript" src="./tabulator/tabulator.min.js"></script>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+        html, body { height: 100%; margin: 0; padding: 10px; box-sizing: border-box; font-family: "HYWenHei-65W", sans-serif; background: transparent; overflow: hidden; }
+        
+        .tabulator {
+            border: none !important; background: #FFFFFF !important; font-size: 15px;
+            font-family: "HYWenHei-65W", sans-serif !important; border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(148, 163, 184, 0.08); overflow: hidden;
+        }
+        .tabulator-header { background: #DEEAFC !important; border-bottom: 2px solid #CBD5E1 !important; border-top: none !important; }
+        .tabulator-col { background: transparent !important; border-right: none !important; border-left: none !important; padding: 16px 12px !important; color: #1E293B !important; font-weight: bold !important; font-size: 16px !important; }
+        .tabulator-col-title {
+            color: #1E293B !important;
+            font-family: "HYWenHei-85W", sans-serif !important;
+            font-size: 17px;
+        }
+        .tabulator-row { border-bottom: 1px solid #F1F5F9 !important; border-left: 4px solid transparent !important; border-right: none !important; transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1); }
+        .tabulator-row:nth-child(odd) { background-color: #FFFFFF !important; } 
+        .tabulator-row:nth-child(even) { background-color: #F8FAFC !important; } 
+        
+        .tabulator-cell { padding: 16px 14px !important; border-right: none !important; border-left: none !important; color: #334155; vertical-align: middle !important; }
+        
+        .tabulator-row:hover { background-color: #F0F9FF !important; box-shadow: 0 6px 18px rgba(59, 130, 246, 0.06); transform: translateY(-1px); z-index: 10; position: relative; border-left-color: #93C5FD !important; }
+        .tabulator-row.tabulator-selected { background-color: #E0F2FE !important; border-left: 4px solid #3B82F6 !important; font-weight: bold; }
+
+        .tag-pill { display: inline-block; background: #E2E8F0; color: #475569; border-radius: 14px; padding: 4px 12px; font-size: 15px; font-weight: bold; }
+        
+        /* 组卷篮专属控件 */
+        .score-txt { font-family: Consolas; font-weight: bold; color: #F59E0B; font-size: 18px; border-bottom: 1px dashed #F59E0B; padding-bottom: 2px; cursor: text;}
+        .btn-del { background: #EF4444; color: #FFFFFF; border: none; border-radius: 6px; padding: 6px 12px; font-weight: bold; cursor: pointer; font-family: "HYWenHei-65W"; font-size: 17px; transition: 0.2s; width: 100%; box-sizing: border-box;}
+        .btn-del:hover { background: #EB3324; color: white; }
+    </style>
+</head>
+<body>
+    <div id="basket-table"></div>
+    <script>
+        var table; var cplusBridge = null;
+        if (typeof qt !== 'undefined') { new QWebChannel(qt.webChannelTransport, function(channel) { cplusBridge = channel.objects.examBasketBridge; }); }
+        
+        var tagFmt = function(cell) { return "<span class='tag-pill'>" + (cell.getValue() || "无标签") + "</span>"; };
+        var scoreFmt = function(cell) { return "<span class='score-txt' title='点击修改分数'>" + cell.getValue() + " 分</span>"; };
+        var delBtnFmt = function() { return "<button class='btn-del'>移出</button>"; };
+
+        table = new Tabulator("#basket-table", {
+            height: "100%", layout: "fitColumns", selectable: false,
+            placeholder: "<span style='color:#94A3B8; font-weight:bold;'>📥 组卷篮空空如也，请从左侧加入试题</span>",
+            // 🚀 全局设置绝对居中
+            columns: [
+                {title: "题目UID", field: "id", width: 140, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "已选试题", field: "title", width: 480, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "算法标签", field: "tag", width: 140, formatter: tagFmt, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "分值✏️", field: "score", width: 140, editor: "number", editorParams:{min:1}, formatter: scoreFmt, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false},
+                {title: "操作", formatter: delBtnFmt, width: 140, hozAlign: "center", vertAlign: "middle", headerHozAlign: "center", headerSort: false}
+            ],
+        });
+
+        table.on("cellClick", function(e, cell) {
+            if (cell.getColumn().getField() === undefined) {
+                if (cplusBridge) {
+                    var realIndex = cell.getRow().getPosition() - 1;
+                    if (realIndex >= 0) cplusBridge.onWebBasketRowClicked(realIndex);
+                }
+            }
+        });
+
+        table.on("cellEdited", function(cell) {
+            if(cell.getField() === "score") {
+                var probId = cell.getRow().getData().id;
+                var newScore = parseInt(cell.getValue());
+                if (cplusBridge && newScore > 0) cplusBridge.webSignalUpdateBasketScore(probId, newScore);
+            }
+        });
+
+        function loadTableData(b64Str) { 
+            try {
+                var jsonStr = new TextDecoder("utf-8").decode(Uint8Array.from(atob(b64Str), c => c.charCodeAt(0)));
+                table.replaceData(JSON.parse(jsonStr)); 
+            } catch (err) { console.error("数据解码失败:", err); }
+        }
+    </script>
+</body>
+</html>

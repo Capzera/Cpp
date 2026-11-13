@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <script src="./qwebchannel.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+
+        html, body { height: 100%; margin: 0; padding: 0; background: #F8FAFC; font-family: "HYWenHei-65W", "Microsoft YaHei", sans-serif !important; overflow: hidden; user-select: none; }
+
+        .logo-text, .nav-item { font-family: "HYWenHei-85W", "Microsoft YaHei", sans-serif !important; }
+
+        .sidebar-container { display: flex; flex-direction: column; height: 100%; padding: 25px 15px; box-sizing: border-box; }
+
+        .logo-area { display: flex; align-items: center; margin-bottom: 40px; padding-left: 10px; }
+        .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #3B82F6, #8B5CF6); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; font-weight: bold; margin-right: 12px; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3); }
+        .logo-text { font-size: 22px; color: #1E293B; font-weight: bold; letter-spacing: 1px; }
+
+        .nav-menu { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+
+        .nav-item {
+            display: flex; align-items: center; padding: 12px 14px;
+            border-radius: 10px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            color: #475569; font-size: 20px !important; font-weight: bold !important; font-family: "Microsoft YaHei" !important;
+        }
+        .nav-item:hover { background: #F1F5F9; color: #3B82F6; transform: translateX(4px); }
+        .nav-item.active { background: #EFF6FF; color: #3B82F6; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1); }
+        .nav-item.active::before { content: ''; position: absolute; left: 0; top: 20%; bottom: 20%; width: 4px; background: #3B82F6; border-radius: 0 4px 4px 0; }
+        .nav-icon { margin-right: 12px; font-size: 18px; width: 24px; text-align: center; }
+
+        .footer-area { margin-top: auto; padding-top: 20px; border-top: 1px solid #E2E8F0; }
+        .logout-btn { display: flex; align-items: center; justify-content: center; padding: 12px; background: #EF4444; color: #FFFFFF; border-radius: 10px; cursor: pointer; transition: all 0.2s ease; font-size: 20px; font-family: "HYWenHei-65W", sans-serif !important; }
+        .logout-btn:hover { background: #EB3324; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15); }
+    </style>
+</head>
+<body>
+    <div class="sidebar-container">
+        <div class="logo-area">
+            <div class="logo-icon">Q</div>
+            <div class="logo-text">CapzeraQA</div>
+        </div>
+
+        <div class="nav-menu">
+            <div class="nav-item active" data-index="0" onclick="switchPage(this)">
+                <span class="nav-icon">🎯</span>
+                <span class="nav-text">考试大厅</span>
+            </div>
+
+            <div class="nav-item" data-index="1" onclick="switchPage(this)">
+                <span class="nav-icon">📜</span>
+                <span class="nav-text">战绩与错题</span>
+            </div>
+
+            <div class="nav-item" data-index="2" onclick="switchPage(this)">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-text">个人中心</span>
+            </div>
+        </div>
+
+        <div class="footer-area">
+            <div class="logout-btn" onclick="if(cplusBridge) cplusBridge.webSignalLogout();">
+                <span style="margin-right:8px;">🚪</span> 退出登录
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var cplusBridge = null;
+        if (typeof qt !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+                cplusBridge = channel.objects.studentSidebarBridge;
+            });
+        }
+
+        function switchPage(element) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+
+            if (cplusBridge) {
+                var targetIndex = parseInt(element.getAttribute('data-index'));
+                cplusBridge.webSignalSwitchPage(targetIndex);
+            }
+        }
+    </script>
+</body>
+</html>

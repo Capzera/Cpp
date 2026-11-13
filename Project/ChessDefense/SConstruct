@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+import os
+import sys
+env = SConscript("godot-cpp/SConstruct")
+env.Append(CXXFLAGS=["/utf-8"])
+env.Append(CPPPATH=["src/"])
+sources = Glob("src/*.cpp")
+
+library = env.SharedLibrary(
+    "game/bin/libchess{}{}".format(env["suffix"], env["SHLIBSUFFIX"]),
+    source=sources,
+)
+Default(library) 

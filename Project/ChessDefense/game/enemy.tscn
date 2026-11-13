@@ -1,0 +1,20 @@
+[gd_scene format=3 uid="uid://bv86swkk4ffhw"]
+
+[sub_resource type="CardStats" id="CardStats_ifow5"]
+piece_type = "E"
+max_hp = 50
+physical_atk = 12
+physical_def = 0
+attack_interval = 2.0
+move_speed = 2.2
+projectile_speed = 10.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_jrdhs"]
+
+[node name="ChessPiece" type="ChessPiece"]
+stats = SubResource("CardStats_ifow5")
+faction = 1
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_jrdhs")

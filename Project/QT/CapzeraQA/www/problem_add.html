@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="./dist/index.css" />
+    <script src="./dist/index.min.js"></script>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <style>
+        @font-face { font-family: 'HYWenHei-65W'; src: url('qrc:///fonts/HYWenHei65W.ttf') format('truetype'); }
+        @font-face { font-family: 'HYWenHei-85W'; src: url('qrc:///fonts/HYWenHei85W.ttf') format('truetype'); }
+
+        body { margin: 0; padding: 30px; font-family: "HYWenHei-65W", "Microsoft YaHei", sans-serif; background: #FFFFFF; color: #1E293B; }
+
+        .form-row { display: flex; align-items: center; margin-bottom: 25px; }
+        .form-label { width: 100px; text-align: right; margin-right: 20px; font-family: "HYWenHei-85W"; font-size: 20px; color: #475569; }
+        .form-content { flex: 1; display: flex; align-items: center; }
+
+        .cap-input, .cap-select {
+            width: 100%; border: 2px solid #E2E8F0; border-radius: 8px; padding: 10px 14px;
+            font-family: "HYWenHei-65W"; font-size: 18px; color: #1E293B; background: #F8FAFC; box-sizing: border-box; transition: all 0.2s;
+        }
+        .cap-input:focus, .cap-select:focus { border-color: #3B82F6; background: #FFFFFF; outline: none; }
+        .cap-input:read-only { background: #F1F5F9; color: #94A3B8; cursor: not-allowed; }
+
+        .cap-select {
+            appearance: none; -webkit-appearance: none; cursor: pointer;
+            background-image: url("data:image/svg+xml;utf8,<svg fill='%233B82F6' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
+            background-repeat: no-repeat; background-position: right 10px center; padding-right: 40px;
+        }
+
+        .btn-manage { background: #F1F5F9; border: 1px solid #CBD5E1; color: #475569; border-radius: 8px; padding: 0 15px; height: 42px; margin-left: 15px; font-family: "HYWenHei-85W"; font-size: 18px; cursor: pointer; transition: 0.2s; white-space: nowrap; flex-shrink: 0; }
+        .btn-manage:hover { background: #E2E8F0; }
+
+        .opt-ctrl-box { background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px; padding: 20px; margin-bottom: 25px; }
+        .ctrl-btn { background: #FFFFFF; border: 2px solid #CBD5E1; border-radius: 18px; width: 36px; height: 36px; font-size: 22px; font-weight: bold; color: #475569; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .ctrl-btn:hover { background: #EFF6FF; border-color: #3B82F6; color: #3B82F6; }
+        .ctrl-btn:disabled { background: #F8FAFC; border-color: #E2E8F0; color: #94A3B8; cursor: not-allowed; }
+        .opt-count-val { font-size: 20px; font-family: "HYWenHei-85W"; color: #1E293B; margin: 0 20px; width: 30px; text-align: center; }
+
+        .opt-row { display: flex; align-items: center; margin-bottom: 15px; }
+        .opt-char { font-family: "HYWenHei-85W"; font-size: 18px; color: #3B82F6; width: 30px; margin-top: 0; }
+        .opt-vditor { flex: 1; border: 2px solid #E2E8F0; border-radius: 8px; overflow: hidden; }
+
+        .ans-checkbox { margin-right: 20px; font-family: "HYWenHei-85W"; font-size: 18px; color: #1E293B; display: flex; align-items: center; cursor: pointer;}
+        .ans-checkbox input { width: 20px; height: 20px; margin-right: 8px; cursor: pointer; accent-color: #3B82F6; }
+
+        .bottom-actions { display: flex; justify-content: flex-end; gap: 18px; margin-top: 40px; }
+        .btn-cancel { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; border-radius: 8px; padding: 0 25px; height: 48px; font-family: "HYWenHei-85W"; font-size: 16px; cursor: pointer; }
+        .btn-submit { background: #10B981; color: #FFFFFF; border: none; border-radius: 8px; padding: 0 25px; height: 48px; font-family: "HYWenHei-85W"; font-size: 16px; cursor: pointer; transition: 0.2s; flex: 1;}
+        .btn-submit.editing { background: #3B82F6; }
+    </style>
+</head>
+<body>
+    <div class="form-row">
+        <div class="form-label">试题编号:</div>
+        <div class="form-content"><input type="text" id="p-id" class="cap-input" style="font-family: Consolas;" placeholder="如: P1001" /></div>
+    </div>
+    <div class="form-row">
+        <div class="form-label">试题标题:</div>
+        <div class="form-content"><input type="text" id="p-title" class="cap-input" placeholder="请输入试题名称" /></div>
+    </div>
+    <div class="form-row">
+        <div class="form-label">试题类型:</div>
+        <div class="form-content">
+            <select id="p-type" class="cap-select" onchange="switchType()">
+                <option value="single">单选题</option><option value="multi">多选题</option>
+                <option value="fill">填空题</option><option value="code_snippet">代码提交题</option><option value="oi">OI题</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="form-label">算法标签:</div>
+        <div class="form-content">
+            <select id="p-tag" class="cap-select"></select>
+            <button type="button" class="btn-manage" onclick="if(cplusBridge) cplusBridge.openManageTagsFromWeb()">⚙️ 管理</button>
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="form-label">难度:</div>
+        <div class="form-content">
+            <select id="p-diff" class="cap-select"></select>
+            <button type="button" class="btn-manage" onclick="if(cplusBridge) cplusBridge.openManageDiffsFromWeb()">⚙️ 管理</button>
+        </div>
+    </div>
+    <div class="form-row" style="align-items: flex-start;">
+        <div class="form-label" style="margin-top: 10px;">题干描述:</div>
+        <div class="form-content" style="display: block; border: 2px solid #E2E8F0; border-radius: 8px;">
+            <div id="vditor-stem"></div>
+        </div>
+    </div>
+
+    <div class="opt-ctrl-box">
+        <div id="area-options">
+            <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                <span class="form-label" style="text-align: left; width: auto;">独立选项数量:</span>
+                <button type="button" class="ctrl-btn" id="btn-dec" onclick="changeOptCount(-1)">-</button>
+                <div class="opt-count-val" id="opt-count-label">4</div>
+                <button type="button" class="ctrl-btn" id="btn-inc" onclick="changeOptCount(1)">+</button>
+            </div>
+            <div id="options-container"></div>
+        </div>
+
+        <div id="area-ans-single" class="form-row" style="margin-bottom: 0; margin-top: 20px;">
+            <div class="form-label" style="text-align: left; width: auto;">✓ 正确答案:</div>
+            <div class="form-content"><select id="ans-single" class="cap-select" style="width: 150px;"></select></div>
+        </div>
+        <div id="area-ans-multi" class="form-row" style="margin-bottom: 0; margin-top: 20px; display: none;">
+            <div class="form-label" style="text-align: left; width: auto;">✓ 正确答案:</div>
+            <div class="form-content" id="ans-multi-container" style="flex-wrap: wrap;"></div>
+        </div>
+        <div id="area-ans-fill" class="form-row" style="margin-bottom: 0; display: none;">
+            <div class="form-label" style="text-align: left; width: auto;">✓ 标准答案:</div>
+            <div class="form-content"><input type="text" id="ans-fill" class="cap-input" style="border-color:#10B981;" placeholder="请输入答案比对的文本，注意空格格式..." /></div>
+        </div>
+        <div id="area-ans-code" style="display: none;">
+            <div style="color:#10B981; font-family:HYWenHei-85W; font-size:16px; margin-bottom: 15px;">💡 此题型为【代码提交题/OI题】，侧重函数与逻辑的自主编写。请配置标准样例供参考。</div>
+            <div class="form-row" style="align-items: flex-start;">
+                <div class="form-label" style="text-align: left; width: 100px;">输入样例:</div>
+                <div class="form-content"><textarea id="ans-in" class="cap-input" style="height: 100px; font-family: Consolas; resize: vertical;"></textarea></div>
+            </div>
+            <div class="form-row" style="align-items: flex-start; margin-bottom: 0;">
+                <div class="form-label" style="text-align: left; width: 100px;">输出样例:</div>
+                <div class="form-content"><textarea id="ans-out" class="cap-input" style="height: 100px; font-family: Consolas; resize: vertical;"></textarea></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-actions">
+        <button type="button" id="btn-cancel" class="btn-cancel" style="display: none;" onclick="cplusBridge.cancelEditFromWeb()">✖ 取消编辑</button>
+        <button type="button" id="btn-submit" class="btn-submit" onclick="submitForm()">📥 发布并存入题库</button>
+    </div>
+
+    <script>
+        var cplusBridge = null;
+        var localBasePath = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+
+        var mainVditor = null;
+        var optVditors = [];
+        var currentOptCount = 0;
+        var isEditingMode = false;
+
+        if (typeof qt !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+                cplusBridge = channel.objects.problemAddBridge;
+                if(cplusBridge) cplusBridge.onAddWebLoaded();
+            });
+        }
+
+        // 🚀 高定闭包解法：在不影响排版的前提下，给每个实例挂载文件处理引擎
+        function createUploadConfig(getVditorInstance) {
+            return {
+                accept: 'image/*,.pdf,.zip,.rar,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt',
+                multiple: true,
+                handler(files) {
+                    let instance = getVditorInstance();
+                    if (!instance) return null;
+                    Array.from(files).forEach(file => {
+                        let reader = new FileReader();
+                        reader.onload = function(e) {
+                            let base64DataUrl = e.target.result;
+                            let isImage = file.type.startsWith('image/');
+                            let insertText = isImage ? `\n![${file.name}](${base64DataUrl})\n` : `\n[📎 下载附件: ${file.name}](${base64DataUrl})\n`;
+                            instance.insertValue(insertText);
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                    return null; // 阻止向服务器发请求，全部留存在本地 Base64
+                }
+            };
+        }
+
+        mainVditor = new Vditor('vditor-stem', {
+            height: 350, mode: 'ir', cache: { enable: false },
+            cdn: localBasePath, math: { engine: 'KaTeX', inlineDigit: true },
+            upload: createUploadConfig(() => mainVditor)
+        });
+
+        async function renderOptionCount(newCount) {
+            if(newCount < 2 || newCount > 26) return;
+
+            document.getElementById('btn-dec').disabled = (newCount === 2);
+            document.getElementById('btn-inc').disabled = (newCount === 26);
+            document.getElementById('opt-count-label').innerText = newCount;
+
+            var container = document.getElementById('options-container');
+            var multiContainer = document.getElementById('ans-multi-container');
+            var singleSelect = document.getElementById('ans-single');
+
+            for (let i = optVditors.length; i < newCount; i++) {
+                let char = String.fromCharCode(65 + i);
+
+                let row = document.createElement('div'); row.className = 'opt-row'; row.id = 'opt-row-' + i;
+                row.innerHTML = `<div class="opt-char">${char}.</div><div class="opt-vditor" id="opt-v-${i}"></div>`;
+                container.appendChild(row);
+
+                let chk = document.createElement('label'); chk.className = 'ans-checkbox'; chk.id = 'chk-lbl-' + i;
+                chk.innerHTML = `<input type="checkbox" id="chk-${i}" value="${i}"> ${char}`;
+                multiContainer.appendChild(chk);
+
+                let v;
+                await new Promise(resolve => {
+                    v = new Vditor('opt-v-' + i, {
+                        height: 70, mode: 'ir', toolbar: [], cache: { enable: false }, // 🚀 绝对不加工具栏，保持排版极简
+                        cdn: localBasePath, math: { engine: 'KaTeX', inlineDigit: true },
+                        upload: createUploadConfig(() => v), // 🚀 通过闭包注入上传引擎，支持拖拽粘贴文件
+                        after: () => { optVditors.push(v); resolve(); }
+                    });
+                });
+            }
+
+            singleSelect.innerHTML = '';
+            for (let i = 0; i < optVditors.length; i++) {
+                let isVisible = i < newCount;
+                document.getElementById('opt-row-' + i).style.display = isVisible ? 'flex' : 'none';
+                document.getElementById('chk-lbl-' + i).style.display = isVisible ? 'flex' : 'none';
+                if(!isVisible) document.getElementById('chk-' + i).checked = false;
+
+                if(isVisible) {
+                    let opt = document.createElement('option');
+                    opt.value = i; opt.innerText = String.fromCharCode(65 + i);
+                    singleSelect.appendChild(opt);
+                }
+            }
+            currentOptCount = newCount;
+        }
+
+        function changeOptCount(delta) { renderOptionCount(currentOptCount + delta); }
+
+        function switchType() {
+            let type = document.getElementById('p-type').value;
+            document.getElementById('area-options').style.display = (type === 'single' || type === 'multi') ? 'block' : 'none';
+            document.getElementById('area-ans-single').style.display = (type === 'single') ? 'flex' : 'none';
+            document.getElementById('area-ans-multi').style.display = (type === 'multi') ? 'flex' : 'none';
+            document.getElementById('area-ans-fill').style.display = (type === 'fill') ? 'flex' : 'none';
+            document.getElementById('area-ans-code').style.display = (type === 'code_snippet' || type === 'oi') ? 'block' : 'none';
+        }
+
+        function updateTags(b64Tags) {
+            let tags = JSON.parse(decodeURIComponent(escape(atob(b64Tags))));
+            let select = document.getElementById('p-tag');
+            let currentVal = select.value;
+            select.innerHTML = '';
+            tags.forEach(t => { let opt = document.createElement('option'); opt.value = t; opt.innerText = t; select.appendChild(opt); });
+            if(tags.includes(currentVal)) select.value = currentVal;
+        }
+
+        function updateDiffs(b64Diffs) {
+            let diffs = JSON.parse(decodeURIComponent(escape(atob(b64Diffs))));
+            let select = document.getElementById('p-diff');
+            let currentVal = select.value;
+            select.innerHTML = '';
+            diffs.forEach(d => { let opt = document.createElement('option'); opt.value = d; opt.innerText = d; select.appendChild(opt); });
+            if(diffs.includes(currentVal)) select.value = currentVal; else if(diffs.length > 0) select.value = diffs[0];
+        }
+
+        function updateNewId(newId) {
+            if (!isEditingMode) document.getElementById('p-id').value = newId;
+        }
+
+        async function resetForm(newId) {
+            isEditingMode = false;
+            document.getElementById('p-id').value = newId;
+            document.getElementById('p-id').readOnly = false;
+            document.getElementById('p-title').value = '';
+            if(mainVditor) mainVditor.setValue('');
+            document.getElementById('p-type').value = 'single'; switchType();
+
+            await renderOptionCount(4);
+            if(optVditors && optVditors.length >= currentOptCount) {
+                for(let i=0; i<currentOptCount; i++) { optVditors[i].setValue(''); document.getElementById('chk-'+i).checked = false; }
+            }
+            document.getElementById('ans-single').selectedIndex = 0;
+            document.getElementById('ans-fill').value = '';
+            document.getElementById('ans-in').value = ''; document.getElementById('ans-out').value = '';
+
+            document.getElementById('btn-cancel').style.display = 'none';
+            let btn = document.getElementById('btn-submit');
+            btn.className = 'btn-submit'; btn.innerText = '📥 发布并存入题库';
+        }
+
+        async function loadFormData(b64Str) {
+            isEditingMode = true;
+            let d = JSON.parse(new TextDecoder("utf-8").decode(Uint8Array.from(atob(b64Str), c => c.charCodeAt(0))));
+
+            document.getElementById('p-id').value = d.id;
+            document.getElementById('p-id').readOnly = true;
+            document.getElementById('p-title').value = d.title;
+            document.getElementById('p-tag').value = d.tag;
+            document.getElementById('p-diff').value = d.difficulty;
+            document.getElementById('p-type').value = d.type; switchType();
+            mainVditor.setValue(d.stem);
+
+            if(d.type === 'single' || d.type === 'multi') {
+                await renderOptionCount(d.options.length);
+                for(let i=0; i<d.options.length; i++) optVditors[i].setValue(d.options[i]);
+
+                if(d.type === 'single') {
+                    document.getElementById('ans-single').value = d.answer;
+                } else {
+                    for(let i=0; i<currentOptCount; i++) document.getElementById('chk-'+i).checked = false;
+                    d.answer.forEach(idx => { if(idx < currentOptCount) document.getElementById('chk-'+idx).checked = true; });
+                }
+            } else if (d.type === 'fill') {
+                document.getElementById('ans-fill').value = d.answer;
+            } else if (d.type === 'oi') {
+                document.getElementById('ans-in').value = d.inputSample;
+                document.getElementById('ans-out').value = d.outputSample;
+            }
+
+            document.getElementById('btn-cancel').style.display = 'block';
+            let btn = document.getElementById('btn-submit');
+            btn.className = 'btn-submit editing'; btn.innerText = '💾 覆盖更新云端题库';
+        }
+
+        function submitForm() {
+            let payload = {
+                id: document.getElementById('p-id').value.trim(),
+                title: document.getElementById('p-title').value.trim(),
+                tag: document.getElementById('p-tag').value,
+                difficulty: document.getElementById('p-diff').value,
+                type: document.getElementById('p-type').value,
+                description: mainVditor.getValue()
+            };
+
+            if(!payload.id || !payload.title) { alert('唯一题号和试题标题为必填项！'); return; }
+
+            if(payload.type === 'single' || payload.type === 'multi') {
+                payload.options = [];
+                for(let i=0; i<currentOptCount; i++) {
+                    let txt = optVditors[i].getValue().trim();
+                    if(!txt) { alert(`第 ${String.fromCharCode(65+i)} 个选项内容不能为空！`); return; }
+                    payload.options.push(txt);
+                }
+                if(payload.type === 'single') payload.answer = parseInt(document.getElementById('ans-single').value);
+                else {
+                    payload.answer = [];
+                    for(let i=0; i<currentOptCount; i++) if(document.getElementById('chk-'+i).checked) payload.answer.push(i);
+                    if(payload.answer.length === 0) { alert('多选题至少需要勾选一个正确答案！'); return; }
+                }
+            } else if (payload.type === 'fill') {
+                payload.answer = document.getElementById('ans-fill').value.trim();
+                if(!payload.answer) { alert('填空题必须设置标准答案！'); return; }
+            } else if (payload.type === 'oi') {
+                payload.inputSample = document.getElementById('ans-in').value;
+                payload.outputSample = document.getElementById('ans-out').value;
+            }
+
+            let b64 = btoa(String.fromCharCode.apply(null, new TextEncoder().encode(JSON.stringify(payload))));
+            cplusBridge.submitProblemFromWeb(b64);
+        }
+
+        renderOptionCount(4);
+    </script>
+</body>
+</html>
