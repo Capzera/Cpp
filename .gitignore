@@ -4,6 +4,10 @@ build/
 **/release/
 **/debug/
 
+# ===== 前端依赖 =====
+node_modules/
+**/node_modules/
+
 # ===== 压缩包 =====
 *.zip
 *.rar
