@@ -1,0 +1,99 @@
+#ifndef HEAPTREEBASE_H
+#define HEAPTREEBASE_H
+#include "IModule.h"
+#include "render/GraphElements.h"
+#include <map>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <QFont>
+#include <QGraphicsTextItem>
+
+class HeapTreeBase : public IModule {
+public:
+    int heapDepth(int n) const {
+        int d = 0;
+        while ((1 << (d + 1)) <= n) ++d;
+        return d;
+    }
+
+    void layoutHeap(int n, const std::vector<int>& heap) {
+        m_heap.clear();
+        m_heap = heap;
+        m_arrayBlocks.clear();
+        m_treeNodes.clear();
+        m_treeEdges.clear();
+        m_n = n;
+
+        const double cellW = 62.0;
+        const double arrY = 560.0;
+        const double treeTop = 190.0;
+        const double levelGap = 108.0;
+        const double halfSpan = 210.0;
+        const double centerX = 400.0;
+
+        for (int i = 1; i <= n; ++i) {
+            ArrayBlock* block = new ArrayBlock(i, heap[i], QString::number(i));
+            block->setCellSize(cellW, 40.0);
+            block->setPos(centerX - (n * cellW) / 2.0 + (i - 1) * cellW, arrY);
+            block->color = QColor(250, 250, 252);
+            m_scene->addItem(block);
+            m_arrayBlocks[i] = block;
+            registerArraySlot(block, "heap", i);
+        }
+        QGraphicsTextItem* arrTitle = m_scene->addText("heap[]（数组存储）");
+        arrTitle->setFont(QFont("Consolas", 12, QFont::Bold));
+        arrTitle->setDefaultTextColor(QColor(40, 70, 110));
+        arrTitle->setPos(centerX - (n * cellW) / 2.0 - 10, arrY - 30);
+
+        int depth = heapDepth(n);
+        for (int i = 1; i <= n; ++i) {
+            int d = 0;
+            while ((1 << (d + 1)) <= i) ++d;
+            int levelStart = 1 << d;
+            int levelCount = std::min(1 << d, n - levelStart + 1);
+            int posInLevel = i - levelStart;
+            double span = halfSpan * std::pow(2.0, d) / std::pow(2.0, depth);
+            double x = centerX + (posInLevel - (levelCount - 1) / 2.0) * (span * 2.0 / std::max(1, levelCount));
+            double y = treeTop + d * levelGap;
+
+            GraphNode* node = new GraphNode(i);
+            node->setPos(x, y);
+            node->color = QColor(250, 250, 252);
+            m_scene->addItem(node);
+            m_treeNodes[i] = node;
+
+            int parent = i / 2;
+            if (parent >= 1) {
+                GraphEdge* edge = new GraphEdge(m_treeNodes[parent], node, false, false);
+                edge->color = QColor(170, 180, 195);
+                m_scene->addItem(edge);
+                m_treeNodes[parent]->addEdge(edge);
+                node->addEdge(edge);
+                m_treeEdges[{parent, i}] = edge;
+            }
+        }
+        QGraphicsTextItem* treeTitle = m_scene->addText("完全二叉树结构（heap[i] 的孩子是 heap[2i] 与 heap[2i+1]）");
+        treeTitle->setFont(QFont("Microsoft YaHei UI", 11, QFont::Bold));
+        treeTitle->setDefaultTextColor(QColor(120, 130, 145));
+        treeTitle->setPos(centerX - 240, treeTop - 54);
+    }
+
+    void syncTreeValues(const std::vector<int>& heap) {
+        for (size_t i = 1; i < heap.size(); ++i) {
+            auto it = m_treeNodes.find(static_cast<int>(i));
+            if (it == m_treeNodes.end()) continue;
+            it->second->setValueText(QString("heap[%1]=%2").arg(static_cast<int>(i)).arg(heap[i]));
+            it->second->update();
+        }
+    }
+
+protected:
+    std::vector<int> m_heap;
+    std::map<int, ArrayBlock*> m_arrayBlocks;
+    std::map<int, GraphNode*> m_treeNodes;
+    std::map<std::pair<int, int>, GraphEdge*> m_treeEdges;
+    int m_n = 0;
+};
+
+#endif

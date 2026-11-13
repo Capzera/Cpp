@@ -45,6 +45,13 @@ add_executable(SmartGround
     src/modules/SegmentTreeEditBase.h
     src/modules/SegmentTreeTagModule.h
     src/modules/SegmentTreeQueryModule.h
+    src/modules/FenwickTreeModule.h
+    src/modules/KnapsackCompleteModule.h
+    src/modules/TarjanCutVertexBridgeModule.h
+    src/modules/HungarianModule.h
+    src/modules/HeapAdjustModule.h
+    src/modules/HeapSortModule.h
+    src/modules/HeapTreeBase.h
     src/ui/MainWindow.h
     src/main.cpp
     src/ui/MainWindow.cpp
@@ -82,6 +89,12 @@ add_executable(SmartGround
     src/modules/SegmentTreeEditBase.cpp
     src/modules/SegmentTreeTagModule.cpp
     src/modules/SegmentTreeQueryModule.cpp
+    src/modules/FenwickTreeModule.cpp
+    src/modules/KnapsackCompleteModule.cpp
+    src/modules/TarjanCutVertexBridgeModule.cpp
+    src/modules/HungarianModule.cpp
+    src/modules/HeapAdjustModule.cpp
+    src/modules/HeapSortModule.cpp
     src/modules/FreeStructureBase.h
     src/modules/FreeStructureBase.cpp
     src/modules/SandboxArrayModule.h

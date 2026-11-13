@@ -81,6 +81,8 @@ public:
     void setWeight(int w);
     void removeWeight();
     void setColor(const QColor& c) { color = c; update(); }
+    void setPenWidth(qreal w) { if (m_penWidth == w) return; m_penWidth = w; update(); }
+    qreal penWidth() const { return m_penWidth; }
     QRectF boundingRect() const override;
     QPainterPath shape() const override;
     void adjust();
@@ -114,6 +116,7 @@ private:
     bool m_dragging;
     bool m_hovered;
     bool m_editable = false;
+    qreal m_penWidth = 2.0;
     QPointer<QGraphicsTextItem> m_editor;
 };
 class StackBlock : public QGraphicsObject {

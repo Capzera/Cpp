@@ -41,6 +41,12 @@ set(SG_MODULE_SOURCES
     ../src/modules/SegmentTreeTagModule.cpp
     ../src/modules/SegmentTreeQueryModule.cpp
     ../src/modules/KMPMatchModule.cpp
+    ../src/modules/FenwickTreeModule.cpp
+    ../src/modules/KnapsackCompleteModule.cpp
+    ../src/modules/TarjanCutVertexBridgeModule.cpp
+    ../src/modules/HungarianModule.cpp
+    ../src/modules/HeapAdjustModule.cpp
+    ../src/modules/HeapSortModule.cpp
     ../src/modules/FreeStructureBase.cpp
     ../src/modules/SandboxArrayModule.cpp
     ../src/modules/SandboxMatrixModule.cpp
@@ -73,6 +79,13 @@ set(SG_MODULE_HEADERS
     ../src/modules/SegmentTreeTagModule.h
     ../src/modules/SegmentTreeQueryModule.h
     ../src/modules/KMPMatchModule.h
+    ../src/modules/FenwickTreeModule.h
+    ../src/modules/KnapsackCompleteModule.h
+    ../src/modules/TarjanCutVertexBridgeModule.h
+    ../src/modules/HungarianModule.h
+    ../src/modules/HeapAdjustModule.h
+    ../src/modules/HeapSortModule.h
+    ../src/modules/HeapTreeBase.h
     ../src/modules/FreeStructureBase.h
     ../src/modules/SandboxArrayModule.h
     ../src/modules/SandboxMatrixModule.h
@@ -165,6 +178,7 @@ add_sg_ui_test(SmartGroundTextEditUiShot TextEditUiShot.cpp)
 add_sg_test(SmartGroundLiveEdit LiveEditTest.cpp)
 add_sg_test(SmartGroundEditCrash EditCrashTest.cpp)
 add_sg_test(SmartGroundBorderDiag BorderDiagTest.cpp)
+add_sg_test(SmartGroundGroupA GroupATest.cpp)
 
 
 

@@ -1,6 +1,6 @@
 # SmartGround 项目接手摘要
 
-**更新时间：2026-11-11**
+**更新时间：2026-11-14**
 
 ## 项目概况
 
@@ -8,19 +8,19 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 
 ## 当前代码状态
 
-- 菜单中注册了 31 个可运行模块（26 个算法模块 + 5 个自由结构沙盒模块）。
+- 菜单中注册了 36 个可运行模块（31 个算法模块 + 5 个自由结构沙盒模块）。
 - 已无待实现的头文件骨架。
-- 本轮改动已通过 Qt 6.11.1 / MinGW 13.1 Debug 构建，24 个测试套件串行全绿。
-- 项目目录没有 .git 元数据，无法查看提交历史或工作树状态。
+- 本轮改动已通过 Qt 6.11.1 / MinGW 13.1 Debug 构建，28 个测试套件在 `offscreen` 与 `windows` 两种平台下串行全绿。
+- 项目已纳入 `D:\Program\Cpp` 的 Git 仓库（SmartGround 位于 `Project/QT/SmartGround` 子路径），可查看提交历史与工作树状态。
 - 根目录 main.cpp 是辅助入口；CMake 实际编译 src/main.cpp。
 
 ### 已注册模块
 
 - 排序：BubbleSortModule、SelectionSortModule、InsertionSortModule、QuickSortModule、MergeSortModule
-- 数据结构：StackModule、QueueModule、MonotonicStackModule、PrefixSumModule、DifferenceModule、HeapBasicsModule
+- 数据结构：StackModule、QueueModule、MonotonicStackModule、PrefixSumModule、DifferenceModule、HeapBasicsModule、HeapAdjustModule（up/down）、HeapSortModule、FenwickTreeModule（树状数组 BIT）
 - 搜索：BinarySearchClosedModule、BinarySearchHalfOpenModule
-- 图论：DSUBasicModule、TarjanModule、TopologicalSortModule、DijkstraNaiveModule、KruskalModule、BFSModule
-- 动态规划：Knapsack01Module、LISModule
+- 图论：DSUBasicModule、TarjanModule、TarjanCutVertexBridgeModule、TopologicalSortModule、DijkstraNaiveModule、KruskalModule、BFSModule、HungarianModule（二分图匹配）
+- 动态规划：Knapsack01Module、KnapsackCompleteModule、LISModule
 - 字符串：KMPNextModule（已改造为 `pi[]` 1-indexed + `#` 哨兵）、KMPMatchModule（匹配过程）
 - 线段树：SegmentTreeBuildModule（建树）、SegmentTreeTagModule（区间乘/加懒标记）、SegmentTreeQueryModule（区间查询）
 - 自由结构沙盒（不含算法，仅作讲题草稿）：SandboxArrayModule、SandboxMatrixModule、SandboxTreeModule、SandboxGraphModule、SandboxLatexModule
@@ -33,7 +33,8 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 - src/modules/GraphRenderHelper.h 提供共用的建点、建边、查边与标签函数，消除图模块重复布局代码。
 - src/modules/SegmentTreeCommon.h 提供线段树共用的 `ls`/`rs` 移位约定、输入解析、树形拓扑生成（节点坐标由递归二分展开）。
 - src/modules/SegmentTreeEditBase.h 为懒标记与查询两模块的共享基类，统一树布局、`tr`/`add`/`mul` 三条物理数组、节点高亮与指针移动逻辑。
-- src/render/GraphElements.h 与 cpp 定义数组、指针、栈、图节点和可交互图边等图元；`GraphNode` 另支持子标签（区间 `[l,r]`）、值文本（`tr=值`）与懒标记徽章（`tagText` + `tagColor`）。
+- src/modules/HeapTreeBase.h 为堆类模块的共享基类，统一层序数组排布、完全二叉树拓扑构建与数组值到树节点的同步。
+- src/render/GraphElements.h 与 cpp 定义数组、指针、栈、图节点和可交互图边等图元；`GraphNode` 另支持子标签（区间 `[l,r]`）、值文本（`tr=值`）与懒标记徽章（`tagText` + `tagColor`）；`GraphEdge` 支持自定义线宽（`setPenWidth()`），供割点桥模块把桥加粗高亮。
 - src/render/SceneGrid.h 提供隐形对齐网格（磁吸对齐 + 单元格吸附 + Ctrl 自由拖动）。
 - src/core/ViewportFitter.h 统一画布居中与自适应缩放。
 - src/ui/UiTheme.h 为全项目设计令牌（颜色、圆角、间距、字体）。
@@ -47,7 +48,7 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 - `src/render/EditableModel.h` 按 `scope|row#index` 存放老师改过的数值，`scope` 取模块名，不同模块互不干扰；重新点击「绘制可视化效果」会按 scope 整体清空，回到原始输入。
 - `IModule` 提供槽位登记接口（`registerArraySlot` / `registerNodeSlot` / `registerEdgeSlot`）把画布图元映射到具体数据行与下标，算法侧通过 `liveValue(row, index, computed)` 优先取覆盖值。
 - `MainWindow::rebuildCurrentLayout()` 建图后自动 `enableLiveEditing()`；编辑发生后 `applyLiveEditsAndReplay()` 以非动画模式重建场景、重跑 `runAlgorithm()` 并快进到原帧位置，于是后续动画帧全部按改后的数值计算，下游状态一并重新推导。
-- 已接入：前缀和（`a` / `s`）、差分（`a` / `d`）、五种排序（`a`）、单调栈（`a`）、LIS（`a`）、三个线段树模块（`a` / `tr` / `add` / `mul`）、朴素 Dijkstra（`w` / `dis` / `vis` / `pa`）、Kruskal（`w`）、BFS 与拓扑排序（结点值 `v`）。
+- 已接入：前缀和（`a` / `s`）、差分（`a` / `d`）、五种排序（`a`）、单调栈（`a`）、LIS（`a`）、三个线段树模块（`a` / `tr` / `add` / `mul`）、树状数组 BIT（`a` / `t`）、堆 up/down 与堆排序（`heap`）、朴素 Dijkstra（`w` / `dis` / `vis` / `pa`）、Kruskal（`w`）、BFS 与拓扑排序（结点值 `v`）。
 
 ## 渲染残影根治
 

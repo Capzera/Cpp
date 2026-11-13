@@ -26,6 +26,12 @@
 #include "modules/SegmentTreeBuildModule.h"
 #include "modules/SegmentTreeTagModule.h"
 #include "modules/SegmentTreeQueryModule.h"
+#include "modules/FenwickTreeModule.h"
+#include "modules/KnapsackCompleteModule.h"
+#include "modules/TarjanCutVertexBridgeModule.h"
+#include "modules/HungarianModule.h"
+#include "modules/HeapAdjustModule.h"
+#include "modules/HeapSortModule.h"
 #include "modules/SandboxArrayModule.h"
 #include "modules/SandboxMatrixModule.h"
 #include "modules/SandboxTreeModule.h"
@@ -87,6 +93,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), currentModule(nul
     registeredModules.push_back(new SegmentTreeBuildModule());
     registeredModules.push_back(new SegmentTreeTagModule());
     registeredModules.push_back(new SegmentTreeQueryModule());
+    registeredModules.push_back(new FenwickTreeModule());
+    registeredModules.push_back(new KnapsackCompleteModule());
+    registeredModules.push_back(new TarjanCutVertexBridgeModule());
+    registeredModules.push_back(new HungarianModule());
+    registeredModules.push_back(new HeapAdjustModule());
+    registeredModules.push_back(new HeapSortModule());
     registeredModules.push_back(new SandboxArrayModule());
     registeredModules.push_back(new SandboxMatrixModule());
     registeredModules.push_back(new SandboxTreeModule());

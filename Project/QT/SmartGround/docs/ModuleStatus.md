@@ -1,8 +1,24 @@
 # SmartGround 模块开发状态跟踪
 
-> **更新时间**: 2026-11-13 - 单元格单线边框轮 + 就地编辑稳定性轮
-> **当前进度**: 31 个菜单可运行模块 | 1 个头文件骨架待实现
-> **核心变化**: 数组单元格交界处只剩 1 条竖线（Excel 式连续表格）、双击就地编辑彻底消除闪退
+> **更新时间**: 2026-11-14 - A 组经典算法模块轮
+> **当前进度**: 36 个菜单可运行模块 | 0 个头文件骨架
+> **核心变化**: 新增树状数组 BIT、完全背包、Tarjan 割点与桥、匈牙利匹配、堆 up/down 与堆排序六个模块；`GraphEdge` 支持自定义线宽
+
+## 2026-11-14 A 组经典算法模块轮
+
+| 能力 | 覆盖范围 | 实现要点 |
+|------|----------|----------|
+| 树状数组 BIT | 新模块 `FenwickTreeModule` | 上排原数组 `a`、下排树状数组 `t` 双排联动；半透明覆盖带直接标出 `t[i]` 维护的区间 `[i-lowbit(i)+1, i]`；`add` 沿 `i += lowbit(i)` 向右上跳跃累加，`sum` 沿 `i -= lowbit(i)` 向左上跳跃收集；每步弹出 `lowbit` 计算式 |
+| 完全背包 DP | 新模块 `KnapsackCompleteModule` | 与 01 背包同款二维网格排版；候选值分「不选」（上一行同列，蓝色）与「再选一次」（同一行左侧，橙色）两色，转移箭头来自**同行左侧**，直观体现物品可重复使用 |
+| Tarjan 割点与桥 | 新模块 `TarjanCutVertexBridgeModule` | 复用 `GraphRenderHelper` 圆环布局；节点下方挂 `dfn[]` 与 `low[]` 两条状态数组；割点染红并脉冲放大，桥染成深红且线宽加粗；判定条件分别标注 `low[v] >= dfn[u]` 与 `low[v] > dfn[u]` |
+| 二分图匹配 | 新模块 `HungarianModule` | 左右两列节点（左侧蓝、右侧橙）；增广路过程按「尝试匹配 → 目标已占 → 递归让位 → 回溯改配」四段着色，成功匹配转绿并加粗连线，失败路径标红 |
+| 堆 up / down | 新模块 `HeapAdjustModule` | 复用 `HeapTreeBase` 的数组↔树双视图；`up()` 演示与父节点比较上浮，`down()` 演示与孩子比较下沉，交换时数组格用弧线交换动画、树节点同步变色 |
+| 堆排序 | 新模块 `HeapSortModule` | 先自底向上建堆（对 `n/2..1` 逐个 `down()`），再反复取堆顶与堆尾交换、缩小堆区间并重新下沉；已归位的位置染绿区分有序区 |
+| 双视图基类 | 新增 `HeapTreeBase.h` | 抽出堆类模块共用的层序数组排布 + 完全二叉树拓扑构建 + 数组值同步到树节点的逻辑，避免两个堆模块重复实现 |
+| 边线宽可配置 | 全局 `GraphEdge` | 新增 `setPenWidth()/penWidth()`，`GraphEdge::paint()` 使用该线宽绘制曲线，割点桥模块据此把桥加粗到 4px |
+| 动作类型扩展 | 全局 `AnimFrame.h` | 新增 24 个动作类型：`FT_*`（树状数组 6 个）、`KC_*`（完全背包 3 个）、`TC_*`（Tarjan 6 个）、`HN_*`（匈牙利 7 个）、`HG_*`（堆调整 4 个）、`HS_*`（堆排序 4 个） |
+| 仓库治理 | Git | 根 `.gitignore` 增加 `node_modules/`，并把已跟踪的 3806 个依赖文件移出索引；跟踪文件从 3962 降到 156（BUG-089） |
+| 新增测试 | `tests/GroupATest.cpp` | 32 项断言覆盖 A 组五个模块的帧序、答案正确性与渲染非空，含匈牙利增广路场景与 BIT 非法输入降级 |
 
 ## 2026-11-13 单元格单线边框与编辑稳定性轮
 
@@ -184,11 +200,11 @@
 | 模块名 | 状态 | 文件名 | 负责人 | 备注 |
 |--------|------|--------|--------|------|
 | 堆基础映射 | ✅ | HeapBasicsModule | Kiro | 数组与树双视图已完成 |
-| 自底向上建堆 | ⏳ | HeapBuildBottomUpModule | - | O(N) 建堆 |
+| 自底向上建堆 | 🔄 | HeapSortModule | Cursor | 已并入堆排序的建堆阶段（`n/2..1` 逐个 `down()`） |
 | 自顶向下建堆 | ⏳ | HeapBuildTopDownModule | - | O(N log N) |
-| 堆 up/down | ⏳ | HeapAdjustModule | - | 核心调整函数 |
+| 堆 up/down | ✅ | HeapAdjustModule | Cursor | up() 上浮与 down() 下沉，数组↔树双视图同步 |
 | 堆综合操作 | ⏳ | HeapOperationsModule | - | Insert/Pop/Modify |
-| 堆排序 | ⏳ | HeapSortModule | - | 堆顶交换下沉 |
+| 堆排序 | ✅ | HeapSortModule | Cursor | 建堆 + 取堆顶交换 + 缩小堆区间，有序区染绿 |
 
 ---
 
@@ -222,7 +238,7 @@
 | 单调队列 | ⏳ | MonotonicQueueModule | - | 滑动窗口 |
 | 并查集基础 | ✅ | DSUBasicModule | Kiro | Find & Union 已实现 |
 | 并查集路径压缩 | ⏳ | DSUPathCompressionModule | - | 压扁树形 |
-| 树状数组 | ⏳ | FenwickTreeModule | - | lowbit 跳跃 |
+| 树状数组 | ✅ | FenwickTreeModule | Cursor | lowbit 双向跳跃，覆盖带可视化，add/sum 双操作 |
 | 线段树建树 | 🏗️ | SegmentTreeBuildModule | - | 骨架已创建 |
 | 线段树单点修改 | ⏳ | SegmentTreePointUpdateModule | - | 链式回溯更新 |
 | 线段树区间查询 | ⏳ | SegmentTreeRangeQueryModule | - | 拼凑目标区间 |
@@ -249,10 +265,10 @@
 ## 八、高级图论与二分图 (6 模块)
 | 模块名 | 状态 | 文件名 | 负责人 | 备注 |
 |--------|------|--------|--------|------|
-| Tarjan 割点与桥 | ⏳ | TarjanCutVertexBridgeModule | - | dfn/low 判定 |
+| Tarjan 割点与桥 | ✅ | TarjanCutVertexBridgeModule | Cursor | dfn/low 判定，割点染红、桥加粗爆红 |
 | Tarjan 双连通分量 | ⏳ | TarjanBCCModule | - | v-BCC/e-BCC |
 | 二分图染色判定 | ⏳ | BipartiteColoringModule | - | 黑白交替染色 |
-| 匈牙利算法 | ⏳ | HungarianModule | - | 增广路推倒重来 |
+| 匈牙利算法 | ✅ | HungarianModule | Cursor | 增广路推倒重来，递归让位与回溯改配分色 |
 | 欧拉路径/回路 | ⏳ | EulerianPathModule | - | Hierholzer 算法 |
 | 网络流 (选修) | ⏳ | MaxFlowModule | - | Dinic/EK 算法 |
 
@@ -272,7 +288,7 @@
 | 模块名 | 状态 | 文件名 | 负责人 | 备注 |
 |--------|------|--------|--------|------|
 | 01 背包 | ✅ | Knapsack01Module | Codex | 二维 DP、选/不选候选状态飞入；教科书式表格排版（首行列下标 + 左侧行下标） |
-| 完全背包 | ⏳ | KnapsackCompleteModule | - | 同行左侧飞来 |
+| 完全背包 | ✅ | KnapsackCompleteModule | Cursor | 同行左侧转移，重复取物双色候选 |
 | 最长递增子序列 | ✅ | LISModule | Codex | O(N²) DP 与 O(N log N) tails 对照 |
 | 最长公共子序列 | ⏳ | LCSModule | - | 二维网格字符匹配 |
 | 区间 DP 石子合并 | ⏳ | IntervalDPModule | - | 三角矩阵逐层 |
@@ -350,7 +366,7 @@
 
 ## 当前基线与维护记录
 
-- 菜单注册 22 个可运行模块；只剩 SegmentTreeBuildModule 一个头文件骨架。
+- 菜单注册 36 个可运行模块；无头文件骨架。
 - 图模块统一接入"图结构选项"面板：IModule 提供 `supportsGraphOptions/supportsDirected/supportsBidirectional/getGraphOptions/setGraphOptions`，MainWindow 渲染单选与复选控件并按模块能力禁用。
 - 边权徽标绘制在 `GraphEdge::paint()` 内，沿曲线中点法向偏移，节点拖动与边弯曲时权值同步跟随。
 - 图边改为可交互 `GraphEdge`（二次贝塞尔曲线 + shape() 命中检测 + 拖拽弯曲），供教师在课堂上直接拖动演示。
@@ -364,7 +380,7 @@
 - Tarjan 算法启动时只重置遍历数组，不清除 buildLayout 生成的邻接表。
 - 新模块顺序：先确认动画分镜，再实现算法帧、渲染、输入和重置流程。
 - Bug 状态与修复验证记录在 docs/BugLog.md。
-- `tests/` 提供 27 个无头测试可执行程序（共享静态库构建，build 目录约 233 MB）：覆盖极端输入压力测试、动画中断清理测试、边权跟随测试、像素级边框/箭头/控件渲染断言、UI 状态机、就地编辑崩溃回归；用 `cmake -S tests -B build/tests` 单独构建，不影响主程序。
+- `tests/` 提供 28 个无头测试可执行程序（共享静态库构建，build 目录约 233 MB）：覆盖极端输入压力测试、动画中断清理测试、边权跟随测试、像素级边框/箭头/控件渲染断言、UI 状态机、就地编辑崩溃回归、A 组新模块行为断言；用 `cmake -S tests -B build/tests` 单独构建，不影响主程序。
 
 ## 下一步优先级
 
@@ -372,4 +388,15 @@
 
 1. ~~SegmentTreeBuildModule：区间递归拆分与自底向上 pushup。~~ ✅ 已完成
 2. ~~KMP 匹配过程：主串/模式串游标与失配滑动。~~ ✅ 已完成
-3. ~~完全背包、线段树操作和堆系列。~~ 部分完成（线段树三部曲已齐，堆系列待补）
+3. ~~完全背包、线段树操作和堆系列。~~ ✅ 已完成（线段树三部曲、堆 up/down 与堆排序齐备）
+
+### A 组完成后的候选
+
+- **树状数组进阶**：区间修改 + 区间查询（双树状数组 / 差分 BIT）
+- **堆综合操作**：Insert / Pop / Modify 三种操作与 `ph[k]`、`hp[k]` 映射数组
+- **Tarjan 双连通分量**：v-BCC 与 e-BCC 的划分演示
+- **二分图染色判定**：黑白交替染色与冲突警告（匈牙利算法的前置模块）
+- **高级 DP**：区间 DP 石子合并、树形 DP、状压 DP
+- **数论**：埃氏筛、线性筛、快速幂、辗转相除
+- **贪心**：区间调度、哈夫曼树
+- **哈希**：哈希表拉链法与开放寻址

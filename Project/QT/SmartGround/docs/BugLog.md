@@ -91,6 +91,7 @@
 | BUG-086 | 所有数组结构相邻单元格之间出现明显双线分隔，无法形成 Excel 式连续表格 | 已修复 | 根因是 `ArrayBlock::paint()` 用 `drawRect(1, 1, W-2, H-2)` 把描边整体内缩 1px，相邻格的右描边与左描边中心相差 2px，中间还夹一段白缝，交界处形成 4px 暗带 + 白缝（像素实测：外边界 2px，内部交界 4px）。改为 `drawRect(0, 0, W, H)` 让相邻格描边中心精确重合于同一坐标，交界处只剩 1 条 2px 竖线；`boundingRect()` 同步扩为 `(-1, -27, W+2, H+28)` 容纳描边外扩 1px；新增 `setCellSize(w, h)` / `bodyRect()` 接口，使 `SandboxArrayModule`(62px)、`SegmentTreeBuildModule`(58/54px)、`SegmentTreeEditBase`(58/54px)、`KMPNextModule`(56px)、`KMPMatchModule`(52px) 的格宽严格等于列距，描边完全重合 |
 | BUG-087 | 双击数组格就地修改时容易闪退 | 已修复 | 根因有二：其一，`EditorWatcher::eventFilter` 处理 `FocusOut` 时调用 `onDone(true)` → `commitEdit()` → 同步 `delete editor`，销毁了事件过滤器正在处理的 `receiver`，Qt 在 `sendThroughObjectEventFilters` 返回后访问已释放对象造成 use-after-free；其二，`deleteLater()` 延迟销毁期间若用户双击另一格，旧 editor 的 watcher 回调会把新 editor 提前提交。修复：新增公共 `destroyEditor()` 统一走 `setParentItem(nullptr)` → `removeItem` → `deleteLater()`，绝不在事件过滤器回调内同步销毁；`FocusOut` 分支处理完立即 `return true` 消费事件，不再回落到 `QObject::eventFilter(obj, event)`；`m_editor` 改为 `QPointer` 并配合 `QPointer<Self>` 守卫宿主对象；watcher 回调增加 `m_editor.data() != editor` 身份校验，丢弃过期 editor 的回调 |
 | BUG-088 | 测试构建目录膨胀到 7.5 GB，且测试之间存在隐式的截图顺序依赖 | 已修复 | 根因一：`tests/CMakeLists.txt` 中每个测试都独立编译一遍全部模块源码（28 个测试 × 50 个 .obj × Debug `-g` 符号），造成 5.4 GB 冗余。改为提取三个共享静态库 `SgCore`（模块与渲染层）/ `SgWidgets`（自研控件）/ `SgUi`（MainWindow），测试只编译自身 `main.cpp` 后链接对应库，build 目录从 7539 MB 降至 233 MB。根因二：`StartupPanelTest` 直接读取 `ui_start.png` / `ui_graph_panel.png`，依赖 `UiShot` 先运行，清理构建目录后必然失败；改为该测试自行构造 `MainWindow` 并抓取当前画面做像素分析，彻底消除跨测试文件依赖。同时 `tools/sg.ps1` 显式指定 MinGW 工具链与生成器，避免缓存被外部工具改写后配置失败 |
+| BUG-089 | Git 仓库把 `node_modules` 下 3806 个文件全部纳入版本管理，占跟踪文件的 96%，仓库体积虚高且每次依赖变动都会污染提交历史 | 已修复 | 在仓库根 `.gitignore` 增加 `node_modules/` 与 `**/node_modules/`，并用 `git rm -r --cached node_modules` 把已跟踪的 3806 个文件从索引中移除（保留磁盘上的实际依赖目录）。跟踪文件数从 3962 降到 156，全部为源码、测试、文档与构建脚本 |
 
 ## 验证
 
@@ -115,9 +116,12 @@
   - `SmartGroundNewModule`：24 项断言，覆盖线段树建树的帧序（`SEG_LEAF` / `SEG_PUSHUP` 均出现）、懒标记模块的三个关键动作（`SEG_COVER_MUL` / `SEG_COVER_ADD` / `SEG_PUSH_DOWN`）、区间查询答案 `2+3+4=9`、KMP 匹配命中数为 1 且起点为 1、KMP `pi[7]=2`（对照 `ABABCABAA`）、以及两个模块的非法输入降级（不崩溃、帧序列为空）；同时输出 `seg_build.png` / `seg_tag.png` / `seg_query.png` / `kmp_match.png` / `kmp_next.png` 五张渲染截图供人工复核。
   - `SmartGroundBorderDiag`：像素级验证 BUG-086（Excel 式单线边框）。在前缀和、冒泡排序、线段树三个模块上扫描单元格所在行，按「暗色游程的高度」区分边框与字形笔画（边框贯穿整格高、字形笔画只有十几像素），要求所有分隔线宽度恒为 2px、不出现宽度 > 3px 的双线暗带，且分隔线数量与格数严格对应；同时校验同行相邻格的列距严格等于格宽（无缝隙、无重叠）。该断言不依赖字体环境，`offscreen` 与 `windows` 平台结果一致。
   - `SmartGroundEditCrash`：17 项断言，覆盖 BUG-087（就地编辑闪退）。走完「双击开始编辑 → 焦点丢失提交 → 回车提交 → Esc 取消 → 编辑中清空场景 → 连续编辑两格时旧编辑器回调不得关闭新编辑器」全流程，全程零崩溃零 double free。
-- 本轮全量回归：27 个测试套件串行执行完毕，全部零失败、零崩溃、零断言告警；并分别在 `offscreen`（无头）与 `windows`（真实字体）两种平台下各跑一遍，结果一致全绿。
+  - `SmartGroundGroupA`：32 项断言，覆盖 A 组五个新模块。树状数组验证 `FT_INSERT`/`FT_JUMP_UP`/`FT_ACC`/`FT_RESULT` 四类帧齐全、`add(2,5)` 后 `sum(5)==21`、非法输入降级为空帧序列；完全背包验证 `dp[3][8]==12`（对比 01 背包的 `dp[3][8]==10`，证明完全背包可重复取物）；Tarjan 割点与桥验证 `TC_VISIT`/`TC_CUT`/`TC_BRIDGE` 帧齐全且能定位割点；匈牙利算法验证最大匹配数、在完全图上取到 3、在 `L1-R1, L1-R2, L2-R1` 增广路场景上取到 2 并出现 `HN_OCCUPIED` 递归帧；堆调整与堆排序验证比较帧与交换帧齐全。
+- 本轮全量回归：28 个测试套件串行执行完毕，全部零失败、零崩溃、零断言告警；并分别在 `offscreen`（无头）与 `windows`（真实字体）两种平台下各跑一遍，结果一致全绿。
 - 截图辅助程序：`SmartGroundArrowShot`、`SmartGroundDsuShot`、`SmartGroundUiShot`、`SmartGroundToggleShot`，用于人工核对箭头、权值、滑动开关两种状态与整体 UI 观感。
 - 项目目录没有 Git 元数据，无法附上提交或工作树引用。
+
+> 说明：2026-11-14 起项目已纳入 `D:\Program\Cpp` 的 Git 仓库，SmartGround 目录位于 `Project/QT/SmartGround` 子路径下，提交与工作树引用可正常提供。
 
 ## 测试运行方式
 

@@ -491,7 +491,7 @@ void GraphEdge::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidg
     QPainterPath path;
     path.moveTo(p0);
     path.quadTo(c, p1);
-    QPen pen(QColor(color.red(), color.green(), color.blue(), m_hovered ? 255 : 220), m_hovered ? 3.5 : 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+    QPen pen(QColor(color.red(), color.green(), color.blue(), m_hovered ? 255 : 220), m_hovered ? 3.5 : m_penWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
     painter->setPen(pen);
     painter->drawPath(path);
     auto drawArrow = [&](QPointF tip, QPointF dir) {
