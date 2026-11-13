@@ -179,6 +179,7 @@ add_sg_test(SmartGroundLiveEdit LiveEditTest.cpp)
 add_sg_test(SmartGroundEditCrash EditCrashTest.cpp)
 add_sg_test(SmartGroundBorderDiag BorderDiagTest.cpp)
 add_sg_test(SmartGroundGroupA GroupATest.cpp)
+add_sg_ui_test(SmartGroundGroupAUi GroupAUiTest.cpp)
 
 
 

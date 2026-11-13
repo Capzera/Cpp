@@ -8,9 +8,9 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 
 ## 当前代码状态
 
-- 菜单中注册了 36 个可运行模块（31 个算法模块 + 5 个自由结构沙盒模块）。
+- 菜单中注册了 37 个可运行模块（32 个算法模块 + 5 个自由结构沙盒模块）。
 - 已无待实现的头文件骨架。
-- 本轮改动已通过 Qt 6.11.1 / MinGW 13.1 Debug 构建，28 个测试套件在 `offscreen` 与 `windows` 两种平台下串行全绿。
+- 本轮改动已通过 Qt 6.11.1 / MinGW 13.1 Debug 构建，29 个测试套件在 `offscreen` 与 `windows` 两种平台下串行全绿。
 - 项目已纳入 `D:\Program\Cpp` 的 Git 仓库（SmartGround 位于 `Project/QT/SmartGround` 子路径），可查看提交历史与工作树状态。
 - 根目录 main.cpp 是辅助入口；CMake 实际编译 src/main.cpp。
 

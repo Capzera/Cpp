@@ -89,6 +89,7 @@ private:
     QElapsedTimer m_frameClock;
 
     friend class UiBehaviorProbe;
+    friend class GroupAProbe;
 
 public:
     int probeFrameIndex() const { return m_frameIndex; }
@@ -99,6 +100,16 @@ public:
     void probeRequestPause() { requestPause(); }
     void probeAdvance() { advanceFrame(); }
     void probeSettle() { onFrameSettled(); }
+    QStringList probeModuleNames() const {
+        QStringList names;
+        for (int i = 1; i < comboModules->count(); ++i) names << comboModules->itemText(i);
+        return names;
+    }
+    void probeSelectModule(const QString& name) {
+        for (int i = 1; i < comboModules->count(); ++i) {
+            if (comboModules->itemText(i) == name) { comboModules->setCurrentIndex(i); return; }
+        }
+    }
     int probeDelayFor(const QString& text) const {
         AnimFrame f;
         f.type = ActionType::AR_HIGHLIGHT;
