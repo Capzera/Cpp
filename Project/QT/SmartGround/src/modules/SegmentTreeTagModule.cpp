@@ -12,7 +12,7 @@ static const QColor kTagGray = QColor(228, 231, 236);
 
 SegmentTreeTagModule::SegmentTreeTagModule() {}
 
-QString SegmentTreeTagModule::getModuleName() const { return "线段树 - 区间乘 / 区间加（懒标记）"; }
+QString SegmentTreeTagModule::getModuleName() const { return "线段树 (lz标记)"; }
 QString SegmentTreeTagModule::getDefaultInput() const { return "4 2 100\n1 2 3 4\n1 2 3 2\n2 1 4 5"; }
 QString SegmentTreeTagModule::getInputHint() const {
     return "第一行输入 n、m、p：数组长度、操作次数、模数\n"

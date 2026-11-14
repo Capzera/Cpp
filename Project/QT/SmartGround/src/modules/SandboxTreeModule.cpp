@@ -18,10 +18,6 @@ void SandboxTreeModule::buildLayout(QGraphicsScene* scene, const QString& inputD
     m_scene = scene;
     reset();
     m_scene = scene;
-    m_mathText = scene->addText(getInputHint());
-    m_mathText->setFont(QFont("Consolas", 12, QFont::Bold));
-    m_mathText->setDefaultTextColor(QColor(40, 70, 110));
-    m_mathText->setPos(50, 20);
 
     QStringList lines = inputData.split(QRegularExpression("[\\r\\n]"), Qt::SkipEmptyParts);
     std::map<int, std::vector<int>> children;
@@ -41,12 +37,8 @@ void SandboxTreeModule::buildLayout(QGraphicsScene* scene, const QString& inputD
             maxId = qMax(maxId, child);
         }
     }
-    if (children.empty() || maxId == 0) {
-        m_mathText->setPlainText("输入错误：至少需要一行形如 “1 2 3” 的父子关系");
-        return;
-    }
+    if (children.empty() || maxId == 0) return;
     layoutTree(1, children);
-    m_mathText->setPlainText(QString("自由树：共 %1 个节点　（可拖动，双击节点改值）").arg(maxId));
 }
 
 void SandboxTreeModule::layoutTree(int root, const std::map<int, std::vector<int>>& children) {
@@ -83,9 +75,10 @@ void SandboxTreeModule::layoutTree(int root, const std::map<int, std::vector<int
         GraphNode* node = new GraphNode(id);
         node->setPos(positions[id]);
         node->color = QColor(252, 252, 254);
-        node->setValueText(QString::number(id));
+        node->setCustomValueText(QString::number(id));
         m_scene->addItem(node);
         m_nodes[id] = node;
+        registerNodeSlot(id, "v", id);
     }
     for (int id : order) {
         auto it = children.find(id);

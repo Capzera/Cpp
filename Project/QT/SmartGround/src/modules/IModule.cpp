@@ -701,6 +701,65 @@ void IModule::playDualValueFlight(QPointF startA, QPointF startB, ArrayBlock* ta
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
+void IModule::playMultiValueFlight(const std::vector<QPointF>& sources, const std::vector<int>& values,
+                                   ArrayBlock* target, int total, QColor targetColor) {
+    if (!target || !m_scene) return;
+    int generation = target->property("value_flight_generation").toInt() + 1;
+    target->setProperty("value_flight_generation", generation);
+    if (!m_animated) {
+        target->value = total;
+        target->showValue = true;
+        target->color = targetColor;
+        target->update();
+        return;
+    }
+    QPointer<ArrayBlock> safeTarget = target;
+    std::vector<QPointer<FloatingText>> texts;
+    for (size_t i = 0; i < sources.size() && i < values.size(); ++i) {
+        QPointer<FloatingText> ft = new FloatingText(QString::number(values[i]));
+        ft->setPos(sources[i]);
+        m_scene->addItem(ft.data());
+        m_transientItems.push_back(ft.data());
+        texts.push_back(ft);
+    }
+    const QPointF endPos = target->pos();
+    QVariantAnimation* anim = new QVariantAnimation(target);
+    anim->setDuration(420);
+    anim->setStartValue(0.0);
+    anim->setEndValue(1.0);
+    anim->setEasingCurve(QEasingCurve::InOutCubic);
+    QObject::connect(anim, &QVariantAnimation::valueChanged, [texts, sources, endPos](const QVariant& progress) {
+        qreal t = progress.toReal();
+        for (size_t i = 0; i < texts.size(); ++i) {
+            if (!texts[i]) continue;
+            const qreal arc = std::sin(t * M_PI) * (26.0 + 6.0 * static_cast<qreal>(i));
+            texts[i]->setPos(sources[i].x() + (endPos.x() - sources[i].x()) * t,
+                             sources[i].y() + (endPos.y() - sources[i].y()) * t - arc);
+        }
+    });
+    target->showValue = false;
+    target->update();
+    auto commit = [this, safeTarget, total, targetColor, generation]() {
+        if (!safeTarget) return;
+        if (safeTarget->property("value_flight_generation").toInt() != generation) return;
+        safeTarget->value = total;
+        safeTarget->showValue = true;
+        safeTarget->color = targetColor;
+        safeTarget->update();
+    };
+    m_pendingCommits.push_back(commit);
+    QObject::connect(anim, &QVariantAnimation::finished, [this, safeTarget, texts, commit]() {
+        for (auto& t : texts) {
+            if (!t) continue;
+            if (t->scene()) t->scene()->removeItem(t.data());
+            delete t.data();
+        }
+        if (!safeTarget) return;
+        commit();
+    });
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
 void IModule::playTagDrop(QPointF startPos, QPointF endPos, const QString& text, QColor color, int duration) {
     if (!m_scene) return;
     QPointer<FloatingText> ft = new FloatingText(text);
@@ -788,88 +847,4 @@ void IModule::playRowShift(std::vector<QGraphicsItem*> items, QPointF delta, int
         m_rowShiftAnims[item] = QPointer<QVariantAnimation>(anim);
     }
     anim->start(QAbstractAnimation::DeleteWhenStopped);
-}
-
-void IModule::playFadeItem(QGraphicsItem* item, qreal from, qreal to, int duration) {
-    if (!item) return;
-    if (!m_animated) {
-        item->setOpacity(to);
-        return;
-    }
-    QVariantAnimation* anim = new QVariantAnimation();
-    anim->setDuration(duration);
-    anim->setStartValue(from);
-    anim->setEndValue(to);
-    anim->setEasingCurve(QEasingCurve::InOutQuad);
-    QObject::connect(anim, &QVariantAnimation::valueChanged, [item](const QVariant& progress) {
-        if (item) item->setOpacity(progress.toReal());
-    });
-    anim->start(QAbstractAnimation::DeleteWhenStopped);
-}
-
-GraphEdge* IModule::createEdge(GraphNode* u, GraphNode* v, const GraphModuleUtils::GraphOptions& options, const GraphModuleUtils::EdgeInput& edge, bool hasWeight) {    if (!u || !v || !m_scene) return nullptr;
-    bool directed = options.directed;
-    bool bidirectional = !options.directed && options.bidirectional;
-    GraphEdge* item = new GraphEdge(u, v, directed, bidirectional);
-    if (hasWeight) item->setWeight(edge.w);
-    m_scene->addItem(item);
-    u->addEdge(item);
-    v->addEdge(item);
-    return item;
-}
-
-void IModule::drawLabel(const QString& text, QPointF pos, QColor color, int size) {
-    if (!m_scene) return;
-    QGraphicsTextItem* item = new QGraphicsTextItem(text);
-    item->setDefaultTextColor(color);
-    QFont f("Microsoft YaHei UI");
-    if (f.family().isEmpty() || f.family().contains("Sans")) f = QFont("Segoe UI");
-    f.setPointSize(size);
-    f.setBold(true);
-    item->setFont(f);
-    item->setPos(pos);
-    item->setZValue(4);
-    m_scene->addItem(item);
-}
-
-void IModule::drawCaption(const QString& text, QPointF pos, QColor color, int size) {
-    if (!m_scene) return;
-    QGraphicsTextItem* item = new QGraphicsTextItem(text);
-    item->setDefaultTextColor(color);
-    QFont f("Microsoft YaHei UI");
-    if (f.family().isEmpty() || f.family().contains("Sans")) f = QFont("Segoe UI");
-    f.setPointSize(size);
-    item->setFont(f);
-    item->setPos(pos);
-    item->setZValue(4);
-    m_scene->addItem(item);
-}
-
-void IModule::applyNodeHighlight(GraphNode* node, QColor color) {
-    if (!node) return;
-    node->setHighlightColor(color);
-}
-
-void IModule::clearNodeHighlights() {
-    if (!m_scene) return;
-    for (QGraphicsItem* item : m_scene->items()) {
-        GraphNode* node = dynamic_cast<GraphNode*>(item);
-        if (node) node->setHighlightColor(Qt::transparent);
-    }
-}
-
-void IModule::attachEdge(GraphNode* node, GraphEdge* edge) {
-    if (!node || !edge) return;
-    node->addEdge(edge);
-}
-
-void IModule::detachAllEdges(std::vector<GraphNode*>& nodes, std::vector<GraphEdge*>& edges) {
-    for (GraphEdge* edge : edges) {
-        if (edge) edge->detach();
-    }
-    edges.clear();
-    for (GraphNode* node : nodes) {
-        if (node) node->removeAllEdges();
-    }
-    nodes.clear();
 }

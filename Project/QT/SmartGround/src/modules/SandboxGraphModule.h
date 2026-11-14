@@ -22,8 +22,15 @@ public:
 private:
     void rebuildGraph();
 
+    struct EdgeSpec {
+        int u = 0;
+        int v = 0;
+        bool hasWeight = false;
+        int weight = 0;
+    };
+
     int m_n = 0;
-    std::vector<std::pair<int, int>> m_edges;
+    std::vector<EdgeSpec> m_edges;
     GraphModuleUtils::GraphOptions m_options;
     std::map<int, GraphNode*> m_nodes;
     std::vector<GraphEdge*> m_edgesItems;

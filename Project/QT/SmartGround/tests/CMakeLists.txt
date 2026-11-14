@@ -14,7 +14,6 @@ set(SG_MODULE_SOURCES
     ../src/core/ViewportFitter.cpp
     ../src/modules/IModule.cpp
     ../src/modules/TarjanModule.cpp
-    ../src/modules/ArrayModule.cpp
     ../src/modules/BubbleSortModule.cpp
     ../src/modules/SelectionSortModule.cpp
     ../src/modules/InsertionSortModule.cpp
@@ -23,6 +22,7 @@ set(SG_MODULE_SOURCES
     ../src/modules/HeapBasicsModule.cpp
     ../src/modules/MonotonicStackModule.cpp
     ../src/modules/DSUBasicModule.cpp
+    ../src/modules/TwoRowArrayModule.cpp
     ../src/modules/PrefixSumModule.cpp
     ../src/modules/DifferenceModule.cpp
     ../src/modules/StackModule.cpp
@@ -52,7 +52,7 @@ set(SG_MODULE_SOURCES
     ../src/modules/SandboxMatrixModule.cpp
     ../src/modules/SandboxTreeModule.cpp
     ../src/modules/SandboxGraphModule.cpp
-    ../src/modules/SandboxLatexModule.cpp
+    ../src/modules/SandboxBlankModule.cpp
 )
 
 set(SG_MODULE_HEADERS
@@ -86,14 +86,14 @@ set(SG_MODULE_HEADERS
     ../src/modules/HeapAdjustModule.h
     ../src/modules/HeapSortModule.h
     ../src/modules/HeapTreeBase.h
+    ../src/modules/TwoRowArrayModule.h
     ../src/modules/FreeStructureBase.h
     ../src/modules/SandboxArrayModule.h
     ../src/modules/SandboxMatrixModule.h
     ../src/modules/SandboxTreeModule.h
     ../src/modules/SandboxGraphModule.h
-    ../src/modules/SandboxLatexModule.h
+    ../src/modules/SandboxBlankModule.h
     ../src/modules/TarjanModule.h
-    ../src/modules/ArrayModule.h
     ../src/modules/BubbleSortModule.h
     ../src/modules/SelectionSortModule.h
     ../src/modules/InsertionSortModule.h
@@ -119,6 +119,25 @@ set(SG_WIDGET_SOURCES
     ../src/ui/widgets/MyTextEdit.cpp
     ../src/ui/widgets/MyCollapsible.cpp
     ../src/ui/widgets/MySlider.cpp
+    ../src/ui/widgets/MyColorSwatch.cpp
+    ../src/ui/widgets/FlowLayout.cpp
+    ../src/ui/widgets/AnnotationEditor.cpp
+)
+
+set(SG_CANVAS_SOURCES
+    ../src/canvas/AnnotationItem.cpp
+    ../src/canvas/StrokeItem.cpp
+    ../src/canvas/ShapeItem.cpp
+    ../src/canvas/TextBoxItem.cpp
+    ../src/canvas/MarkdownItem.cpp
+    ../src/canvas/LatexItem.cpp
+    ../src/canvas/LatexService.cpp
+    ../src/canvas/CanvasTableItem.cpp
+    ../src/canvas/AnnotationScene.cpp
+    ../src/canvas/ToolController.cpp
+    ../src/canvas/CanvasView.cpp
+    ../src/ui/widgets/CanvasToolBar.cpp
+    ../src/ui/widgets/ToolIconButton.cpp
 )
 
 add_library(SgCore STATIC ${SG_MODULE_SOURCES} ${SG_MODULE_HEADERS})
@@ -129,8 +148,12 @@ add_library(SgWidgets STATIC ${SG_WIDGET_SOURCES})
 target_link_libraries(SgWidgets PUBLIC SgCore Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Svg)
 target_include_directories(SgWidgets PUBLIC ../src)
 
+add_library(SgCanvas STATIC ${SG_CANVAS_SOURCES})
+target_link_libraries(SgCanvas PUBLIC SgWidgets SgCore Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Svg)
+target_include_directories(SgCanvas PUBLIC ../src)
+
 add_library(SgUi STATIC ../src/ui/MainWindow.cpp ../src/ui/MainWindow.h)
-target_link_libraries(SgUi PUBLIC SgWidgets Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Svg)
+target_link_libraries(SgUi PUBLIC SgWidgets SgCanvas SgCore Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Svg)
 target_include_directories(SgUi PUBLIC ../src)
 
 function(sg_link name lib)
@@ -141,6 +164,10 @@ endfunction()
 
 function(add_sg_test name source)
     sg_link(${name} SgCore ${source})
+endfunction()
+
+function(add_sg_canvas_test name source)
+    sg_link(${name} SgCanvas ${source})
 endfunction()
 
 function(add_sg_ui_test name source)
@@ -180,6 +207,16 @@ add_sg_test(SmartGroundEditCrash EditCrashTest.cpp)
 add_sg_test(SmartGroundBorderDiag BorderDiagTest.cpp)
 add_sg_test(SmartGroundGroupA GroupATest.cpp)
 add_sg_ui_test(SmartGroundGroupAUi GroupAUiTest.cpp)
+add_sg_test(SmartGroundNodeLiveEdit NodeLiveEditTest.cpp)
+add_sg_test(SmartGroundOverlayRenderProbe OverlayRenderProbe.cpp)
+add_sg_canvas_test(SmartGroundCanvasTools CanvasToolsTest.cpp)
+add_sg_canvas_test(SmartGroundCanvasVisual CanvasVisualTest.cpp)
+add_sg_canvas_test(SmartGroundToolSuite ToolSuiteTest.cpp)
+add_sg_canvas_test(SmartGroundBrushQuality BrushQualityTest.cpp)
+
+add_sg_ui_test(SmartGroundAppWidth AppWidthTest.cpp)
+add_sg_ui_test(SmartGroundAppCombo AppComboTest.cpp)
+add_sg_ui_test(SmartGroundAppBrush AppBrushTest.cpp)
 
 
 

@@ -106,20 +106,13 @@ protected:
     void layoutPointerSlots(std::vector<PointerBlock*> ptrs, std::vector<QGraphicsItem*> anchors, double yOffset = 42.0);
     void playValueFlight(QPointF startPos, ArrayBlock* target, int value, QColor targetColor = Qt::white, bool pulseTarget = false);
     void playDualValueFlight(QPointF startA, QPointF startB, ArrayBlock* target, int valueA, int valueB, QColor targetColor = Qt::white);
+    void playMultiValueFlight(const std::vector<QPointF>& sources, const std::vector<int>& values,
+                              ArrayBlock* target, int total, QColor targetColor = Qt::white);
     void playTagDrop(QPointF startPos, QPointF endPos, const QString& text, QColor color, int duration = 420);
     void playRowShift(std::vector<QGraphicsItem*> items, QPointF delta, int duration = 460);
-    void playFadeItem(QGraphicsItem* item, qreal from, qreal to, int duration = 320);
     void playScalePulse(QObject* item, qreal peak = 1.28, int duration = 300);
     void purgeTransientItems();
     QPropertyAnimation* acquireAnim(QObject* target, const char* property, int duration = 400, const QEasingCurve& curve = QEasingCurve::InOutQuad);
-    GraphEdge* createEdge(GraphNode* u, GraphNode* v, const GraphModuleUtils::GraphOptions& options, const GraphModuleUtils::EdgeInput& edge, bool hasWeight);
-
-    void drawLabel(const QString& text, QPointF pos, QColor color = Qt::black, int size = 12);
-    void drawCaption(const QString& text, QPointF pos, QColor color = Qt::black, int size = 11);
-    void applyNodeHighlight(GraphNode* node, QColor color);
-    void clearNodeHighlights();
-    void attachEdge(GraphNode* node, GraphEdge* edge);
-    void detachAllEdges(std::vector<GraphNode*>& nodes, std::vector<GraphEdge*>& edges);
 
 private:
     struct AnimKey {

@@ -17,18 +17,11 @@ void SandboxArrayModule::buildLayout(QGraphicsScene* scene, const QString& input
     m_scene = scene;
     reset();
     m_scene = scene;
-    m_mathText = scene->addText(getInputHint());
-    m_mathText->setFont(QFont("Consolas", 12, QFont::Bold));
-    m_mathText->setDefaultTextColor(QColor(40, 70, 110));
-    m_mathText->setPos(50, 20);
 
     QStringList tokens = inputData.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
     bool ok = false;
     int n = tokens.isEmpty() ? 0 : tokens[0].toInt(&ok);
-    if (!ok || n < 1 || n > 24) {
-        m_mathText->setPlainText("输入错误：第一行需要数组长度 n（1 - 24）");
-        return;
-    }
+    if (!ok || n < 1 || n > 24) return;
     std::vector<int> values(n, 0);
     for (int i = 0; i < n; ++i) {
         int v = i + 1 < tokens.size() ? tokens[i + 1].toInt(&ok) : 0;
@@ -38,10 +31,6 @@ void SandboxArrayModule::buildLayout(QGraphicsScene* scene, const QString& input
     const double cellW = 62.0;
     const double startX = 160.0;
     const double y = 260.0;
-    QGraphicsTextItem* title = scene->addText("a");
-    title->setFont(QFont("Consolas", 13, QFont::Bold));
-    title->setDefaultTextColor(QColor(40, 70, 110));
-    title->setPos(startX - 42, y - 2);
 
     for (int i = 0; i < n; ++i) {
         ArrayBlock* block = new ArrayBlock(i + 1, values[i], QString::number(i + 1));
@@ -53,7 +42,6 @@ void SandboxArrayModule::buildLayout(QGraphicsScene* scene, const QString& input
         connect(block, &ArrayBlock::valueEdited, this, &SandboxArrayModule::onCellEdited);
         m_blocks[i + 1] = block;
     }
-    m_mathText->setPlainText(QString("自由数组：长度 %1，下标 1..%2　（双击格子可改值）").arg(n).arg(n));
 }
 
 void SandboxArrayModule::onCellEdited(int id, const QString& text) {

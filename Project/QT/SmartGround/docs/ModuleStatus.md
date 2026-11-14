@@ -1,8 +1,74 @@
 # SmartGround 模块开发状态跟踪
 
-> **更新时间**: 2026-11-14 - A 组经典算法模块轮
-> **当前进度**: 37 个菜单可运行模块 | 0 个头文件骨架
-> **核心变化**: 新增树状数组 BIT、完全背包、Tarjan 割点与桥、匈牙利匹配、堆 up/down 与堆排序六个模块；`GraphEdge` 支持自定义线宽
+> **更新时间**: 2026-11-14 - 画笔手感升级轮（ZoomIt 风格）
+> **当前进度**: 37 个唯一可运行模块（38 个下拉条目） | 0 个头文件骨架
+> **核心变化**: 画笔手感三项重做——①**笔迹改用 Catmull-Rom 三次贝塞尔平滑 + 变宽丝带渲染**，消除折线锯齿（BUG-114）；②**修复批注层架构性不刷新缺陷**：批注场景从未挂接 view，现由 `setHostView()` 挂载并以 `contentChanged()` 信号逐点驱动画布重绘，画完/擦完**即刻上屏**，无需缩放平移（BUG-115）；③**橡皮改为可拖动连续擦除 + 红色光标圆环指示擦除范围**（BUG-116）；并按 ZoomIt 范式补齐**荧光笔**、**滚轮调笔宽/橡皮半径**、**数字键换色**。全量 44 个测试套件串行全绿
+
+## 2026-11-14 画笔手感升级轮（ZoomIt 风格）
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 笔迹样条平滑 | `src/canvas/StrokeItem.{h,cpp}` | `smoothPoints()` 用 Catmull-Rom 转三次贝塞尔插值（控制点 `c1 = p1 + (p2-p0)/6`、`c2 = p2 - (p3-p1)/6`，每段细分 12 步）；`paint()` 沿平滑路径求切线法向、左右各偏移半笔宽生成闭合丝带多边形填充，笔画边缘随曲线自然过渡（BUG-114） |
+| 采样降噪 | `StrokeItem::addPoint()` | 最小采样间距 `kMinSampleDistance = 0.9`，剔除抖动点，避免笔迹毛刺 |
+| 批注层挂载 view | `src/canvas/AnnotationScene.{h,cpp}` | 新增 `setHostView()` / `hostView()`；`addItem` / `removeItem` / `destroyItem` 变更后立即 `m_hostView->viewport()->update()`；`CanvasView::setAnnotationScene()` 自动完成挂接（BUG-115） |
+| 逐点实时重绘 | `src/canvas/AnnotationItem.{h,cpp}` | 新增 `contentChanged()` 信号与 `notifyContentChanged()`；`AnnotationScene::addItem()` 为每个图元连接该信号，笔画**绘制过程中每加一点即通知重绘**，不再等到松手 |
+| 工具层显式刷新 | `src/canvas/ToolController.cpp` | `updateStroke` / `finishStroke` / `updateShape` / `finishShape` / `updateEraseDrag` / `finishEraseDrag` 均调用 `m_view->refreshOverlay()` |
+| 橡皮拖动擦除 | `src/canvas/ToolController.{h,cpp}` | 新增 `beginEraseDrag()` / `updateEraseDrag()` / `finishEraseDrag()`；拖动时按 `eraserRadius * 0.4` 步长沿路径插值逐段擦除（BUG-116） |
+| 命中判定统一 | `src/canvas/AnnotationItem.{h,cpp}` + `StrokeItem.{h,cpp}` | 新增虚函数 `hitTest(scenePos, radius)`；`StrokeItem` 覆写为「样条轮廓命中 **或** 距任一原始采样点 ≤ 半径 + 半笔宽」，兼顾平滑偏差与细笔画 |
+| 橡皮光标环 | `src/canvas/CanvasView.cpp` | `drawForeground()` 在橡皮激活时绘制红色描边 + 半透明填充圆环，实时跟随鼠标，直观显示擦除范围 |
+| 荧光笔 | `src/canvas/StrokeItem.{h,cpp}` + `ToolController` | 新增 `StrokeItem::Mode { Ink, Highlighter }`；高亮笔 alpha 0.38、宽度为普通笔 2.4 倍、`FlatCap + RoundJoin` 马克笔笔头，叠加处不加深；工具枚举新增 `Highlighter`，快捷键 `H` |
+| 滚轮调笔宽 | `src/canvas/ToolController.cpp` | 画笔 / 荧光笔激活时滚轮增减笔宽（0.5px 步进，1~40px）；橡皮激活时滚轮增减橡皮半径（2px 步进）——ZoomIt 标志性手感 |
+| 数字键换色 | `src/canvas/ToolController.cpp` + `MainWindow.cpp` | `1`~`7` 切换 红 / 绿 / 蓝 / 黄 / 橙 / 粉 / 深灰；`Alt + R/G/B/Y/O/P/K` 为备用组合（因 B/R/G/O 已占用为工具快捷键） |
+| 橡皮尺寸滑块 | `src/ui/widgets/CanvasToolBar.cpp` | 「样式」浮层新增「橡皮」滑块（4~60px），与笔宽 / 不透明度并列 |
+| 荧光笔图标 | `src/ui/widgets/ToolIconButton.{h,cpp}` | 新增 `Highlighter` 矢量图标（斜体笔身 + 高亮条），图标总数 17 → 18 |
+| 新增测试 | `tests/BrushQualityTest.cpp`、`tests/AppBrushTest.cpp` | 前者 25 项断言（实时可见、实时增长、擦除即时生效、撤销复原、荧光笔半透明、笔迹恒宽、橡皮拖动、滚轮调宽、数字键换色）；后者 7 项断言 + 3 张真实窗口截图（`app_brush_stroke.png` / `app_brush_highlighter.png` / `app_brush_eraser.png`） |
+
+## 2026-11-14 浮动轻套件重构轮
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 浮动工具套件 | `src/ui/widgets/CanvasToolBar.{h,cpp}` | 由 `rightLayout` 内的布局控件改为 `CanvasView` 的透明覆盖层子级，不参与任何布局计算，对窗口尺寸零贡献；主条 451 × 50px，顶边居中悬浮 |
+| 矢量图标控件 | 新增 `src/ui/widgets/ToolIconButton.{h,cpp}` | 17 种图标全部用 `QPainterPath` 手工绘制，不依赖 Segoe UI Symbol 字形，杜绝缺字方框；自带 hover / active 双态与工具提示 |
+| 互斥浮层 | `CanvasToolBar::toggleStylePanel()` / `toggleMorePanel()` | 「样式」浮层装颜色 / 粗细 / 不透明度 / 文字样式；「更多」浮层装文本 / 笔记 / 公式 / 表格插入、表格行列、撤销重做删除、批注显隐锁定、导出清空；两者互斥并按宿主边界自动避让 |
+| 宿主跟随 | `CanvasToolBar::eventFilter()` | 监听 `CanvasView` 的 `Resize` 事件重新定位主条与浮层，画布缩放 / 改尺寸时套件始终贴顶居中 |
+| 动作转交 | `MainWindow::setupCanvasTools()` | 导出 / 清空改由 `exportRequested` / `clearRequested` 信号转交 `MainWindow`，避免与浮层内的同名按钮形成两套控件 |
+| 下拉分类标题 | `src/ui/widgets/MyComboBox.cpp` | `ComboSectionHeader::paintEvent()` 原用 `setBrush(渐变)` + `setPen(NoPen)` 后 `drawText()`；因 `drawText` 只用画笔绘制，标题被隐形。改为 `setPen(深色)` 绘制标题，竖条与装饰线继续用画刷；强调色过浅时回退 `textPrimary()` |
+| 新增测试 | `tests/ToolSuiteTest.cpp`、`tests/AppWidthTest.cpp` | 前者 11 项断言（分类标题深色像素 > 200、套件宽度 < 520px、两浮层开合）；后者 6 项断言（真实 `MainWindow` 自然宽度 694px、最小宽度 558px、套件确为 `CanvasView` 子级、两浮层在真实窗口可开合） |
+
+## 2026-11-14 隐形对齐网格修复轮
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 网格从不显示 | `src/render/SceneGrid.h/.cpp`、`src/ui/MainWindow.cpp` | BUG-105：`GridGuideLayer` 从未 `scene->addItem(this)`，网格实际不可见；且其 `boundingRect()` 依赖 `itemsBoundingRect()` 会自引用递归（实测崩溃码 `-1073741571`）。改为新增 `GridGuideScene`（继承 `QGraphicsScene`，覆写 `drawBackground()`）在背景层绘制 56px 淡色点线，`MainWindow` 改用 `GridGuideScene` 作为画布场景；删除 `SceneGrid::attach()` 与 `GridGuideLayer` 整个类，`drawGuides()` 签名改为 `(painter, bounds, config)` |
+| 网格回归测试 | `tests/GridGuideTest.cpp` | 9 项断言：启用后有网格像素、关闭后归零、网格不进入 `scene->items()`（不影响居中）、`scene->clear()` 后仍存活、真实 `MainWindow` 画布呈现网格 |
+
+## 2026-11-14 分层格阵 / 科技感下拉 / 命名精简 / 代码瘦身轮
+
+| 能力 | 覆盖范围 | 实现要点 |
+|------|----------|----------|
+| 树状数组二叉分层格阵 | `FenwickTreeModule` | 底层为完整数组 `a[1..n]`，其上按 `ctz(i)`（`log2(lowbit(i))`）分 `floor(log2(n))+1` 层；第 `k` 层 `t[i]` 块宽 = `lowbit(i) * cellW`，水平覆盖 `[i-lowbit(i)+1, i]`；每层左侧标 `L0..Lk` 与 `lowbit`，右侧标覆盖区间；层间以半透明梯形引导线连接（BUG-099） |
+| 树状数组自底向上合并 | `FenwickTreeModule` + `AnimFrame.h` | 新增 `ActionType::FT_MERGE`；构建序列改为 `t[i] = t[i-2^(k-1)] + a[i-2^(k-1)+1] + ... + a[i]`，渲染时兄弟块 `t[i-2^(k-1)]` 与底层 `a[]` 格的数字**同时飞入** `t[i]` 合成新值（BUG-099） |
+| 多源数字飞入 | `IModule` | 新增 `playMultiValueFlight(sources, values, target, total, color)`：任意数量来源的 `FloatingText` 沿各自弧线同时飞向目标格并求和落格，供树状数组合并与后续同类场景复用 |
+| 下拉浮层边缘暗线修复 | `MyComboBox` | `ComboPopupFrame::paintEvent()` 改用「外环 - 内环」奇偶填充差集路径逐层绘制柔和阴影（12 环、向下偏移 4px），避免溢出被浮层矩形硬切产生直角暗带；浮层外边距放宽至 `18/18/18/22`、宽度补偿 +36；卡片边框改半透明（BUG-098） |
+| 下拉科技感瓦片 | `MyComboBox` | `ComboOption::paintTile()` 冷调渐变瓦片 + 细边框 + hover 发光边框 + 左侧强调条 + 选中态顶部高光；`ComboSectionHeader` 彩色竖条 + 渐变标题文字 + 尾部渐隐短横线（原横贯分割线已移除）；字体统一 `UiTheme::uiFont()`（Microsoft YaHei UI）（BUG-100） |
+| 分组细化与跨分支 | `MainWindow` | 分组细化为「自由结构 / 数学基础 / 线性结构 / 经典排序 / 堆结构 / 并查集 / 树状数组 / 线段树 / 图论算法 / 匹配与动态规划 / 字符串算法」11 类；新增 `comboToModule` 把下拉序号映射到唯一模块实例下标，Kruskal 同时出现在「并查集」与「图论 · 最小生成树」（BUG-102） |
+| 模块命名精简 | 16 个模块 | 「匈牙利算法」「线段树 (lz标记)」「线段树 (建树)」「线段树 (区间查询)」「KMP (pi数组)」「KMP (匹配)」「Dijkstra 最短路」「完全背包」「01 背包」「堆调整 up/down」「LIS 最长递增子序列」「Tarjan 强连通分量」「并查集」「BFS 广度优先搜索」（BUG-101） |
+| 双行数组公共基类 | 新增 `TwoRowArrayModule.h/.cpp` | 收敛输入解析、双行布局构建、`PD_*` 帧渲染与多源飞入动画；`PrefixSumModule` / `DifferenceModule` 只保留各自语义与帧序列，代码量减少约 45%（BUG-103） |
+| 死代码清理 | 全项目 | 删除 `ArrayModule.h/.cpp`（无派生类）与 `IModuleHelpers.h`；清理 `IModule` 中 8 个无调用方辅助函数、`GraphRenderHelper.h` 中 2 个未用函数、`HeapTreeBase.h` 中从未写入的 `m_relationLabels`；同步更新两份 `CMakeLists.txt`（BUG-104） |
+| 新增截图工具 | `tests/FenwickShot.cpp` / `tests/ComboGroupShot.cpp` | 输出 `fenwick_lattice.png`（分层格阵）与 `combo_groups.png`（分组瓦片网格），供人工核对 |
+
+## 2026-11-14 八项视觉与交互调整轮
+
+| 能力 | 覆盖范围 | 实现要点 |
+|------|----------|----------|
+| 线段树-建树简化 | `SegmentTreeBuildModule` / `SegmentTreeCommon` | 只保留 `tr[]`（区间和）与 `lz[]`（区间加懒标记，建树阶段恒 0）两行；删除 `mul[]` 行与全部 `% p` 取模；`push_up` = `tr[ls] + tr[rs]`，叶子 = `a[l]`；`parseInput()` 只解析 `n` 与 `a[1..n]`（兼容旧表头）；新增 `ActionType::SEG_INIT_LZ`（BUG-090） |
+| 树状数组嵌套三角 | `FenwickTreeModule` | 上排 `t`、下排 `a`；每个 `t[i]` 以格心为顶点、其覆盖区间 `[i-lowbit(i)+1, i]` 对应 `a` 格为底边绘制半透明填充三角，并向区间内每个 `a[j]` 拉出辐射线，形成「大三角套小三角」结构图（BUG-091） |
+| 沙盒清空画布文字 | 五个 `Sandbox*Module` + `FreeStructureBase` | `showHint()` 空实现、`m_mathText` 不再创建；移除标题/提示/公式题注，画布只留纯数据结构图元；`LatexBlock::setTargetHeight()` 按目标高度排布公式矢量图（BUG-092） |
+| 沙盒图结构 u v w | `SandboxGraphModule` | 每行支持 2 或 3 个元素；3 元素时该边带权 w，2 元素时 `has_weight=false`，彻底取消默认权值注入；默认输入改为 5 条带权边（BUG-093） |
+| 图元全局双击编辑 | `IModule` / `GraphElements` | `enableLiveEditing()` 为未登记的 `GraphNode`（行 `"v"`）与 `GraphEdge`（行 `"w"`）自动补登记槽位；`GraphEdge::beginEdit()` 放宽 `has_weight` 前置条件，无权边双击后自动补权值；`GraphNode::commitEdit()` 写 `customValueText` 使新值落在圆内并抑制重复 `v:N`；`refreshLiveSlots()` 同步回填（BUG-094） |
+| 进度条旋钮修复 | `MySlider` | 引入左右对称内边距 `kSidePadding = 14.0`，`handleCenterX(t)` 在 `[14, width-14]` 区间插值，`valueAtX()` 同步换算；辉光按 `maxGlow` 逐环裁剪，杜绝越界像素（BUG-095） |
+| 模块下拉分组网格 | `MyComboBox` / `MainWindow` | 新增 `addGroup()` 与 `ComboTile` 瓦片 / `ComboSectionHeader` 分节标题；下拉展开为「基础结构 / 数学 / 数据结构 / 算法」四类、每类 3 列按钮网格、类内按课程进度排序；浮层宽度下限 520px、视口高度上限 430px；`MainWindow` 依分组重建 `registeredModules` 顺序以保证索引对齐（BUG-096） |
+| 堆结构动画重构 | `HeapTreeBase` / `HeapAdjustModule` / `HeapSortModule` | 结点值写入 `customValueText`（圆内）、1-based 序号写入 `subLabel`（圆外上方）；新增 `applyHeapValues()` / `swapHeapValues()` 在 `HG_SWAP` / `HS_SWAP` 真正互换数组块与结点值；新增 `highlightRelation()` 高亮 `i/2`、`2i`、`2i+1` 父子关系并在数组行下方给出关系说明（BUG-097） |
 
 ## 2026-11-14 A 组经典算法模块轮
 
@@ -62,6 +128,26 @@
 | 移除「动画帧计算」 | 全局 `MainWindow` | `btnRun` 与 `onBtnRunClicked()` 移除；点击「绘制可视化效果」后自动 `computeFrames()` 完成后台录制 |
 | 新增测试 | `SmartGroundLiveEdit` | 8 项断言，验证 `s[2]` 改值后 `S[3]`/`S[4]` 真实重算、冒泡排序改 `a[0]` 后帧内容同步更新 |
 
+## 2026-11-14 画布批注层三轮（Batch 1 / 2 / 3）
+
+| 能力 | 覆盖范围 | 实现要点 |
+|------|----------|----------|
+| 双层画布架构 | `src/canvas/AnnotationScene` + `CanvasView` | 下层 `GridGuideScene` 承载算法图元（$Z\in[-3,10]$），上层 `AnnotationScene` 独立承载批注图元；上层不进入下层 `itemsBoundingRect()`，因此 `ViewportFitter` 的居中与缩放不会被批注污染。`CanvasView::drawForeground()` 把上层场景按视口变换叠加绘制，选框矩形与上层共用同一套变换 |
+| 工具状态机 | `src/canvas/ToolController` | 14 种工具：指针 / 选中 / 画笔 / 橡皮 / 直线 / 方框 / 圆形 / 箭头 / 三角 / 马赛克 / 文本框 / Markdown / LaTeX / 表格。`eventFilter` 从视口拦截原生 `QMouseEvent` 并经 `view->mapToScene()` 换算场景坐标，避免合成 `QGraphicsSceneMouseEvent` 触发的 `QEventPoint::position()` 崩溃 |
+| Shift 几何约束 | `ToolController::constrainPoint()` | 直线与箭头吸附到 45° 步进；方框与圆形锁定为正方形 / 正圆；三角形按等边三角形（高 = 边长 × √3/2）定位 |
+| 橡皮作用域 | `ToolController::eraseAt()` | 只命中上层批注图元（`m_scene->annotationItems()`），并跳过锁定图元；对下层算法结构零影响 |
+| 空白白板模块 | 新模块 `SandboxBlankModule` | 取代原 `SandboxLatexModule`（按新理解删除纯 LaTeX 模块）；下层不放任何算法结构，专门供老师在任意模块上叠加批注 |
+| 上层框选与整体变换 | `ToolController` 的 `AnnotationSelect` | 框选矩形与选区命中测试都在上层完成；`move` 只改批注图元 `pos()`，`scaleBy()` 以选区中心为轴缩放，绝不改动下层结构；`Ctrl` / `Shift` 多选 |
+| 撤销 / 重做栈 | `ToolController::Command` | 区分 `Add` / `Remove` 两类命令；`AnnotationScene` 统一持有批注图元所有权（`m_owned`），控制器只挂载 / 卸载不销毁，避免清空重做栈时误删已复活的图元（BUG-110） |
+| 笔刷样式条 | `src/ui/widgets/CanvasToolBar` | 颜色取色盘（`MyColorSwatch`）、粗细滑块、不透明度滑块、撤销 / 重做、显隐切换、锁定切换、表格行列滑块、文本字号滑块、加粗 / 斜体 / 下划线。**注：此平铺形态已在 BUG-113 中重构为浮动轻套件的「样式 / 更多」两个互斥浮层** |
+| Markdown 卡片 | `src/canvas/MarkdownItem` | `QTextDocument::setMarkdown(..., MarkdownDialectGitHub)` + GitHub 风格样式表；卡片固定宽度自动换行；双击经 `AnnotationEditor` 打开编辑器，左编辑右实时预览 |
+| LaTeX 公式卡片 | `src/canvas/LatexItem` + `LatexService` | 常驻 Node 助手 `tools/latex/serve.js`（`mathjax-full`）以 JSON 行协议渲染 SVG，`QSvgRenderer` 贴进卡片；双击 `AnnotationEditor` 改源码后实时重渲染 |
+| 富文本框 | `src/canvas/TextBoxItem` | 字体族 / 字号 / 加粗 / 斜体 / 下划线 / 文字颜色可调；双击经 `AnnotationEditor` 编辑正文 |
+| 可编辑画布表格 | `src/canvas/CanvasTableItem` | 行列数可配，双击单元格就地编辑；与「自由结构 - 行列式」的区别是单元格默认为空字符串而非 0 |
+| 编辑器对话框 | `src/ui/widgets/AnnotationEditor` | 三种模式：纯文本 / Markdown（左源码右预览）/ LaTeX（源码 + 预览）；自绘样式，不引入原生输入控件 |
+| 画布 PDF 导出 | `MainWindow::exportCanvasToPdf()` | 自动取下层与上层 `itemsBoundingRect()` 的并集作为画布范围，加 40px 边距后按页面尺寸等比缩放，`QPdfWriter` 输出单页 PDF |
+| 键盘快捷键 | `MainWindow::keyPressEvent()` | `V` 指针 / `A` 选中 / `B` 画笔 / `E` 橡皮 / `L` 直线 / `R` 方框 / `O` 圆形 / `D` 箭头 / `T` 三角 / `M` 马赛克 / `N` 文本 / `G` 笔记 / `X` 公式 / `I` 表格；`Ctrl+Z` / `Ctrl+Y` / `Ctrl+Shift+Z` 撤销重做 |
+
 ## 2026-11-11 沙盒结构与渲染健壮性轮
 
 | 能力 | 覆盖范围 | 实现要点 |
@@ -70,7 +156,7 @@
 | 沙盒 - 矩阵 / 行列式 | 新模块 `SandboxMatrixModule` | 行列数可配置，默认 3×3；`MatrixBlock` 负责网格绘制，行列式以方括号包裹呈现 |
 | 沙盒 - 树形结构 | 新模块 `SandboxTreeModule` | 复用 `GraphNode` / `GraphEdge`，节点可拖动，边随动 |
 | 沙盒 - 图结构 | 新模块 `SandboxGraphModule` | 有向 / 无向 / 双向三态切换，复用图选项管线 |
-| 沙盒 - LaTeX 公式 | 新模块 `SandboxLatexModule` | 构建期用 MathJax 预渲染 SVG 存 `latex_formulas.json`，运行时 `LatexBlock` + `QSvgRenderer` 渲染；公式库经 `src/resources.qrc` 编入二进制 |
+| 沙盒 - 空白画布 | 新模块 `SandboxBlankModule` | 取代原 `SandboxLatexModule`；下层不放任何算法结构，专门供老师在画布上叠加批注层 |
 | 集中动画注册表 | `IModule` | `m_animRegistry` 以 `target + property` 为键复用动画，从当前插值位置重定向，杜绝并发帧同时写入同一 `"pos"` 造成撕裂；新增 `playScalePulse()` / `playRowShift()` |
 | 帧滑条 | `MySlider` + `MainWindow` | 自绘轨道 / 滑块 / 散光辉光，状态栏右侧接入；`seekToFrame()` 重建布局后非动画快进；右侧帧徽标显示 `x / total` |
 | 线段树动态布局 | 三个线段树模块 | `SegmentTreeCommon::computeLayout()` 按树高把数组首行下移到最深树层之下；`collectNodeIds()` 只渲染真实节点槽位（$2n-1$），不再留 `4n` 尾部空位 |
@@ -83,7 +169,7 @@
 
 | 能力 | 覆盖范围 | 实现要点 |
 |------|----------|----------|
-| 线段树 - 建树 | 新模块 `SegmentTreeBuildModule` | 严格对齐课堂模板：`build(node, l, r, a)`、`mul[node]=1` 首行、`tr[node]=a[l]%p` 叶子赋值、`push_up` 用 `% mod`；`ls=node<<1` / `rs=node<<1\|1` 移位关系打在分裂瞬间；`node` 编号与 `tr[]` 槽位一一对应 |
+| 线段树 - 建树 | 新模块 `SegmentTreeBuildModule` | 严格对齐课堂第一节课模板：`build(node, l, r, a)` 单函数建树，只维护 `tr[]`（区间和）与 `lz[]`（区间加懒标记，建树阶段恒 0）；叶子 `tr[node] = a[l]`，`push_up` 用 `tr[ls] + tr[rs]`，全程无取模；`ls=node<<1` / `rs=node<<1\|1` 移位关系打在分裂瞬间；`node` 编号与 `tr[]` 槽位一一对应 |
 | 线段树 - 区间乘/区间加（懒标记） | 新模块 `SegmentTreeTagModule` | `changeMul` / `changeAdd` / `push_down` 完整流程；懒标记以徽章形式挂在节点右上角（紫 `×k` / 蓝 `+k`），下放时徽章沿弧线坠向左右孩子；父节点标记清空后 `mul=1, add=0` |
 | 线段树 - 区间查询 | 新模块 `SegmentTreeQueryModule` | `querySum` 递归 + `ans` 暂存方块，逐段命中值飞入累加；查询前先 `push_down` 结算欠账 |
 | KMP 匹配过程 | 新模块 `KMPMatchModule` | 1-indexed + `#` 哨兵；`p[j+1]` 严格对齐 `s[i]` 正下方；`i` 永不回退、`j` 回退时模式串整体右跳；命中起点 `i-j+1` 追加到结果列表 |
@@ -202,9 +288,9 @@
 | 堆基础映射 | ✅ | HeapBasicsModule | Kiro | 数组与树双视图已完成 |
 | 自底向上建堆 | 🔄 | HeapSortModule | Cursor | 已并入堆排序的建堆阶段（`n/2..1` 逐个 `down()`） |
 | 自顶向下建堆 | ⏳ | HeapBuildTopDownModule | - | O(N log N) |
-| 堆 up/down | ✅ | HeapAdjustModule | Cursor | up() 上浮与 down() 下沉，数组↔树双视图同步 |
+| 堆 up/down | ✅ | HeapAdjustModule | Cursor | up() 上浮与 down() 下沉，数组↔树双视图同步，值在圆内、序号在圆外 |
 | 堆综合操作 | ⏳ | HeapOperationsModule | - | Insert/Pop/Modify |
-| 堆排序 | ✅ | HeapSortModule | Cursor | 建堆 + 取堆顶交换 + 缩小堆区间，有序区染绿 |
+| 堆排序 | ✅ | HeapSortModule | Cursor | 建堆 + 取堆顶交换 + 缩小堆区间，有序区染绿，交换时值真正互换 |
 
 ---
 
@@ -238,8 +324,8 @@
 | 单调队列 | ⏳ | MonotonicQueueModule | - | 滑动窗口 |
 | 并查集基础 | ✅ | DSUBasicModule | Kiro | Find & Union 已实现 |
 | 并查集路径压缩 | ⏳ | DSUPathCompressionModule | - | 压扁树形 |
-| 树状数组 | ✅ | FenwickTreeModule | Cursor | lowbit 双向跳跃，覆盖带可视化，add/sum 双操作 |
-| 线段树建树 | 🏗️ | SegmentTreeBuildModule | - | 骨架已创建 |
+| 树状数组 | ✅ | FenwickTreeModule | Cursor | 二叉分层格阵（`floor(log2 n)+1` 层），`FT_MERGE` 自底向上合并，兄弟块与底层 `a[]` 数字同时飞入合成 `t[i]`，add/sum 双操作 |
+| 线段树建树 | ✅ | SegmentTreeBuildModule | - | 纯区间求和版，无取模、无乘法懒标记 |
 | 线段树单点修改 | ⏳ | SegmentTreePointUpdateModule | - | 链式回溯更新 |
 | 线段树区间查询 | ⏳ | SegmentTreeRangeQueryModule | - | 拼凑目标区间 |
 | 线段树延迟标记 | ⏳ | SegmentTreeLazyTagModule | - | pushdown 下坠 |
@@ -366,7 +452,7 @@
 
 ## 当前基线与维护记录
 
-- 菜单注册 37 个可运行模块；无头文件骨架。
+- 菜单注册 37 个唯一可运行模块（因跨分支别名，下拉条目共 38 个）；无头文件骨架。
 - 图模块统一接入"图结构选项"面板：IModule 提供 `supportsGraphOptions/supportsDirected/supportsBidirectional/getGraphOptions/setGraphOptions`，MainWindow 渲染单选与复选控件并按模块能力禁用。
 - 边权徽标绘制在 `GraphEdge::paint()` 内，沿曲线中点法向偏移，节点拖动与边弯曲时权值同步跟随。
 - 图边改为可交互 `GraphEdge`（二次贝塞尔曲线 + shape() 命中检测 + 拖拽弯曲），供教师在课堂上直接拖动演示。
@@ -380,7 +466,7 @@
 - Tarjan 算法启动时只重置遍历数组，不清除 buildLayout 生成的邻接表。
 - 新模块顺序：先确认动画分镜，再实现算法帧、渲染、输入和重置流程。
 - Bug 状态与修复验证记录在 docs/BugLog.md。
-- `tests/` 提供 29 个无头测试可执行程序（共享静态库构建，build 目录约 233 MB）：覆盖极端输入压力测试、动画中断清理测试、边权跟随测试、像素级边框/箭头/控件渲染断言、UI 状态机、就地编辑崩溃回归、A 组新模块行为与菜单可达性断言；用 `cmake -S tests -B build/tests` 单独构建，不影响主程序。
+- `tests/` 提供 32 个无头测试可执行程序（共享静态库构建，build 目录约 233 MB）：覆盖极端输入压力测试、动画中断清理测试、边权跟随测试、像素级边框/箭头/控件渲染断言、UI 状态机、就地编辑崩溃回归、A 组新模块行为与菜单可达性断言、树状数组合并帧正确性断言；用 `cmake -S tests -B build/tests` 单独构建，不影响主程序。
 
 ## 下一步优先级
 

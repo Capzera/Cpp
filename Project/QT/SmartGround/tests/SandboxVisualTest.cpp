@@ -10,7 +10,7 @@
 #include "modules/SandboxMatrixModule.h"
 #include "modules/SandboxTreeModule.h"
 #include "modules/SandboxGraphModule.h"
-#include "modules/SandboxLatexModule.h"
+#include "modules/SandboxBlankModule.h"
 #include "render/LatexBlock.h"
 
 static int g_fail = 0;
@@ -193,10 +193,9 @@ int main(int argc, char** argv) {
         if (!loaded) loaded = LatexBlock::loadLibrary("../../src/render/latex_formulas.json");
         check("latex: library loaded", loaded || !LatexBlock::library().isEmpty());
         QGraphicsScene scene;
-        SandboxLatexModule m;
-        m.buildLayout(&scene, "1\n3\n5");
-        QImage img = shot(&scene, "sb_latex.png");
-        check("sandbox latex: rendered", nonWhite(img) > 100);
+        SandboxBlankModule m;
+        m.buildLayout(&scene, "");
+        check("sandbox blank: builds empty layout", scene.items().isEmpty());
     }
 
     printf("\n%s  fail=%d\n", g_fail == 0 ? "ALL PASS" : "HAS FAILURE", g_fail);

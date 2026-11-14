@@ -21,6 +21,8 @@ static void pump(int ms) {
 }
 
 static MySlider* findSlider(MainWindow& w) {
+    MySlider* frame = w.findChild<MySlider*>("frameSlider");
+    if (frame) return frame;
     return w.findChild<MySlider*>();
 }
 

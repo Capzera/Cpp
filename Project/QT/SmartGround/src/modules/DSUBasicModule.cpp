@@ -1,11 +1,11 @@
-﻿#include "DSUBasicModule.h"
+#include "DSUBasicModule.h"
 #include <QRegularExpression>
 #include <QPropertyAnimation>
 
 DSUBasicModule::DSUBasicModule() {}
 
 QString DSUBasicModule::getModuleName() const {
-    return "并查集基础";
+    return "并查集";
 }
 
 QString DSUBasicModule::getDefaultInput() const {

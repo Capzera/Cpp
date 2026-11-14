@@ -1,11 +1,11 @@
-﻿#include "Knapsack01Module.h"
+#include "Knapsack01Module.h"
 #include <QFont>
 #include <QRegularExpression>
 #include <algorithm>
 
 Knapsack01Module::Knapsack01Module() : m_mathText(nullptr), m_gridStartX(0), m_gridStartY(0), W(0), n(0), m_valid(false) {}
 
-QString Knapsack01Module::getModuleName() const { return "01 背包 DP"; }
+QString Knapsack01Module::getModuleName() const { return "01 背包"; }
 QString Knapsack01Module::getDefaultInput() const { return "4 8\n2 3\n3 4\n4 5\n5 8"; }
 QString Knapsack01Module::getInputHint() const {
     return "第一行输入两个正整数：物品个数 n、背包容量 W\n"

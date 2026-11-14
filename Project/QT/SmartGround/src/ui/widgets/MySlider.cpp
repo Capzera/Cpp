@@ -7,6 +7,12 @@
 #include <QKeyEvent>
 #include <QEvent>
 
+namespace {
+constexpr qreal kHandleRadius = 6.0;
+constexpr qreal kTrackHeight = 4.0;
+constexpr qreal kSidePadding = 14.0;
+}
+
 MySlider::MySlider(QWidget* parent) : QAbstractSlider(parent) {
     setFocusPolicy(Qt::StrongFocus);
     setCursor(Qt::PointingHandCursor);
@@ -46,28 +52,33 @@ QSize MySlider::minimumSizeHint() const {
 }
 
 QRectF MySlider::trackRect() const {
-    qreal h = 4.0;
-    qreal w = width() - 12.0;
-    return QRectF(6.0, (height() - h) / 2.0, w, h);
+    qreal h = kTrackHeight;
+    qreal w = qMax<qreal>(kHandleRadius * 2.0, width() - kSidePadding * 2.0);
+    return QRectF(kSidePadding, (height() - h) / 2.0, w, h);
 }
 
 QRectF MySlider::handleRect() const {
-    qreal d = 12.0;
+    qreal d = kHandleRadius * 2.0;
     qreal t = 0.0;
     int span = m_max - m_min;
     if (span > 0) t = static_cast<qreal>(m_value - m_min) / span;
-    QRectF track = trackRect();
-    qreal travel = track.width() - d;
-    qreal x = track.left() + travel * t - d / 2.0;
-    return QRectF(x, (height() - d) / 2.0, d, d);
+    qreal centerX = handleCenterX(t);
+    return QRectF(centerX - d / 2.0, (height() - d) / 2.0, d, d);
+}
+
+qreal MySlider::handleCenterX(qreal t) const {
+    qreal left = kSidePadding;
+    qreal right = width() - kSidePadding;
+    if (right < left) right = left;
+    return left + (right - left) * t;
 }
 
 int MySlider::valueAtX(qreal x) const {
-    QRectF track = trackRect();
-    qreal d = 12.0;
-    qreal travel = track.width() - d;
+    qreal left = kSidePadding;
+    qreal right = width() - kSidePadding;
+    qreal travel = right - left;
     if (travel <= 0.0) return m_min;
-    qreal t = (x - d / 2.0 - track.left()) / travel;
+    qreal t = (x - left) / travel;
     if (t < 0.0) t = 0.0;
     if (t > 1.0) t = 1.0;
     int span = m_max - m_min;
@@ -104,18 +115,24 @@ void MySlider::paintEvent(QPaintEvent*) {
 
     QRectF handle = handleRect();
     qreal handleRadius = handle.width() / 2.0;
+    qreal maxGlow = qMin(handle.center().x(), width() - handle.center().x());
     if (m_glow > 0.01) {
         QColor halo = UiTheme::accent();
         halo.setAlpha(static_cast<int>(70 * m_glow));
         for (int i = 3; i >= 1; --i) {
-            QColor ring = UiTheme::accent();
-            ring.setAlpha(static_cast<int>(26 * m_glow / i));
+            qreal ring = handleRadius + i * 2.0;
+            if (ring > maxGlow) continue;
+            QColor ringColor = UiTheme::accent();
+            ringColor.setAlpha(static_cast<int>(26 * m_glow / i));
             painter.setPen(Qt::NoPen);
-            painter.setBrush(ring);
-            painter.drawEllipse(handle.center(), handleRadius + i * 3.0, handleRadius + i * 3.0);
+            painter.setBrush(ringColor);
+            painter.drawEllipse(handle.center(), ring, ring);
         }
-        painter.setBrush(halo);
-        painter.drawEllipse(handle.center(), handleRadius + 5.0, handleRadius + 5.0);
+        qreal haloRadius = handleRadius + 4.0;
+        if (haloRadius <= maxGlow) {
+            painter.setBrush(halo);
+            painter.drawEllipse(handle.center(), haloRadius, haloRadius);
+        }
     }
 
     QColor handleFill = m_hover > 0.01 || m_dragging

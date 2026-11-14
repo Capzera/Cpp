@@ -1,4 +1,4 @@
-﻿#include "KMPNextModule.h"
+#include "KMPNextModule.h"
 #include <QFont>
 #include <QRegularExpression>
 #include <algorithm>
@@ -10,7 +10,7 @@ static const QColor kPiGreen = QColor(140, 205, 150);
 
 KMPNextModule::KMPNextModule() : m_ptrI(nullptr), m_ptrJ(nullptr), m_mathText(nullptr), m_startX(0), m_cellW(56), m_valid(false) {}
 
-QString KMPNextModule::getModuleName() const { return "KMP pi 数组（前缀函数）"; }
+QString KMPNextModule::getModuleName() const { return "KMP (pi数组)"; }
 QString KMPNextModule::getDefaultInput() const { return "ABABCABAA"; }
 QString KMPNextModule::getInputHint() const {
     return "输入一行模式串（长度 1 - 12，不含空白字符）\n"
@@ -81,7 +81,7 @@ std::vector<AnimFrame> KMPNextModule::runAlgorithm() {
                                 QString("p[%1] = '%2'　p[%3] = '%4'").arg(i).arg(m_pattern[i - 1]).arg(j + 1).arg(m_pattern[j])});
             int fallback = m_pi[j];
             m_frames.push_back({ActionType::KMP_FALLBACK, i, j, fallback, 0, {},
-                                QString("失配：沿已知前缀回退").arg(j),
+                                QString("失配：沿已知前缀回退"),
                                 QString("j = pi[%1] = %2").arg(j).arg(fallback)});
             j = fallback;
         }

@@ -57,31 +57,6 @@ inline QGraphicsTextItem* addLabel(QGraphicsScene* scene, const QString& text, Q
     return item;
 }
 
-inline QGraphicsTextItem* addAxisLabel(QGraphicsScene* scene, const QString& text, QPointF pos, int size = 10, const QColor& color = QColor(80, 92, 110)) {
-    QGraphicsTextItem* item = scene->addText(text);
-    QFont f("Microsoft YaHei UI");
-    if (f.family().isEmpty() || f.family().contains("Sans")) f = QFont("Segoe UI");
-    f.setPointSize(size);
-    f.setBold(true);
-    f.setStyleStrategy(QFont::PreferQuality);
-    item->setFont(f);
-    item->setDefaultTextColor(color);
-    item->setPos(pos);
-    return item;
-}
-
-inline QGraphicsTextItem* addNote(QGraphicsScene* scene, const QString& text, QPointF pos, int size = 10, const QColor& color = QColor(96, 108, 128)) {
-    QGraphicsTextItem* item = scene->addText(text);
-    QFont f("Microsoft YaHei UI");
-    if (f.family().isEmpty() || f.family().contains("Sans")) f = QFont("Segoe UI");
-    f.setPointSize(size);
-    f.setStyleStrategy(QFont::PreferQuality);
-    item->setFont(f);
-    item->setDefaultTextColor(color);
-    item->setPos(pos);
-    return item;
-}
-
 inline std::map<int, QPointF> captureNodePositions(const std::map<int, GraphNode*>& nodes) {
     std::map<int, QPointF> result;
     for (const auto& pair : nodes) result[pair.first] = pair.second->pos();

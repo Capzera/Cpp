@@ -10,7 +10,7 @@ static const QColor kQYellow = QColor(255, 214, 140);
 
 SegmentTreeQueryModule::SegmentTreeQueryModule() {}
 
-QString SegmentTreeQueryModule::getModuleName() const { return "线段树 - 区间查询"; }
+QString SegmentTreeQueryModule::getModuleName() const { return "线段树 (区间查询)"; }
 QString SegmentTreeQueryModule::getDefaultInput() const { return "4 1 100\n1 2 3 4\n3 2 4"; }
 QString SegmentTreeQueryModule::getInputHint() const {
     return "第一行输入 n、m、p：数组长度、操作次数、模数\n"

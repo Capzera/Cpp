@@ -38,6 +38,7 @@ protected:
 private:
     QRectF trackRect() const;
     QRectF handleRect() const;
+    qreal handleCenterX(qreal t) const;
     int valueAtX(qreal x) const;
     void emitIfChanged(int value);
 

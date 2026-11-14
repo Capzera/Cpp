@@ -17,7 +17,6 @@ public:
         qreal magnetRange = 16.0;
     };
 
-    static void attach(QGraphicsScene* scene, const Config& config);
     static void setConfig(QGraphicsScene* scene, const Config& config);
     static Config currentConfig();
 
@@ -27,21 +26,18 @@ public:
 
     static QPolygonF hexagonAt(const QPointF& center, qreal radius);
 
-    static void drawGuides(QPainter* painter, const QGraphicsScene* scene, const Config& config);
+    static void drawGuides(QPainter* painter, const QRectF& bounds, const Config& config);
 
 private:
     static Config s_config;
 };
 
-class GridGuideLayer : public QGraphicsItem {
+class GridGuideScene : public QGraphicsScene {
 public:
-    explicit GridGuideLayer(QGraphicsScene* scene);
+    explicit GridGuideScene(QObject* parent = nullptr);
     void refresh();
-    QRectF boundingRect() const override;
-    void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override;
-
-private:
-    QList<QLineF> m_guides;
+protected:
+    void drawBackground(QPainter* painter, const QRectF& rect) override;
 };
 
 #endif

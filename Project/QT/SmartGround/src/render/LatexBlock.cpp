@@ -67,6 +67,13 @@ void LatexBlock::setScaleFactor(qreal s) {
     update();
 }
 
+void LatexBlock::setTargetHeight(qreal h) {
+    if (qFuzzyCompare(m_targetHeight, h)) return;
+    m_targetHeight = h;
+    prepareGeometryChange();
+    update();
+}
+
 void LatexBlock::setTint(const QColor& color) {
     m_tint = color;
     update();
@@ -77,6 +84,11 @@ QRectF LatexBlock::boundingRect() const {
     const Formula& f = g_library[m_index];
     double w = f.width / 1000.0 * m_scale;
     double h = f.height / 1000.0 * m_scale;
+    if (m_targetHeight > 0.0 && f.height > 0.0) {
+        double factor = m_targetHeight / f.height;
+        w = f.width * factor;
+        h = m_targetHeight;
+    }
     return QRectF(-w / 2.0, -h / 2.0, w + 4, h + 4);
 }
 

@@ -6,6 +6,7 @@
 
 class MyCollapsible : public QWidget {
     Q_OBJECT
+    Q_PROPERTY(qreal ratio READ ratio WRITE setRatio)
 public:
     explicit MyCollapsible(QWidget* parent = nullptr);
 
@@ -15,6 +16,9 @@ public:
     void setHeaderText(const QString& text);
     void setAccentColor(const QColor& c);
     void setDuration(int ms);
+
+    qreal ratio() const { return m_ratio; }
+    void setRatio(qreal v);
 
 signals:
     void collapseStateChanged(bool collapsed);

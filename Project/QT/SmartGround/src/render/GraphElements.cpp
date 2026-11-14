@@ -136,7 +136,7 @@ void GraphNode::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidg
             painter->drawText(QRectF(-20, -20, 40, 40), Qt::AlignCenter, QString::number(id));
         }
     }
-    if (value > 0) {
+    if (value > 0 && customValueText.isEmpty() && valueText.isEmpty()) {
         painter->setFont(QFont("Arial", 9, QFont::Bold));
         painter->setPen(QColor(100, 100, 100));
         painter->drawText(QRectF(-20, 15, 40, 20), Qt::AlignCenter, QString("v:%1").arg(value));
@@ -219,9 +219,11 @@ void GraphNode::commitEdit() {
     int parsed = text.toInt(&ok);
     if (ok) {
         value = parsed;
-        setValueText(QString::number(parsed));
+        if (!customValueText.isEmpty()) setCustomValueText(QString::number(parsed));
+        else setValueText(text);
     } else {
-        setValueText(text);
+        if (!customValueText.isEmpty()) setCustomValueText(text);
+        else setValueText(text);
     }
     update();
     emit valueEdited(id, text);
@@ -421,7 +423,7 @@ int GraphEdge::key() const {
 
 void GraphEdge::setEditable(bool on) {
     m_editable = on;
-    if (on && has_weight) {
+    if (on) {
         setAcceptHoverEvents(true);
         setToolTip("双击可修改边权");
     } else {
@@ -430,7 +432,7 @@ void GraphEdge::setEditable(bool on) {
     update();
 }
 void GraphEdge::beginEdit() {
-    if (!m_editable || m_editor || !has_weight) return;
+    if (!m_editable || m_editor) return;
     QGraphicsScene* sc = scene();
     if (!sc) return;
     QString current = QString::number(weight);
@@ -465,6 +467,9 @@ void GraphEdge::commitEdit() {
     bool ok = false;
     int parsed = text.toInt(&ok);
     if (!ok) return;
+    if (!has_weight) {
+        has_weight = true;
+    }
     setWeight(parsed);
     emit weightEdited(parsed);
 }
@@ -474,7 +479,7 @@ void GraphEdge::cancelEdit() {
     update();
 }
 void GraphEdge::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) {
-    if (m_editable && has_weight) {
+    if (m_editable) {
         beginEdit();
         event->accept();
         return;

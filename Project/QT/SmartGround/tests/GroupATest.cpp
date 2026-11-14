@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
         m.buildLayout(&scene, "5\n3 1 4 2 6\n2\n1 2 5\n2 5");
         auto frames = m.runAlgorithm();
         check("fenwick: frames generated", frames.size() > 10);
-        check("fenwick: has FT_INSERT", hasFrame(frames, ActionType::FT_INSERT));
+        check("fenwick: has FT_MERGE", hasFrame(frames, ActionType::FT_MERGE));
         check("fenwick: has FT_JUMP_UP", hasFrame(frames, ActionType::FT_JUMP_UP));
         check("fenwick: has FT_ACC", hasFrame(frames, ActionType::FT_ACC));
         check("fenwick: has FT_RESULT", hasFrame(frames, ActionType::FT_RESULT));
@@ -59,6 +59,17 @@ int main(int argc, char** argv) {
         int result = 0;
         for (const auto& f : frames) if (f.type == ActionType::FT_RESULT) result = f.val1;
         check("fenwick: sum(5) after add(2,5) == 21", result == 21);
+
+        int mergedCount = 0;
+        bool mergeValuesOk = true;
+        for (const auto& f : frames) {
+            if (f.type != ActionType::FT_MERGE) continue;
+            ++mergedCount;
+            if (f.u == 2 && f.val1 != 4) mergeValuesOk = false;
+            if (f.u == 4 && f.val1 != 10) mergeValuesOk = false;
+        }
+        check("fenwick: merge frames cover every node", mergedCount == 5);
+        check("fenwick: t[2]=c1+a2 and t[4]=c3+a3+a4", mergeValuesOk);
 
         for (const auto& f : frames) m.renderFrame(f);
         QImage img = shot(&scene, "fenwick.png");

@@ -11,14 +11,19 @@ MyCollapsible::MyCollapsible(QWidget* parent) : QWidget(parent), m_accent(UiThem
     m_anim->setDuration(m_duration);
     m_anim->setEasingCurve(QEasingCurve::InOutCubic);
     connect(m_anim, &QPropertyAnimation::valueChanged, this, [this](const QVariant& v) {
-        m_ratio = v.toReal();
-        if (m_content) {
-            m_content->setMaximumHeight(static_cast<int>(m_contentHeight * m_ratio));
-            m_content->setMinimumHeight(static_cast<int>(m_contentHeight * m_ratio));
-        }
-        updateGeometry();
-        update();
+        setRatio(v.toReal());
     });
+}
+
+void MyCollapsible::setRatio(qreal v) {
+    if (qFuzzyCompare(m_ratio, v)) return;
+    m_ratio = v;
+    if (m_content) {
+        m_content->setMaximumHeight(static_cast<int>(m_contentHeight * m_ratio));
+        m_content->setMinimumHeight(static_cast<int>(m_contentHeight * m_ratio));
+    }
+    updateGeometry();
+    update();
 }
 
 void MyCollapsible::setContentWidget(QWidget* content) {

@@ -1,4 +1,4 @@
-﻿#include "DijkstraNaiveModule.h"
+#include "DijkstraNaiveModule.h"
 #include "GraphModuleUtils.h"
 #include "GraphRenderHelper.h"
 #include <QFont>
@@ -10,7 +10,7 @@ DijkstraNaiveModule::DijkstraNaiveModule() : m_pickPointer(nullptr), m_relaxPoin
     reset();
 }
 
-QString DijkstraNaiveModule::getModuleName() const { return "朴素 Dijkstra 最短路"; }
+QString DijkstraNaiveModule::getModuleName() const { return "Dijkstra 最短路"; }
 QString DijkstraNaiveModule::getDefaultInput() const { return "6 9 1\n1 2 7\n1 3 9\n1 6 14\n2 3 10\n2 4 15\n3 4 11\n3 6 2\n4 5 6\n5 6 9"; }
 bool DijkstraNaiveModule::supportsGraphOptions() const { return true; }
 bool DijkstraNaiveModule::supportsDirected() const { return true; }

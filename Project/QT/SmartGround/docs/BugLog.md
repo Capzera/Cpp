@@ -1,6 +1,6 @@
 # SmartGround Bug Log
 
-**更新时间：2026-11-11**
+**更新时间：2026-11-14**
 | ID | 问题 | 状态 | 修复记录 |
 |---|---|---|---|
 | BUG-001 | TarjanModule::runAlgorithm 调用 initGraph 清空了 buildLayout 录入的 head/to/nxt 邻接表，图被当成无边图处理 | 已修复 | 抽出 resetTraversalState，只重置 dfn、low、ins、stk、scc 和计数器；算法开始时保留邻接表 |
@@ -92,6 +92,30 @@
 | BUG-087 | 双击数组格就地修改时容易闪退 | 已修复 | 根因有二：其一，`EditorWatcher::eventFilter` 处理 `FocusOut` 时调用 `onDone(true)` → `commitEdit()` → 同步 `delete editor`，销毁了事件过滤器正在处理的 `receiver`，Qt 在 `sendThroughObjectEventFilters` 返回后访问已释放对象造成 use-after-free；其二，`deleteLater()` 延迟销毁期间若用户双击另一格，旧 editor 的 watcher 回调会把新 editor 提前提交。修复：新增公共 `destroyEditor()` 统一走 `setParentItem(nullptr)` → `removeItem` → `deleteLater()`，绝不在事件过滤器回调内同步销毁；`FocusOut` 分支处理完立即 `return true` 消费事件，不再回落到 `QObject::eventFilter(obj, event)`；`m_editor` 改为 `QPointer` 并配合 `QPointer<Self>` 守卫宿主对象；watcher 回调增加 `m_editor.data() != editor` 身份校验，丢弃过期 editor 的回调 |
 | BUG-088 | 测试构建目录膨胀到 7.5 GB，且测试之间存在隐式的截图顺序依赖 | 已修复 | 根因一：`tests/CMakeLists.txt` 中每个测试都独立编译一遍全部模块源码（28 个测试 × 50 个 .obj × Debug `-g` 符号），造成 5.4 GB 冗余。改为提取三个共享静态库 `SgCore`（模块与渲染层）/ `SgWidgets`（自研控件）/ `SgUi`（MainWindow），测试只编译自身 `main.cpp` 后链接对应库，build 目录从 7539 MB 降至 233 MB。根因二：`StartupPanelTest` 直接读取 `ui_start.png` / `ui_graph_panel.png`，依赖 `UiShot` 先运行，清理构建目录后必然失败；改为该测试自行构造 `MainWindow` 并抓取当前画面做像素分析，彻底消除跨测试文件依赖。同时 `tools/sg.ps1` 显式指定 MinGW 工具链与生成器，避免缓存被外部工具改写后配置失败 |
 | BUG-089 | Git 仓库把 `node_modules` 下 3806 个文件全部纳入版本管理，占跟踪文件的 96%，仓库体积虚高且每次依赖变动都会污染提交历史 | 已修复 | 在仓库根 `.gitignore` 增加 `node_modules/` 与 `**/node_modules/`，并用 `git rm -r --cached node_modules` 把已跟踪的 3806 个文件从索引中移除（保留磁盘上的实际依赖目录）。跟踪文件数从 3962 降到 156，全部为源码、测试、文档与构建脚本 |
+| BUG-090 | 线段树-建树作为第一节课内容过于复杂：同时带乘法懒标记 `mul[]`、区间加懒标记 `lz[]` 与取模 `% p`，学生第一遍就接触不下 | 已修复 | `SegmentTreeBuildModule` 精简为纯区间求和版：只保留 `tr[]`（区间和）与 `lz[]`（区间加懒标记，建树阶段恒为 0）两行，删除 `mul[]` 行与全部 `% p` 运算；`push_up` 简化为 `tr[node] = tr[ls] + tr[rs]`，叶子简化为 `tr[node] = a[l]`；`SegmentTreeCommon::parseInput()` 改为只解析 `n` 与 `a[1..n]`，同时兼容旧版两段式表头；新增 `ActionType::SEG_INIT_LZ` 帧承载「本节点懒标记清零」语义 |
+| BUG-091 | 树状数组可视化过于简陋：只有上下两排色块，看不出 `t[i]` 覆盖了 `a` 的哪一段 | 已修复 | `FenwickTreeModule` 移除原先的覆盖区间色块，改用真实几何连线：对每个 `t[i]`，以其格心为顶点、其覆盖区间 `[i-lowbit(i)+1, i]` 对应的 `a` 格为底边，绘制一个半透明填充三角形（`QGraphicsPolygonItem`）并向区间内每个 `a[j]` 拉出扇形辐射线；`n=8` 时形成「一个大三角里套多个小三角」的经典树状数组结构图 |
+| BUG-092 | 五个自由结构沙盒模块在画布上铺满说明文字、标题与公式注释，遮蔽了数据本身 | 已修复 | `FreeStructureBase::showHint()` 改为空实现，`m_mathText` 全部不再创建；`SandboxArrayModule` / `SandboxMatrixModule` / `SandboxTreeModule` / `SandboxGraphModule` / `SandboxLatexModule` 移除各自的标题、提示与公式题注，画布只保留纯数据结构图元；`SandboxLatexModule` 改用 `LatexBlock::setTargetHeight()` 按目标高度排布公式矢量图，不再依赖失真的 `scaleFactor` |
+| BUG-093 | 自由结构-图结构每行只支持 2 个元素，且图元自带默认权值，与老师预期的「每行 u v w」不符 | 已修复 | `SandboxGraphModule` 解析每行 2 或 3 个元素，写 3 个时该边带权 w，写 2 个时该边不带权（`has_weight=false`，画图不显示徽标），彻底取消任何默认权值注入；默认值更新为 `5\n1 2 3\n1 3 2\n2 4 5\n3 4 1\n4 5 4` |
+| BUG-094 | 只有数组格支持双击修改，图结点与边权不能像数组一样就地编辑 | 已修复 | `IModule::enableLiveEditing()` 为未登记的 `GraphNode`（行 `"v"`、下标 = 结点 id）与 `GraphEdge`（行 `"w"`、下标 = `edge->key()`）自动补登记槽位并接入就地编辑器；`GraphEdge::beginEdit()` 放宽原先的 `has_weight` 前置条件，无权边双击后自动补上权值；`GraphNode::commitEdit()` 改写 `customValueText` 使新值直接显示在圆内，并抑制重复的 `v:N` 标签；`refreshLiveSlots()` 同步回填，保证重建后修改不丢失 |
+| BUG-095 | 右下角帧进度条旋钮在最左端（x=0）被「吃掉」一半 | 已修复 | 根因是旋钮圆心落在控件边界上，左半圆与外圈辉光（半径 6px + 6px halo）超出 `QWidget::paintEvent` 的裁剪范围。`MySlider` 引入左右对称内边距 `kSidePadding = 14.0`，`trackRect()` 起点右移 14px、`handleCenterX(t)` 在 `[14, width-14]` 区间内插值、`valueAtX()` 同步按新行程换算；辉光绘制再按 `maxGlow` 逐环裁剪，杜绝任何越界像素 |
+| BUG-096 | 算法模块下拉框塞进 37 个长条目，查找成本高、不符合人机交互原则 | 已修复 | `MyComboBox` 新增 `addGroup()` 分组模式与 `ComboTile` 按钮瓦片 / `ComboSectionHeader` 分节标题控件：点击下拉后展开为按「基础结构 / 数学 / 数据结构 / 算法」四类分组的 3 列按钮网格，每类内部按课程进度排序（早出现的算法在前）；浮层宽度下限提升到 520px、视口高度上限提升到 430px；`MainWindow` 依据分组重建 `registeredModules` 顺序，保证下拉索引与模块数组严格对齐 |
+| BUG-097 | 堆结构动画逻辑混乱：结点圆内不显示值、序号与值混在一起；交换时只变色不真的换值；下方缺少完全二叉树数组与父子关系提示 | 已修复 | `HeapTreeBase` 重构：`layoutHeap()` 把结点值写入 `customValueText`（画在圆内）、把 1-based 序号写入 `subLabel`（画在圆外上方）；新增 `applyHeapValues()` / `swapHeapValues()` 在 `HG_SWAP` / `HS_SWAP` 帧真正互换 `ArrayBlock` 与 `GraphNode` 的值；新增 `highlightRelation()` 在比较帧高亮 `i/2`、`2i`、`2i+1` 三组父子关系（当前节点与对手为强调色，父与孩子为浅蓝），并在数组行下方实时显示关系说明文字 |
+| BUG-098 | 模块下拉网格分组浮层的右侧与下侧残留一根"未闭合"的竖线/横线，像边框忘记关闭 | 已修复 | 根因是浮层阴影绘制在 `ComboPopupFrame` 上但被浮层自身矩形裁剪：多层圆角阴影的右下溢出部分被硬切，形成一条直角暗带。新增 `ComboPopupFrame::paintEvent()` 用「奇偶填充的外环-内环差集路径」逐层绘制柔和阴影（12 环、每环 alpha 递增、整体向下偏移 4px），阴影完全落在浮层内；同时把浮层外边距从 `12/10/12/12` 放宽到 `18/18/18/22`、宽度补偿从 +24 提到 +36，保证阴影有足够绘制空间；`ComboCard` 边框改为半透明 `QColor(214,222,236,200)` 圆角卡片，避免硬边 |
+| BUG-099 | 树状数组仍是「上下两排 + 覆盖三角形」，看不出 `floor(log2(n))+1` 层的二进制分层结构 | 已修复 | `FenwickTreeModule` 重写为二叉分层格阵：底层是完整数组 `a[1..n]`，其上按 `ctz(i)`（即 `log2(lowbit(i))`）分层，第 `k` 层的 `t[i]` 块宽度 = `lowbit(i) * cellW`、水平跨度覆盖 `[i-lowbit(i)+1, i]`；每层左侧标注 `L0..Lk` 与 `lowbit` 说明，右侧标注该层覆盖区间；构建阶段改用自底向上的二叉合并：`t[i] = t[i-2^(k-1)] + a[i-2^(k-1)+1] + ... + a[i]`，新增 `ActionType::FT_MERGE` 帧承载「从兄弟块与底层数组格同时飞入并合成 `t[i]`」的动作 |
+| BUG-100 | 模块下拉网格的按钮瓦片与分节标题观感陈旧，不够科技感；中文字体未统一 | 已修复 | `MyComboBox` 全面重绘：`ComboOption::paintTile()` 改为冷调渐变瓦片（浅蓝灰底 + 细边框 + hover 高亮发光边框 + 左侧强调条 + 选中态顶部高光条）；`ComboSectionHeader::paintEvent()` 改为彩色竖条 + 渐变文字 + 尾部渐隐短横线，去掉原先横贯整卡的分割线；全部字体改用 `UiTheme::uiFont()`（Microsoft YaHei UI） |
+| BUG-101 | 模块显示名过长（如「二分图匹配 - 匈牙利算法」「线段树 - 区间乘 / 区间加（懒标记）」），下拉瓦片排版拥挤 | 已修复 | 统一精简 16 个模块的 `getModuleName()`：「匈牙利算法」「线段树 (lz标记)」「线段树 (建树)」「线段树 (区间查询)」「KMP (pi数组)」「KMP (匹配)」「Dijkstra 最短路」「完全背包」「01 背包」「堆调整 up/down」「LIS 最长递增子序列」「Tarjan 强连通分量」「并查集」「BFS 广度优先搜索」；同步更新 `tests/GroupAUiTest.cpp` 的目标名断言 |
+| BUG-102 | 分组过粗，同一算法无法在多个分类下出现；模块下拉条目与代码结构耦合，无法跨分支复用 | 已修复 | `MainWindow` 引入 `std::vector<int> comboToModule`，把下拉条目序号映射到 `registeredModules` 的唯一实例下标，使同一模块可在多个分组中重复出现而不重复 new；分组细化为「自由结构 / 数学基础 / 线性结构 / 经典排序 / 堆结构 / 并查集 / 树状数组 / 线段树 / 图论算法 / 匹配与动态规划 / 字符串算法」；Kruskal 同时挂在「并查集」与「图论 · 最小生成树」两个分支下 |
+| BUG-103 | 前缀和与差分两个模块存在大段重复样板（解析、布局、渲染、动画组），维护成本高 | 已修复 | 抽取公共基类 `src/modules/TwoRowArrayModule.h/.cpp`，把输入解析、双行布局构建、`PD_*` 帧渲染与「多源数字飞入目标格」的 `QParallelAnimationGroup` 动画收敛到基类；`PrefixSumModule` / `DifferenceModule` 只保留各自的查询语义、帧序列与实时编辑回调，代码量减少约 45% |
+| BUG-104 | 全项目存在已废弃的死文件与未使用的公共辅助函数，编译体积与阅读成本虚高 | 已修复 | 删除 `src/modules/ArrayModule.h/.cpp`（无任何派生类引用）与 `src/modules/IModuleHelpers.h`；清理 `IModule` 中已无调用方的 `playFadeItem`/`createEdge`/`drawLabel`/`drawCaption`/`applyNodeHighlight`/`clearNodeHighlights`/`attachEdge`/`detachAllEdges`；清理 `GraphRenderHelper.h` 中未使用的 `addAxisLabel`/`addNote`；清理 `HeapTreeBase.h` 中从未写入的 `m_relationLabels` 成员；同步更新 `CMakeLists.txt` 与 `tests/CMakeLists.txt` |
+| BUG-105 | 隐形对齐网格参考线从未真正绘制：画布上完全看不到 56px 点线网格，勾选「对齐网格」也无任何视觉反馈 | 已修复 | 根因是 `GridGuideLayer` 构造函数只调用了 `setZValue` 等标志位，**从未把自身加入场景**——`QGraphicsItem` 的构造函数不接受 `QGraphicsScene*` 参数（已用独立程序验证：该签名不存在），必须显式 `scene->addItem(this)`。但直接补 `addItem` 会引入**栈溢出崩溃**：该图元的 `boundingRect()` 返回 `scene()->itemsBoundingRect().adjusted(...)`，而 `itemsBoundingRect()` 会遍历所有图元并调用各自的 `boundingRect()`，形成自引用递归（独立程序复现，进程以 `-1073741571` 退出）。最终改为**场景级背景绘制**方案：新增 `GridGuideScene`（继承 `QGraphicsScene`，覆写 `drawBackground`）在背景层画网格点线，`MainWindow` 直接以 `GridGuideScene` 取代普通 `QGraphicsScene`；网格不再是场景图元，因此既不进入 `itemsBoundingRect()`（不影响 `ViewportFitter` 居中与缩放），也不会被 `clearScene()` 的 `scene->clear()` 清掉，更不存在递归风险。`SceneGrid::drawGuides()` 签名由 `(painter, scene, config)` 改为 `(painter, bounds, config)`，直接按传入矩形绘制；`SceneGrid::attach()` 与 `GridGuideLayer` 整个类被删除，`setConfig()` 改为直接刷新 `GridGuideScene` 视口 |
+| BUG-106 | 算法模块下拉网格列表里的分类标题文字完全看不见（或与背景同色），分节信息丢失 | 已修复 | 根因是 `ComboSectionHeader::paintEvent()` 用 `QLinearGradient` 从 `m_accent.lighter(128)` 渐变到 `m_accent.lighter(150)`，在浅色浮层底上对比度不足，文字几乎融进背景。改为高对比深色渐变 `m_accent.darker(140)` → `m_accent.darker(110)`，同时保留彩色竖条与尾部渐隐短横线的视觉语言。`SmartGroundComboShot` 截图复核确认「基础结构 / 数学 / 排序 / 数据结构」等标题清晰可读 |
+| BUG-107 | Release 版 exe 打包后运行弹出黑色控制台窗口，并漏出 `QPropertyAnimation: you're trying to animate a non-existing property ratio of your QObject` 与 `QString::arg: Argument missing: "失配：沿已知前缀回退", 2` 等内部告警 | 已修复 | 三处根因分别处理：① `MyCollapsible` 补上 `Q_PROPERTY(qreal ratio READ ratio WRITE setRatio)`，此前 `QPropertyAnimation(this, "ratio")` 指向了未声明的属性，Qt 直接判定为「不存在」并打印告警；② `KMPNextModule` / `KMPMatchModule` / `HeapSortModule` 中若干文案字符串没有 `%1` 占位符却仍调用 `.arg(...)`，Qt 会打印 `Argument missing`——已移除这些多余的 `.arg()` 调用，并把 `HungarianModule` 中「重复使用 `%1` 又传三个参数」的写法改成显式编号占位符（`%1/%2/%3`）；③ `CMakeLists.txt` 为 `SmartGround` 目标设置 `WIN32_EXECUTABLE TRUE`，Release 产物以 Windows GUI 子系统链接，不再附带控制台窗口 |
+| BUG-108 | 双击修改 Dijkstra 图结点后，新值没有顶替旧值，而是在结点下方叠出一大坨 `v : 3` 重复文字 | 已修复 | 根因是 `GraphNode::paint()` 里同时存在两条绘制路径：`customValueText` 与 `valueText` 之一非空时绘制自定义文本，而 `value > 0` 的兜底分支又独立绘制 `v:%1`；`commitEdit()` 写入的正是 `customValueText`，于是旧值兜底与新值同时出现。修复为让兜底分支只在 `valueText.isEmpty() && customValueText.isEmpty()` 时才生效，并把 `commitEdit()` 统一走 `setValueText()`。`SmartGroundNodeLiveEdit` 回归断言「结点下方只有一行文本」已通过 |
+| BUG-109 | 批注层与算法层分离后，批注图形在画布上完全不显示 | 已修复 | 根因是 `CanvasView::drawForeground()` 里 `painter->setClipRect(viewport()->rect())`——`drawForeground` 收到的 painter 已带视图变换，裁剪矩形用的是视口像素坐标，而批注场景坐标为负（场景原点在中心），两者坐标系不一致导致所有内容被裁掉。同时误用了 `render()` 的 source/target 语义。修复：去掉多余的 `setClipRect`，直接以场景坐标 `render(painter, src, src, Qt::IgnoreAspectRatio)`，由 `QGraphicsScene::render()` 自行完成视口映射；选框矩形改用 `painter` 现有变换绘制。`SmartGroundCanvasVisual` 像素级断言已覆盖 |
+| BUG-110 | 批注层撤销/重做后，被擦除的图形莫名消失，撤销栈与图形池状态不一致 | 已修复 | 根因是 `ToolController::pushCommand()` 在清空重做栈时会把「Remove 类命令」持有的图元直接 `delete`，但这些图元此时可能已经通过撤销被重新挂回场景，导致悬垂指针与提前析构。改为由 `AnnotationScene` 统一持有全部批注图元所有权（`m_owned` 列表 + 析构时统一释放），`ToolController` 只负责在场景中挂载/卸载，不再持有或销毁任何图元；`AnnotationScene::removeItem(item, destroy)` 的 `destroy=false` 语义表示「从场景卸载但保留所有权」 |
+| BUG-111 | 批注文本框与 Markdown 卡片的文字互相重叠、撑不开 | 已修复 | `QGraphicsTextItem` 未设置换行宽度时按内容自然排版，多行文本会横向溢出。`TextBoxItem::rebuildDocument()` 与 `MarkdownItem::rebuildDocument()` 补上 `setTextWidth(280.0 / 320.0)` + `adjustSize()`，卡片宽度固定、行高自适应，`QGraphicsTextItem` 随文档内容重新排版 |
+| BUG-112 | 算法模块下拉浮层里的**分类标题文字完全看不见**（只看到一条彩色竖条） | 已修复 | 根因是 `ComboSectionHeader::paintEvent()` 用 `painter.setBrush(textGrad)` 设置渐变后再 `painter.setPen(Qt::NoPen)`，随后调用 `drawText()`——而 `QPainter::drawText()` **只使用画笔（pen）绘制文字，完全忽略画刷（brush）**，于是分类标题被以 `NoPen` 绘制，等于隐形。截图逐像素采样证实：标题行存在 `(59,125,221)` 的强调色竖条像素，但**深色文字像素数为 0**。修复：改为用 `painter.setPen(深色标题色)` 绘制文字，竖条与尾部装饰线继续用画刷绘制；若强调色过浅则回退到 `UiTheme::textPrimary()` 保证对比度。`SmartGroundToolSuite` 现以「强调色像素 > 40 且深色文字像素 > 200」双重断言守护 |
+| BUG-113 | 画布工具条把 14 个文字按钮 + 5 个滑块 + 色块平铺进主窗口布局，应用宽度被撑到 1920px 屏外 | 已修复 | 根因是 `CanvasToolBar` 被 `rightLayout->addWidget(...)` 放进窗口主布局，`FlowLayout` 按自然宽度一行铺开全部控件。重构为**浮动轻套件**：`CanvasToolBar` 改为以 `CanvasView` 为父级的透明覆盖层（不再占用布局尺寸），主条只保留 10 个 34px 矢量图标按钮 + 样式/更多两个入口，总宽 451px、高 50px，顶端居中悬浮；颜色/粗细/不透明度/文字样式归入「样式」浮层，文本框/笔记/公式/表格/表格行列/撤销重做/批注显隐锁定/导出清空归入「更多」浮层，二者互斥展开、按宿主尺寸自动避让边界。矢量图标由新增 `src/ui/widgets/ToolIconButton.cpp` 手工绘制（不依赖 Segoe UI Symbol 字形，避免缺字方框）。窗口自然宽度由 >1920px 回落到 **694px**（`minimumSizeHint` 558px） |
 
 ## 验证
 
@@ -117,12 +141,65 @@
   - `SmartGroundBorderDiag`：像素级验证 BUG-086（Excel 式单线边框）。在前缀和、冒泡排序、线段树三个模块上扫描单元格所在行，按「暗色游程的高度」区分边框与字形笔画（边框贯穿整格高、字形笔画只有十几像素），要求所有分隔线宽度恒为 2px、不出现宽度 > 3px 的双线暗带，且分隔线数量与格数严格对应；同时校验同行相邻格的列距严格等于格宽（无缝隙、无重叠）。该断言不依赖字体环境，`offscreen` 与 `windows` 平台结果一致。
   - `SmartGroundEditCrash`：17 项断言，覆盖 BUG-087（就地编辑闪退）。走完「双击开始编辑 → 焦点丢失提交 → 回车提交 → Esc 取消 → 编辑中清空场景 → 连续编辑两格时旧编辑器回调不得关闭新编辑器」全流程，全程零崩溃零 double free。
   - `SmartGroundGroupA`：32 项断言，覆盖 A 组五个新模块。树状数组验证 `FT_INSERT`/`FT_JUMP_UP`/`FT_ACC`/`FT_RESULT` 四类帧齐全、`add(2,5)` 后 `sum(5)==21`、非法输入降级为空帧序列；完全背包验证 `dp[3][8]==12`（对比 01 背包的 `dp[3][8]==10`，证明完全背包可重复取物）；Tarjan 割点与桥验证 `TC_VISIT`/`TC_CUT`/`TC_BRIDGE` 帧齐全且能定位割点；匈牙利算法验证最大匹配数、在完全图上取到 3、在 `L1-R1, L1-R2, L2-R1` 增广路场景上取到 2 并出现 `HN_OCCUPIED` 递归帧；堆调整与堆排序验证比较帧与交换帧齐全。
-  - `SmartGroundGroupAUi`：14 项断言，在真实 `MainWindow` 中验证 A 组六个模块全部出现在模块下拉框中、逐个可被选中并正常切换，且模块总数为 37。
-- 本轮全量回归：29 个测试套件串行执行完毕，全部零失败、零崩溃、零断言告警；并分别在 `offscreen`（无头）与 `windows`（真实字体）两种平台下各跑一遍，结果一致全绿。
-- 截图辅助程序：`SmartGroundArrowShot`、`SmartGroundDsuShot`、`SmartGroundUiShot`、`SmartGroundToggleShot`，用于人工核对箭头、权值、滑动开关两种状态与整体 UI 观感。
+  - `SmartGroundGroupAUi`：14 项断言，在真实 `MainWindow` 中验证 A 组六个模块全部出现在模块下拉框中、逐个可被选中并正常切换，且模块总数为 38（37 个唯一模块 + Kruskal 在「图论 · 最小生成树」分支下的跨分支别名）。
+  - `SmartGroundGroupA`（更新）：树状数组断言改为校验 `FT_MERGE` 分层合并帧：合并帧覆盖全部 5 个节点，且 `t[2] = c1 + a2 = 4`、`t[4] = c3 + a3 + a4 = 10`。
+  - `SmartGroundVerifyShot`：24 项断言，覆盖本轮八项调整。BUG-090：线段树-建树同时渲染 `tr` 与 `lz` 两行，且帧序列含 `SEG_LEAF` 与 `SEG_PUSHUP`、公式文本中无 `%` 取模残留；BUG-091：树状数组场景中存在三角形多边形与辐射连线；BUG-092：五个自由结构沙盒模块画布上的 `QGraphicsTextItem` 数量为 0；BUG-093：3 元素行产生 5 条带权边、2 元素行产生 0 条带权边（无默认权值注入）；BUG-097：堆的 5 个结点值在圆内、5 个序号在圆外、下方完整二叉树数组块数量为 5，且交换帧后结点与数组块的值确实互换；BUG-095：滑块在最左端时旋钮完整绘出（暗色像素计数达标），点击最左端映射到最小值。
+  - `SmartGroundFenwickShot`：把树状数组分层格阵渲染成 `fenwick_lattice.png`，供人工核对底层数组与上层 `L0..Lk` 各层的对位关系。
+  - `SmartGroundComboGroupShot`：把带分组的模块下拉浮层渲染成 `combo_groups.png`，供人工核对瓦片渐变、彩色标题与浮层阴影边缘。
+  - `SmartGroundGridGuideTest`：9 项断言，覆盖 BUG-105（隐形对齐网格从未绘制）。验证 `GridGuideScene` 启用网格后画布上出现网格像素（黑底上非黑像素 4864 > 300）、关闭后像素归零（4864 → 0）、网格**不进入场景图元集合**（`scene->items()` 为空，故不影响 `ViewportFitter` 的 `itemsBoundingRect()` 居中计算）、`scene->clear()` 后网格依然存活（重建场景不丢网格）、以及真实 `MainWindow` 中画布确实呈现网格参考线。
+  - `SmartGroundCanvasTools`：36 项断言，覆盖批注层核心能力。画笔/直线/方框/圆形/箭头/三角/马赛克七种工具各自创建出对应图元类型；橡皮只擦除上层批注且撤销栈同步入栈；撤销→重做→再撤销三态往返后图元数量精确复原（覆盖 BUG-110）；文本框、Markdown、LaTeX、表格四种卡片的创建、尺寸、内容与默认值（表格单元格默认为空字符串）；JSON 序列化往返后图元数量与类型完全一致；批量显隐与批量锁定覆盖全部图元；框选多选、全选、整体缩放、删除与删除后撤销均行为正确。
+  - `SmartGroundCanvasVisual`：6 项断言 + 截图 `canvas_visual.png`，像素级验证批注层真的绘制到画布上（BUG-109）：十种图元同时可见，红色彩笔画、矩形、圆形、箭头、三角形、马赛克、文本框、Markdown 卡片（含代码块）与表格网格均正确渲染。
+  - `SmartGroundToolSuite`：11 项断言 + 4 张截图（`tool_suite_combo.png` / `tool_suite_canvas.png` / `tool_suite_style.png` / `tool_suite_more.png`），覆盖 BUG-112 与 BUG-113。BUG-112：下拉浮层同时存在强调色竖条像素与深色标题文字像素（修复前深色文字像素为 0）。BUG-113：浮动工具套件主条宽度 451px、单行高度 50px（均低于阈值 520px / 80px），样式浮层与更多浮层可正常开合。
+  - `SmartGroundAppWidth`：6 项断言 + 3 张截图（`app_window.png` / `app_style_open.png` / `app_more_open.png`），覆盖 BUG-113。真实 `MainWindow` 自然宽度 694px、最小宽度 558px，均远低于 1920px 目标；工具套件确认为 `CanvasView` 的子级（真正浮在画布之上）；两个浮层在真实窗口中可正常开合。
+  - `SmartGroundAppCombo`：在真实 `MainWindow` 中打开模块下拉浮层并截图 `app_combo_popup.png`，统计标题带的深色文字像素（14276 > 300），确认 11 个分类标题（自由结构 / 数学基础 / 线性结构 / 经典排序 / 堆结构 / 并查集 / 树状数组 / 线段树 / 图论算法 / 匹配与动态规划 / 字符串算法）在真实应用中全部可见（BUG-112 端到端回归）。
+- 本轮全量回归：42 个测试套件串行执行完毕，全部零失败、零崩溃、零断言告警；`offscreen`（无头）平台下全绿。
+- 截图辅助程序：`SmartGroundArrowShot`、`SmartGroundDsuShot`、`SmartGroundUiShot`、`SmartGroundToggleShot`、`SmartGroundFenwickShot`、`SmartGroundComboGroupShot`，用于人工核对箭头、权值、滑动开关两种状态、树状数组分层格阵与下拉分组网格观感。
 - 项目目录没有 Git 元数据，无法附上提交或工作树引用。
 
 > 说明：2026-11-14 起项目已纳入 `D:\Program\Cpp` 的 Git 仓库，SmartGround 目录位于 `Project/QT/SmartGround` 子路径下，提交与工作树引用可正常提供。
+
+## BUG-114 画笔笔刷锯齿严重（折线未做样条平滑）
+
+- **现象**：画笔笔迹呈明显阶梯状折线，快速移动鼠标时棱角尖锐，手感粗糙。
+- **根因**：`StrokeItem::buildPath()` 直接用 `QPainterPath::lineTo()` 连接原始鼠标采样点，得到的是折线而非平滑曲线；采样点越稀疏（鼠标移动越快），棱角越明显。
+- **修复**：
+  - `StrokeItem::smoothPoints()` 改为 **Catmull-Rom → 三次贝塞尔** 插值：每段以 `p0..p3` 求控制点 `c1 = p1 + (p2-p0)/6`、`c2 = p2 - (p3-p1)/6`，每段细分 12 步采样，彻底消除折角。
+  - `StrokeItem::paint()` 改为**变宽丝带（ribbon）渲染**：沿平滑路径逐点求切线法向，向两侧偏移半个笔宽生成左右轮廓，再合拢成闭合多边形填充；笔画边缘随曲线走向自然过渡，不再有锯齿。
+  - 最小采样间距 `kMinSampleDistance = 0.9`，剔除抖动采样点。
+  - 荧光笔分支保留 `FlatCap + RoundJoin` 的马克笔笔头形状，宽度为普通笔的 2.4 倍。
+- **验证**：`SmartGroundBrushQuality` 断言「水平笔画跨越 192 列」「笔画垂直厚度恒定在 3~12px 之间」。
+
+## BUG-115 画笔/橡皮批注不实时刷新（架构性缺陷）
+
+- **现象**：画完一笔、擦除一块后，画布内容**不立刻出现**，必须缩放、缩小或平移视图才刷新。
+- **根因**：批注层是独立的 `AnnotationScene`，**从未挂接到任何 `QGraphicsView`**。因此 `StrokeItem::update()`、`AnnotationScene::removeItem()` 触发的都是「无人观看的场景」自身的重绘调度，`CanvasView::drawForeground()` 根本不会被调用。只有缩放/平移会触发 `CanvasView` 整体重绘，所以画面才「姗姗来迟」。
+- **修复**：
+  - `AnnotationScene` 新增 `setHostView()` / `hostView()`，记录承载它的画布视图。
+  - `AnnotationScene::addItem()` / `removeItem()` / `destroyItem()` 在变更后立即调用 `m_hostView->viewport()->update()`。
+  - `AnnotationItem` 新增 `contentChanged()` 信号；`AnnotationScene::addItem()` 为每个图元连接该信号，**笔画在绘制过程中每加一个点就实时通知画布重绘**（此前只在松手时才更新）。
+  - `CanvasView::setAnnotationScene()` 自动调用 `m_annotationScene->setHostView(this)` 完成挂接。
+  - `ToolController` 的 `updateStroke` / `finishStroke` / `updateShape` / `finishShape` / `updateEraseDrag` / `finishEraseDrag` 均显式调用 `m_view->refreshOverlay()`。
+- **验证**：`SmartGroundBrushQuality` 断言「按下鼠标尚未松开即已可见」（629 像素）、「拖动时笔画实时增长」（629 → 1819）、「擦除无需缩放即刻生效」（3149 → 128）、「撤销后笔画实时复原」。
+
+## BUG-116 橡皮只响应单击，拖动无效且无光标指示
+
+- **现象**：橡皮必须精确点中笔画才能擦除，鼠标按住拖动毫无反应；也没有任何光标提示，擦除范围不可见。
+- **根因**：`ToolController::onMousePress()` 里橡皮直接调用 `eraseAt(pos)` 一次性判定；`onMouseMove()` 中橡皮分支缺失，拖动被完全忽略。且 `eraseAt()` 的命中判定使用 `shape().contains()`，而平滑后的曲线偏离原始采样点，命中容差为零。
+- **修复**：
+  - 新增 `beginEraseDrag()` / `updateEraseDrag()` / `finishEraseDrag()`，橡皮改为**按住拖动连续擦除**；拖动时按 `eraserRadius * 0.4` 步长沿路径插值采样，逐段擦除。
+  - `AnnotationItem::hitTest(scenePos, radius)` 统一命中判定；`StrokeItem` 覆写为「样条轮廓命中 **或** 与任一原始采样点的距离 ≤ 半径 + 半笔宽」，兼顾平滑偏差与细笔画。
+  - 橡皮尺寸独立为 `m_eraserRadius`（默认 14），样式浮层新增「橡皮」滑块。
+  - `CanvasView::drawForeground()` 绘制**橡皮光标圆环**（红色描边 + 半透明填充），实时跟随鼠标，直观显示擦除范围。
+- **验证**：`SmartGroundBrushQuality` 断言「拖动橡皮可整笔擦除」。
+
+## 画笔 ZoomIt 风格增强
+
+参照 Sysinternals ZoomIt 的交互范式，为批注层补齐以下能力：
+
+- **荧光笔（Highlighter）**：新增工具，快捷键 `H`；半透明（alpha 0.38）马克笔笔头，叠加处不加深，与 ZoomIt 的高亮笔行为一致。
+- **滚轮调笔宽**：画笔 / 荧光笔激活时，鼠标滚轮实时增减笔宽（0.5px 步进，范围 1~40px）；橡皮激活时滚轮调整橡皮半径（2px 步进）。这是 ZoomIt 最具辨识度的操作手感。
+- **数字键换色**：`1`~`7` 快速切换 红 / 绿 / 蓝 / 黄 / 橙 / 粉 / 深灰（与 ZoomIt 的颜色快捷键一致）；`Alt + R/G/B/Y/O/P/K` 为备用组合。
+- **实时重绘**：见 BUG-115，笔画绘制过程中即时上屏。
 
 ## 测试运行方式
 

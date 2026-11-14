@@ -36,9 +36,13 @@
 #include "modules/SandboxMatrixModule.h"
 #include "modules/SandboxTreeModule.h"
 #include "modules/SandboxGraphModule.h"
-#include "modules/SandboxLatexModule.h"
+#include "modules/SandboxBlankModule.h"
 #include "render/LatexBlock.h"
 #include "render/EditableModel.h"
+#include "canvas/CanvasView.h"
+#include "canvas/AnnotationScene.h"
+#include "canvas/ToolController.h"
+#include "ui/widgets/CanvasToolBar.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QMessageBox>
@@ -48,7 +52,12 @@
 #include <QLabel>
 #include <QFrame>
 #include <QScrollArea>
+#include <QFileDialog>
+#include <QPdfWriter>
+#include <QPageSize>
+#include <QPainter>
 #include <cmath>
+#include <algorithm>
 #include "render/SceneGrid.h"
 #include "core/ViewportFitter.h"
 #include <QApplication>
@@ -67,45 +76,73 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), currentModule(nul
     connect(frameSlider, &MySlider::sliderReleased, this, &MainWindow::onFrameSliderReleased);
 
     // 全他妈模块
-    registeredModules.push_back(new BubbleSortModule());
-    registeredModules.push_back(new SelectionSortModule());
-    registeredModules.push_back(new InsertionSortModule());
-    registeredModules.push_back(new QuickSortModule());
-    registeredModules.push_back(new MergeSortModule());
-    registeredModules.push_back(new HeapBasicsModule());
-    registeredModules.push_back(new PrefixSumModule());
-    registeredModules.push_back(new DifferenceModule());
-    registeredModules.push_back(new StackModule());
-    registeredModules.push_back(new QueueModule());
-    registeredModules.push_back(new MonotonicStackModule());
-    registeredModules.push_back(new BinarySearchClosedModule());
-    registeredModules.push_back(new BinarySearchHalfOpenModule());
-    registeredModules.push_back(new DSUBasicModule());
-    registeredModules.push_back(new TarjanModule());
-    registeredModules.push_back(new TopologicalSortModule());
-    registeredModules.push_back(new DijkstraNaiveModule());
-    registeredModules.push_back(new KruskalModule());
-    registeredModules.push_back(new BFSModule());
-    registeredModules.push_back(new Knapsack01Module());
-    registeredModules.push_back(new LISModule());
-    registeredModules.push_back(new KMPNextModule());
-    registeredModules.push_back(new KMPMatchModule());
-    registeredModules.push_back(new SegmentTreeBuildModule());
-    registeredModules.push_back(new SegmentTreeTagModule());
-    registeredModules.push_back(new SegmentTreeQueryModule());
-    registeredModules.push_back(new FenwickTreeModule());
-    registeredModules.push_back(new KnapsackCompleteModule());
-    registeredModules.push_back(new TarjanCutVertexBridgeModule());
-    registeredModules.push_back(new HungarianModule());
-    registeredModules.push_back(new HeapAdjustModule());
-    registeredModules.push_back(new HeapSortModule());
-    registeredModules.push_back(new SandboxArrayModule());
-    registeredModules.push_back(new SandboxMatrixModule());
-    registeredModules.push_back(new SandboxTreeModule());
-    registeredModules.push_back(new SandboxGraphModule());
-    registeredModules.push_back(new SandboxLatexModule());
+    std::vector<std::pair<QString, std::vector<IModule*>>> categories;
+    categories.push_back({"自由结构", {
+        new SandboxArrayModule(), new SandboxMatrixModule(), new SandboxTreeModule(),
+        new SandboxGraphModule(), new SandboxBlankModule()}});
+    categories.push_back({"数学基础", {
+        new PrefixSumModule(), new DifferenceModule(),
+        new BinarySearchClosedModule(), new BinarySearchHalfOpenModule()}});
+    categories.push_back({"线性结构", {
+        new StackModule(), new QueueModule(), new MonotonicStackModule()}});
+    categories.push_back({"经典排序", {
+        new BubbleSortModule(), new SelectionSortModule(), new InsertionSortModule(),
+        new QuickSortModule(), new MergeSortModule()}});
+    categories.push_back({"堆结构", {
+        new HeapBasicsModule(), new HeapAdjustModule(), new HeapSortModule()}});
+    categories.push_back({"并查集", {
+        new DSUBasicModule(), new KruskalModule()}});
+    categories.push_back({"树状数组", {
+        new FenwickTreeModule()}});
+    categories.push_back({"线段树", {
+        new SegmentTreeBuildModule(), new SegmentTreeQueryModule(),
+        new SegmentTreeTagModule()}});
+    categories.push_back({"图论算法", {
+        new BFSModule(), new TopologicalSortModule(), new DijkstraNaiveModule(),
+        new TarjanModule(), new TarjanCutVertexBridgeModule()}});
+    categories.push_back({"匹配与动态规划", {
+        new HungarianModule(), new Knapsack01Module(), new KnapsackCompleteModule(),
+        new LISModule()}});
+    categories.push_back({"字符串算法", {
+        new KMPNextModule(), new KMPMatchModule()}});
 
-    for(auto m : registeredModules) comboModules->addItem(m->getModuleName());
+    for (auto& category : categories) {
+        for (IModule* m : category.second) registeredModules.push_back(m);
+    }
+
+    auto findModule = [this](const QString& name) -> IModule* {
+        for (IModule* m : registeredModules) {
+            if (m->getModuleName() == name) return m;
+        }
+        return nullptr;
+    };
+
+    std::vector<std::pair<QString, QStringList>> groupItems;
+    for (auto& category : categories) {
+        QStringList names;
+        for (IModule* m : category.second) names << m->getModuleName();
+        groupItems.push_back({category.first, names});
+    }
+
+    if (IModule* kruskal = findModule("Kruskal 最小生成树")) {
+        groupItems.push_back({"图论 · 最小生成树", {kruskal->getModuleName()}});
+    }
+
+    comboModules->addItem("请选择...");
+    for (auto& group : groupItems) {
+        QStringList names;
+        for (const QString& name : group.second) {
+            names << name;
+            IModule* found = findModule(name);
+            int moduleIndex = -1;
+            if (found) {
+                moduleIndex = static_cast<int>(
+                    std::find(registeredModules.begin(), registeredModules.end(), found) - registeredModules.begin());
+            }
+            comboToModule.push_back(moduleIndex);
+        }
+        comboModules->addGroup(group.first, names);
+    }
     for (auto m : registeredModules) {
         m->setLiveEditCallback([this]() {
             if (m_liveEditPending) return;
@@ -122,7 +159,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), currentModule(nul
     gridCfg.showGuides = true;
     gridCfg.cell = 56.0;
     gridCfg.magnetRange = 18.0;
-    SceneGrid::attach(graphicsScene, gridCfg);
+    SceneGrid::setConfig(graphicsScene, gridCfg);
 }
 MainWindow::~MainWindow() {
     for (auto module : registeredModules) delete module;
@@ -142,7 +179,6 @@ void MainWindow::setupUI() {
     QLabel *labelTitle = new QLabel("算法模块");
     labelTitle->setObjectName("sectionLabel");
     comboModules = new MyComboBox();
-    comboModules->addItem("请选择...");
     comboModules->setMinimumHeight(36);
 
     QLabel *labelInput = new QLabel("数据输入");
@@ -231,16 +267,15 @@ void MainWindow::setupUI() {
     rightLayout->setContentsMargins(0, 0, 0, 0);
     rightLayout->setSpacing(0);
 
-    graphicsScene = new QGraphicsScene(this);
+    graphicsScene = new GridGuideScene(this);
     graphicsScene->setBackgroundBrush(UiTheme::canvasBg());
-    graphicsView = new QGraphicsView(graphicsScene);
-    graphicsView->setObjectName("canvasView");
-    graphicsView->setRenderHint(QPainter::Antialiasing);
-    graphicsView->setRenderHint(QPainter::TextAntialiasing);
-    graphicsView->setDragMode(QGraphicsView::ScrollHandDrag);
-    graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    graphicsView = new CanvasView(graphicsScene);
     graphicsView->viewport()->installEventFilter(this);
+
+    m_annotationScene = new AnnotationScene(this);
+    graphicsView->setAnnotationScene(m_annotationScene);
+    m_toolController = new ToolController(m_annotationScene, graphicsView, this);
+    graphicsView->setToolController(m_toolController);
 
     labelStatus = new QLabel("就绪。");
     labelStatus->setObjectName("statusLabel");
@@ -266,6 +301,11 @@ void MainWindow::setupUI() {
     statusLayout->addWidget(frameSlider);
     statusLayout->addWidget(labelFrameBadge);
 
+    m_canvasToolBar = new CanvasToolBar(m_toolController, graphicsView);
+    m_canvasToolBar->setObjectName("canvasToolBarHost");
+    m_canvasToolBar->setHostWidget(graphicsView);
+    m_canvasToolBar->raise();
+
     rightLayout->addWidget(graphicsView, 1);
     rightLayout->addWidget(statusBar);
 
@@ -283,7 +323,128 @@ void MainWindow::setupUI() {
     connect(toggleDirected, &MyToggleSwitch::toggled, this, &MainWindow::onGraphOptionChanged);
     connect(checkBidirectional, &MyCheckBox::toggled, this, &MainWindow::onGraphOptionChanged);
     connect(checkGrid, &MyCheckBox::toggled, this, &MainWindow::onGridToggled);
+    setupCanvasTools();
     applyStyleSheet();
+}
+
+void MainWindow::setupCanvasTools() {
+    if (!m_toolController) return;
+
+    connect(m_toolController, &ToolController::toolChanged, this, [this](ToolController::Tool tool) {
+        syncAnnotationToolButtons(static_cast<int>(tool));
+        labelStatus->setText(QString("当前画布工具: %1").arg(toolName(tool)));
+    });
+    connect(m_toolController, &ToolController::statusMessage, this, [this](const QString& text) {
+        labelStatus->setText(text);
+    });
+
+    connect(m_canvasToolBar, &CanvasToolBar::exportRequested, this, &MainWindow::onExportPdf);
+    connect(m_canvasToolBar, &CanvasToolBar::clearRequested, this, &MainWindow::onClearAnnotations);
+}
+
+void MainWindow::syncAnnotationToolButtons(int tool) {
+    Q_UNUSED(tool);
+}
+
+QString MainWindow::toolName(ToolController::Tool tool) const {
+    switch (tool) {
+    case ToolController::Select: return "指针（可拖动下层算法结构）";
+    case ToolController::AnnotationSelect: return "选中（框选并移动上层批注）";
+    case ToolController::Pen: return "画笔";
+    case ToolController::Highlighter: return "荧光笔（半透明叠加）";
+    case ToolController::Eraser: return "橡皮（拖动擦除，只影响上层批注）";
+    case ToolController::Line: return "直线（Shift 约束 45 度）";
+    case ToolController::Rect: return "方框（Shift 为正方形）";
+    case ToolController::Circle: return "圆形（Shift 为正圆）";
+    case ToolController::Arrow: return "箭头（Shift 约束 45 度）";
+    case ToolController::Triangle: return "三角形（Shift 为正三角形）";
+    case ToolController::Mosaic: return "马赛克";
+    case ToolController::TextBox: return "文本框（双击编辑）";
+    case ToolController::Markdown: return "Markdown 笔记（双击编辑）";
+    case ToolController::Latex: return "LaTeX 公式";
+    case ToolController::Table: return "表格（双击单元格编辑）";
+    default: return "指针";
+    }
+}
+
+void MainWindow::onExportPdf() {
+    const QString path = QFileDialog::getSaveFileName(this, "导出画布为 PDF", QString(), "PDF 文件 (*.pdf)");
+    if (path.isEmpty()) return;
+    exportCanvasToPdf(path);
+}
+
+void MainWindow::exportCanvasToPdf(const QString& path) {
+    if (!graphicsScene) return;
+
+    QRectF base = graphicsScene->itemsBoundingRect();
+    QRectF overlay;
+    if (m_annotationScene) overlay = m_annotationScene->itemsBoundingRect();
+    QRectF total = base;
+    if (!overlay.isNull() && !overlay.isEmpty()) total = total.united(overlay);
+    if (total.isNull() || total.width() < 1.0 || total.height() < 1.0) {
+        labelStatus->setText("画布为空，没有可导出的内容。");
+        return;
+    }
+    const qreal margin = 40.0;
+    total.adjust(-margin, -margin, margin, margin);
+
+    QPdfWriter writer(path);
+    writer.setResolution(96.0);
+    const QSizeF pageSizePt = writer.pageLayout().pageSize().size(QPageSize::Point);
+    const qreal pageW = pageSizePt.width();
+    const qreal pageH = pageSizePt.height();
+    const qreal scale = qMin(pageW / total.width(), pageH / total.height());
+    writer.setPageSize(QPageSize(QSizeF(total.width() * scale, total.height() * scale), QPageSize::Point));
+    writer.setPageMargins(QMarginsF(0, 0, 0, 0));
+
+    QPainter painter;
+    if (!painter.begin(&writer)) {
+        labelStatus->setText("PDF 导出失败：无法写入文件。");
+        return;
+    }
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setRenderHint(QPainter::TextAntialiasing);
+    painter.fillRect(painter.viewport(), UiTheme::canvasBg());
+
+    const QRectF pageRect = painter.viewport();
+    painter.translate(pageRect.left(), pageRect.top());
+    painter.scale(scale, scale);
+    painter.translate(-total.left(), -total.top());
+
+    if (!base.isNull() && !base.isEmpty()) {
+        graphicsScene->render(&painter, base, base, Qt::IgnoreAspectRatio);
+    }
+    if (m_annotationScene && !overlay.isNull() && !overlay.isEmpty()) {
+        m_annotationScene->render(&painter, overlay, overlay, Qt::IgnoreAspectRatio);
+    }
+    painter.end();
+    labelStatus->setText(QString("已导出 PDF: %1").arg(path));
+}
+
+void MainWindow::onClearAnnotations() {
+    if (!m_toolController) return;
+    m_toolController->clearAll();
+}
+
+void MainWindow::onAnnotationVisibilityToggled() {
+    if (!m_annotationScene) return;
+    m_annotationsVisible = !m_annotationsVisible;
+    m_annotationScene->setAnnotationsVisible(m_annotationsVisible);
+    if (m_btnToggleAnnotations) {
+        m_btnToggleAnnotations->setText(m_annotationsVisible ? "隐藏批注" : "显示批注");
+    }
+    graphicsView->refreshOverlay();
+    labelStatus->setText(m_annotationsVisible ? "已显示批注层。" : "已隐藏批注层，下层算法结构不受影响。");
+}
+
+void MainWindow::onAnnotationLockToggled() {
+    if (!m_annotationScene) return;
+    m_annotationsLocked = !m_annotationsLocked;
+    m_annotationScene->setAnnotationsLocked(m_annotationsLocked);
+    if (m_btnLockAnnotations) {
+        m_btnLockAnnotations->setText(m_annotationsLocked ? "解锁批注" : "锁定批注");
+    }
+    labelStatus->setText(m_annotationsLocked ? "已锁定批注层，无法移动或删除。" : "已解锁批注层。");
 }
 
 void MainWindow::applyStyleSheet() {
@@ -342,13 +503,55 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
     }
     return QMainWindow::eventFilter(obj, event);
 }
+
+void MainWindow::keyPressEvent(QKeyEvent* event) {
+    if (m_toolController) {
+        if (event->modifiers().testFlag(Qt::ControlModifier)) {
+            if (event->key() == Qt::Key_Z) {
+                if (event->modifiers().testFlag(Qt::ShiftModifier)) m_toolController->redo();
+                else m_toolController->undo();
+                return;
+            }
+            if (event->key() == Qt::Key_Y) {
+                m_toolController->redo();
+                return;
+            }
+        }
+    }
+    if (m_toolController && !event->modifiers().testFlag(Qt::ControlModifier)) {
+        if (m_toolController->applyColorShortcut(event)) {
+            event->accept();
+            return;
+        }
+        switch (event->key()) {
+        case Qt::Key_V: m_toolController->setTool(ToolController::Select); return;
+        case Qt::Key_A: m_toolController->setTool(ToolController::AnnotationSelect); return;
+        case Qt::Key_B: m_toolController->setTool(ToolController::Pen); return;
+        case Qt::Key_H: m_toolController->setTool(ToolController::Highlighter); return;
+        case Qt::Key_E: m_toolController->setTool(ToolController::Eraser); return;
+        case Qt::Key_L: m_toolController->setTool(ToolController::Line); return;
+        case Qt::Key_R: m_toolController->setTool(ToolController::Rect); return;
+        case Qt::Key_O: m_toolController->setTool(ToolController::Circle); return;
+        case Qt::Key_D: m_toolController->setTool(ToolController::Arrow); return;
+        case Qt::Key_T: m_toolController->setTool(ToolController::Triangle); return;
+        case Qt::Key_M: m_toolController->setTool(ToolController::Mosaic); return;
+        case Qt::Key_N: m_toolController->setTool(ToolController::TextBox); return;
+        case Qt::Key_G: m_toolController->setTool(ToolController::Markdown); return;
+        case Qt::Key_X: m_toolController->setTool(ToolController::Latex); return;
+        case Qt::Key_I: m_toolController->setTool(ToolController::Table); return;
+        default: break;
+        }
+    }
+    QMainWindow::keyPressEvent(event);
+}
 void MainWindow::onModuleChanged(int index) {
     finishAutoPlay();
     m_playTimer->stop();
     m_settleTimer->stop();
-    if (index > 0 && index - 1 < registeredModules.size()) {
+    const int moduleIndex = index - 1;
+    if (moduleIndex >= 0 && moduleIndex < static_cast<int>(comboToModule.size()) && comboToModule[moduleIndex] >= 0) {
         clearScene();
-        currentModule = registeredModules[index - 1];
+        currentModule = registeredModules[comboToModule[moduleIndex]];
         m_frames.clear();
         m_frameIndex = 0;
         m_builtInput.clear();

@@ -24,33 +24,30 @@ public:
     void onLiveDataChanged(const QString& row, int index, int value) override;
 
 private:
-    void refreshNodeLabels();
-    QPointF arraySlotPos(int index) const;
     void movePointerTo(int node);
     ArrayBlock* trBlock(int nodeId) const;
-    ArrayBlock* mulBlock(int nodeId) const;
+    ArrayBlock* lzBlock(int nodeId) const;
     GraphNode* treeNode(int nodeId) const;
 
     std::vector<AnimFrame> m_frames;
     std::vector<SegmentTreeCommon::NodeInfo> m_nodes;
     std::map<int, GraphNode*> m_treeNodes;
     std::map<int, ArrayBlock*> m_trBlocks;
-    std::map<int, ArrayBlock*> m_mulBlocks;
+    std::map<int, ArrayBlock*> m_lzBlocks;
     std::map<int, QGraphicsRectItem*> m_aCells;
     std::vector<ArrayBlock*> m_aBlocks;
     QGraphicsTextItem* m_mathText = nullptr;
     PointerBlock* m_ptrNode = nullptr;
     std::vector<int> m_arr;
     std::vector<long long> m_tr;
-    std::vector<long long> m_mul;
+    std::vector<long long> m_lz;
     int m_n = 0;
-    int m_mod = 100;
     int m_slotCount = 0;
     bool m_valid = false;
     std::vector<int> m_nodeIds;
     double m_nodeY = 230.0;
     double m_trY = 560.0;
-    double m_mulY = 638.0;
+    double m_lzY = 638.0;
     double m_arrY = 120.0;
 };
 

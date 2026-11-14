@@ -1,4 +1,4 @@
-﻿#include "BinarySearchClosedModule.h"
+#include "BinarySearchClosedModule.h"
 #include <QRegularExpression>
 #include <QPropertyAnimation>
 #include <QParallelAnimationGroup>

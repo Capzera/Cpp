@@ -29,6 +29,38 @@ add_executable(SmartGround
     src/ui/widgets/MyCollapsible.cpp
     src/ui/widgets/MySlider.h
     src/ui/widgets/MySlider.cpp
+    src/ui/widgets/MyColorSwatch.h
+    src/ui/widgets/MyColorSwatch.cpp
+    src/ui/widgets/FlowLayout.h
+    src/ui/widgets/FlowLayout.cpp
+    src/ui/widgets/CanvasToolBar.h
+    src/ui/widgets/CanvasToolBar.cpp
+    src/ui/widgets/ToolIconButton.h
+    src/ui/widgets/ToolIconButton.cpp
+    src/ui/widgets/AnnotationEditor.h
+    src/ui/widgets/AnnotationEditor.cpp
+    src/canvas/AnnotationItem.h
+    src/canvas/AnnotationItem.cpp
+    src/canvas/StrokeItem.h
+    src/canvas/StrokeItem.cpp
+    src/canvas/ShapeItem.h
+    src/canvas/ShapeItem.cpp
+    src/canvas/TextBoxItem.h
+    src/canvas/TextBoxItem.cpp
+    src/canvas/MarkdownItem.h
+    src/canvas/MarkdownItem.cpp
+    src/canvas/LatexItem.h
+    src/canvas/LatexItem.cpp
+    src/canvas/LatexService.h
+    src/canvas/LatexService.cpp
+    src/canvas/CanvasTableItem.h
+    src/canvas/CanvasTableItem.cpp
+    src/canvas/AnnotationScene.h
+    src/canvas/AnnotationScene.cpp
+    src/canvas/ToolController.h
+    src/canvas/ToolController.cpp
+    src/canvas/CanvasView.h
+    src/canvas/CanvasView.cpp
     src/modules/IModule.h
     src/modules/GraphModuleUtils.h
     src/modules/GraphRenderHelper.h
@@ -52,6 +84,7 @@ add_executable(SmartGround
     src/modules/HeapAdjustModule.h
     src/modules/HeapSortModule.h
     src/modules/HeapTreeBase.h
+    src/modules/TwoRowArrayModule.h
     src/ui/MainWindow.h
     src/main.cpp
     src/ui/MainWindow.cpp
@@ -62,7 +95,6 @@ add_executable(SmartGround
     src/render/LatexBlock.cpp
     src/modules/IModule.cpp
     src/modules/TarjanModule.cpp
-    src/modules/ArrayModule.cpp
     src/modules/BubbleSortModule.cpp
     src/modules/SelectionSortModule.cpp
     src/modules/InsertionSortModule.cpp
@@ -71,6 +103,7 @@ add_executable(SmartGround
     src/modules/HeapBasicsModule.cpp
     src/modules/MonotonicStackModule.cpp
     src/modules/DSUBasicModule.cpp
+    src/modules/TwoRowArrayModule.cpp
     src/modules/PrefixSumModule.cpp
     src/modules/DifferenceModule.cpp
     src/modules/StackModule.cpp
@@ -105,12 +138,13 @@ add_executable(SmartGround
     src/modules/SandboxTreeModule.cpp
     src/modules/SandboxGraphModule.h
     src/modules/SandboxGraphModule.cpp
-    src/modules/SandboxLatexModule.h
-    src/modules/SandboxLatexModule.cpp
+    src/modules/SandboxBlankModule.h
+    src/modules/SandboxBlankModule.cpp
     src/resources.qrc
 )
 target_link_libraries(SmartGround Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Svg)
 target_include_directories(SmartGround PRIVATE src)
+set_target_properties(SmartGround PROPERTIES WIN32_EXECUTABLE TRUE)
 
 
 

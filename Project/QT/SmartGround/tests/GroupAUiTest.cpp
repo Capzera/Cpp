@@ -25,16 +25,16 @@ int main(int argc, char** argv) {
 
     QStringList names = w.probeModuleNames();
     printf("module count = %d\n", names.size());
-    check("module count == 37", names.size() == 37);
+    check("module count == 38", names.size() == 38);
     check("has fenwick tree", names.contains("树状数组 BIT"));
-    check("has complete knapsack", names.contains("完全背包 DP"));
+    check("has complete knapsack", names.contains("完全背包"));
     check("has tarjan cut vertex", names.contains("Tarjan 割点与桥"));
-    check("has hungarian", names.contains("二分图匹配 - 匈牙利算法"));
-    check("has heap adjust", names.contains("堆调整 up / down"));
+    check("has hungarian", names.contains("匈牙利算法"));
+    check("has heap adjust", names.contains("堆调整 up/down"));
     check("has heap sort", names.contains("堆排序"));
 
-    const QStringList targets = {"树状数组 BIT", "完全背包 DP", "Tarjan 割点与桥",
-                                 "二分图匹配 - 匈牙利算法", "堆调整 up / down", "堆排序"};
+    const QStringList targets = {"树状数组 BIT", "完全背包", "Tarjan 割点与桥",
+                                 "匈牙利算法", "堆调整 up/down", "堆排序"};
     for (const QString& target : targets) {
         w.probeSelectModule(target);
         app.processEvents();

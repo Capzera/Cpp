@@ -1,4 +1,4 @@
-﻿#include "SegmentTreeBuildModule.h"
+#include "SegmentTreeBuildModule.h"
 #include "ui/UiTheme.h"
 #include <QFont>
 #include <QRegularExpression>
@@ -12,12 +12,13 @@ static const QColor kSegPale = QColor(250, 250, 252);
 
 SegmentTreeBuildModule::SegmentTreeBuildModule() {}
 
-QString SegmentTreeBuildModule::getModuleName() const { return "线段树 - 建树"; }
-QString SegmentTreeBuildModule::getDefaultInput() const { return "4 100\n1 2 3 4"; }
+QString SegmentTreeBuildModule::getModuleName() const { return "线段树 (建树)"; }
+QString SegmentTreeBuildModule::getDefaultInput() const { return "4\n1 2 3 4"; }
 QString SegmentTreeBuildModule::getInputHint() const {
-    return "第一行输入 n 和 p：元素个数 n、模数 p\n"
+    return "第一行输入 n：元素个数 n\n"
            "接下来一行输入 n 个整数，即原数组 a[1..n]\n"
-           "本模块演示 build(1, 1, n, a) 自顶向下建树与自底向上 push_up";
+           "本模块演示 build(1, 1, n, a)：自顶向下递归建树，自底向上 push_up 合并区间和\n"
+           "约定 tr[] 存区间和，lz[] 存区间加法懒标记（建树阶段全为 0）";
 }
 
 void SegmentTreeBuildModule::buildLayout(QGraphicsScene* scene, const QString& inputData) {
@@ -25,7 +26,7 @@ void SegmentTreeBuildModule::buildLayout(QGraphicsScene* scene, const QString& i
     reset();
     m_scene = scene;
     QString error;
-    m_valid = SegmentTreeCommon::parseInput(inputData, m_arr, m_mod, error);
+    m_valid = SegmentTreeCommon::parseInput(inputData, m_arr, error);
     m_mathText = scene->addText(m_valid ? "build(1, 1, n, a)：自顶向下递归建树，自底向上 push_up 合并"
                                         : ("输入错误：" + error));
     m_mathText->setFont(QFont("Consolas", 14, QFont::Bold));
@@ -38,9 +39,8 @@ void SegmentTreeBuildModule::buildLayout(QGraphicsScene* scene, const QString& i
     m_nodeIds = layout.slotIds;
     m_slotCount = m_nodeIds.empty() ? 0 : m_nodeIds.back();
     m_trY = layout.firstRowY;
-    m_mulY = layout.firstRowY + layout.rowStep;
-    m_tr.assign(m_slotCount + 1, 0);
-    m_mul.assign(m_slotCount + 1, 0);
+    m_lzY = layout.firstRowY + layout.rowStep;    m_tr.assign(m_slotCount + 1, 0);
+    m_lz.assign(m_slotCount + 1, 0);
 
     const double cellW = 58.0;
     const double arrStartX = 150.0;
@@ -95,24 +95,24 @@ void SegmentTreeBuildModule::buildLayout(QGraphicsScene* scene, const QString& i
         scene->addItem(tr);
         m_trBlocks[nodeId] = tr;
         registerArraySlot(tr, "tr", nodeId);
-        ArrayBlock* mul = new ArrayBlock(nodeId, 0, QString::number(nodeId));
-        mul->showValue = false;
-        mul->setCellSize(slotW, 40.0);
-        mul->setPos(slotStartX + slotIndex * slotW, m_mulY);
-        mul->color = kSegGray;
-        scene->addItem(mul);
-        m_mulBlocks[nodeId] = mul;
-        registerArraySlot(mul, "mul", nodeId);
+        ArrayBlock* lz = new ArrayBlock(nodeId, 0, QString::number(nodeId));
+        lz->showValue = false;
+        lz->setCellSize(slotW, 40.0);
+        lz->setPos(slotStartX + slotIndex * slotW, m_lzY);
+        lz->color = kSegGray;
+        scene->addItem(lz);
+        m_lzBlocks[nodeId] = lz;
+        registerArraySlot(lz, "lz", nodeId);
         ++slotIndex;
     }
     QGraphicsTextItem* trTitle = scene->addText("tr");
     trTitle->setFont(QFont("Consolas", 13, QFont::Bold));
     trTitle->setDefaultTextColor(QColor(40, 70, 110));
     trTitle->setPos(slotStartX - 42, m_trY);
-    QGraphicsTextItem* mulTitle = scene->addText("mul");
-    mulTitle->setFont(QFont("Consolas", 13, QFont::Bold));
-    mulTitle->setDefaultTextColor(QColor(40, 70, 110));
-    mulTitle->setPos(slotStartX - 42, m_mulY);
+    QGraphicsTextItem* lzTitle = scene->addText("lz");
+    lzTitle->setFont(QFont("Consolas", 13, QFont::Bold));
+    lzTitle->setDefaultTextColor(QColor(40, 70, 110));
+    lzTitle->setPos(slotStartX - 42, m_lzY);
 
     m_ptrNode = new PointerBlock("node", kSegRed);
     m_ptrNode->setOpacity(0);
@@ -125,9 +125,9 @@ GraphNode* SegmentTreeBuildModule::treeNode(int nodeId) const {
     return it->second;
 }
 
-ArrayBlock* SegmentTreeBuildModule::mulBlock(int nodeId) const {
-    auto it = m_mulBlocks.find(nodeId);
-    if (it == m_mulBlocks.end()) return nullptr;
+ArrayBlock* SegmentTreeBuildModule::lzBlock(int nodeId) const {
+    auto it = m_lzBlocks.find(nodeId);
+    if (it == m_lzBlocks.end()) return nullptr;
     return it->second;
 }
 
@@ -152,28 +152,26 @@ std::vector<AnimFrame> SegmentTreeBuildModule::runAlgorithm() {
     if (!m_valid) return m_frames;
     for (int i = 1; i <= m_n; ++i) m_arr[i] = liveValue("a", i, m_arr[i]);
     m_tr.assign(m_slotCount + 1, 0);
-    m_mul.assign(m_slotCount + 1, 0);
+    m_lz.assign(m_slotCount + 1, 0);
     m_frames.push_back({ActionType::SEG_RESET, 0, 0, 0, 0, {}, "准备建树，所有节点尚未赋值", "build(1, 1, n, a)"});
 
     struct Task { int node, l, r; };
     std::vector<Task> stack;
     stack.push_back({1, 1, m_n});
-    std::vector<int> postOrder;
     std::vector<Task> visitOrder;
     while (!stack.empty()) {
         Task t = stack.back();
         stack.pop_back();
         visitOrder.push_back(t);
-        m_mul[t.node] = 1;
-        m_frames.push_back({ActionType::SEG_INIT_MUL, t.node, 0, 0, 0, {},
-                            QString("进入 build(node=%1, l=%2, r=%3)，先把 mul 置 1").arg(t.node).arg(t.l).arg(t.r),
-                            QString("mul[%1] = 1").arg(t.node)});
+        m_lz[t.node] = 0;
+        m_frames.push_back({ActionType::SEG_INIT_LZ, t.node, 0, 0, 0, {},
+                            QString("进入 build(node=%1, l=%2, r=%3)，本节点暂无懒标记").arg(t.node).arg(t.l).arg(t.r),
+                            QString("lz[%1] = 0").arg(t.node)});
         if (t.l == t.r) {
-            m_tr[t.node] = m_arr[t.l] % m_mod;
-            postOrder.push_back(t.node);
+            m_tr[t.node] = m_arr[t.l];
             m_frames.push_back({ActionType::SEG_LEAF, t.node, t.l, static_cast<int>(m_tr[t.node]), 0, {},
                                 QString("到达叶子 node=%1，取 a[%2] 的值").arg(t.node).arg(t.l),
-                                QString("tr[%1] = a[%2] %% p = %3").arg(t.node).arg(t.l).arg(m_tr[t.node])});
+                                QString("tr[%1] = a[%2] = %3").arg(t.node).arg(t.l).arg(m_tr[t.node])});
             continue;
         }
         int mid = (t.l + t.r) >> 1;
@@ -191,10 +189,10 @@ std::vector<AnimFrame> SegmentTreeBuildModule::runAlgorithm() {
         int lc = SegmentTreeCommon::ls(node);
         int rc = SegmentTreeCommon::rs(node);
         if (lc > m_slotCount || rc > m_slotCount) continue;
-        m_tr[node] = (m_tr[lc] + m_tr[rc]) % m_mod;
+        m_tr[node] = m_tr[lc] + m_tr[rc];
         m_frames.push_back({ActionType::SEG_PUSHUP, node, lc, static_cast<int>(m_tr[lc]), static_cast<int>(m_tr[rc]), {lc, rc},
                             QString("node=%1 汇总两个孩子的区间和").arg(node),
-                            QString("tr[%1] = (tr[%2] + tr[%3]) %% mod = %4").arg(node).arg(lc).arg(rc).arg(m_tr[node])});
+                            QString("tr[%1] = tr[%2] + tr[%3] = %4").arg(node).arg(lc).arg(rc).arg(m_tr[node])});
     }
 
     m_frames.push_back({ActionType::SEG_DONE, 1, 0, 0, 0, {}, "建树完成，根节点保存整个数组的和", "build 完成"});
@@ -217,17 +215,17 @@ void SegmentTreeBuildModule::renderFrame(const AnimFrame& frame) {
             kv.second->color = kSegGray;
             kv.second->update();
         }
-        for (auto& kv : m_mulBlocks) {
+        for (auto& kv : m_lzBlocks) {
             kv.second->showValue = false;
             kv.second->value = 0;
             kv.second->color = kSegGray;
             kv.second->update();
         }
         if (m_ptrNode) m_ptrNode->setOpacity(0);
-    } else if (frame.type == ActionType::SEG_INIT_MUL) {
-        ArrayBlock* blk = mulBlock(frame.u);
+    } else if (frame.type == ActionType::SEG_INIT_LZ) {
+        ArrayBlock* blk = lzBlock(frame.u);
         if (blk) {
-            blk->value = 1;
+            blk->value = 0;
             blk->showValue = true;
             blk->color = kSegBlue;
             blk->update();
@@ -278,7 +276,7 @@ void SegmentTreeBuildModule::renderFrame(const AnimFrame& frame) {
             QPointF sa = lb ? lb->pos() + QPointF(30, 0) : blk->pos();
             QPointF sb = rb ? rb->pos() + QPointF(30, 0) : blk->pos();
             playDualValueFlight(sa, sb, blk, frame.val1, frame.val2, kSegGreen);
-            int sum = (frame.val1 + frame.val2) % m_mod;
+            int sum = frame.val1 + frame.val2;
             node->setValueText(QString("tr=%1").arg(sum));
             node->color = QColor(240, 252, 242);
             node->setHighlightColor(kSegGreen);
@@ -299,12 +297,6 @@ void SegmentTreeBuildModule::renderFrame(const AnimFrame& frame) {
     }
 }
 
-void SegmentTreeBuildModule::refreshNodeLabels() {}
-
-QPointF SegmentTreeBuildModule::arraySlotPos(int index) const {
-    return QPointF();
-}
-
 void SegmentTreeBuildModule::onLiveDataChanged(const QString& row, int index, int value) {
     if (row == "a") {
         if (index >= 1 && index < static_cast<int>(m_arr.size())) m_arr[index] = value;
@@ -314,8 +306,8 @@ void SegmentTreeBuildModule::onLiveDataChanged(const QString& row, int index, in
         if (index >= 0 && index < static_cast<int>(m_tr.size())) m_tr[index] = value;
         return;
     }
-    if (row == "mul") {
-        if (index >= 0 && index < static_cast<int>(m_mul.size())) m_mul[index] = value;
+    if (row == "lz") {
+        if (index >= 0 && index < static_cast<int>(m_lz.size())) m_lz[index] = value;
     }
 }
 
@@ -323,18 +315,17 @@ void SegmentTreeBuildModule::reset() {
     m_frames.clear();
     m_treeNodes.clear();
     m_trBlocks.clear();
-    m_mulBlocks.clear();
+    m_lzBlocks.clear();
     m_aCells.clear();
     m_aBlocks.clear();
     m_ptrNode = nullptr;
     m_mathText = nullptr;
     m_arr.clear();
     m_tr.clear();
-    m_mul.clear();
+    m_lz.clear();
     m_nodes.clear();
     m_nodeIds.clear();
     m_n = 0;
-    m_mod = 100;
     m_slotCount = 0;
     m_valid = false;
 }
@@ -342,10 +333,9 @@ void SegmentTreeBuildModule::reset() {
 void SegmentTreeBuildModule::releaseSceneItems() {
     m_treeNodes.clear();
     m_trBlocks.clear();
-    m_mulBlocks.clear();
+    m_lzBlocks.clear();
     m_aCells.clear();
     m_aBlocks.clear();
     m_ptrNode = nullptr;
     m_mathText = nullptr;
 }
-

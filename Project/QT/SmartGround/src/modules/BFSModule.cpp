@@ -1,4 +1,4 @@
-﻿#include "BFSModule.h"
+#include "BFSModule.h"
 #include "GraphModuleUtils.h"
 #include "GraphRenderHelper.h"
 #include <QFont>
@@ -9,7 +9,7 @@ BFSModule::BFSModule() : m_headPointer(nullptr), m_tailPointer(nullptr), m_mathT
     reset();
 }
 
-QString BFSModule::getModuleName() const { return "广度优先搜索"; }
+QString BFSModule::getModuleName() const { return "BFS 广度优先搜索"; }
 QString BFSModule::getDefaultInput() const { return "7 8 1\n1 2\n1 3\n2 4\n2 5\n3 5\n3 6\n5 7\n6 7"; }
 bool BFSModule::supportsGraphOptions() const { return true; }
 bool BFSModule::supportsDirected() const { return true; }

@@ -1,4 +1,4 @@
-﻿#include "TarjanModule.h"
+#include "TarjanModule.h"
 #include "GraphModuleUtils.h"
 #include "GraphRenderHelper.h"
 #include <QRegularExpression>
@@ -8,7 +8,7 @@
 #include <QTimer>
 #include <QPointer>
 TarjanModule::TarjanModule() : stack_base_pos(750, 500) { initGraph(); }
-QString TarjanModule::getModuleName() const { return "强连通分量"; }
+QString TarjanModule::getModuleName() const { return "Tarjan 强连通分量"; }
 QString TarjanModule::getDefaultInput() const {
     return "6 8\n1 2\n2 3\n3 1\n3 4\n4 5\n5 6\n6 4\n2 6";
 }

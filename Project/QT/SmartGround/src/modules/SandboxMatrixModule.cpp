@@ -19,10 +19,6 @@ void SandboxMatrixModule::buildLayout(QGraphicsScene* scene, const QString& inpu
     m_scene = scene;
     reset();
     m_scene = scene;
-    m_mathText = scene->addText(getInputHint());
-    m_mathText->setFont(QFont("Consolas", 12, QFont::Bold));
-    m_mathText->setDefaultTextColor(QColor(40, 70, 110));
-    m_mathText->setPos(50, 20);
 
     std::vector<QPair<QString, QString>> kv;
     parseKeyValues(inputData, kv);
@@ -34,10 +30,7 @@ void SandboxMatrixModule::buildLayout(QGraphicsScene* scene, const QString& inpu
         else if (pair.first == "cols") cols = pair.second.toInt();
         else if (pair.first == "type") determinant = (pair.second.trimmed().toLower() == "determinant");
     }
-    if (rows < 1 || rows > 8 || cols < 1 || cols > 8) {
-        m_mathText->setPlainText("输入错误：rows / cols 需为 1 - 8 的整数");
-        return;
-    }
+    if (rows < 1 || rows > 8 || cols < 1 || cols > 8) return;
     m_determinant = determinant;
     rebuildMatrix(rows, cols);
 
@@ -70,7 +63,6 @@ void SandboxMatrixModule::rebuildMatrix(int rows, int cols) {
         m_matrix = nullptr;
     }
     m_matrix = new MatrixBlock(rows, cols);
-    m_matrix->setTitle(m_determinant ? "det(A)" : "A");
     if (m_determinant) {
         m_matrix->cellColor = QColor(252, 248, 238);
         m_matrix->gridColor = QColor(196, 168, 120);

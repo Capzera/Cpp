@@ -13,7 +13,7 @@ static const QColor kHnPale = QColor(250, 250, 252);
 
 HungarianModule::HungarianModule() {}
 
-QString HungarianModule::getModuleName() const { return "二分图匹配 - 匈牙利算法"; }
+QString HungarianModule::getModuleName() const { return "匈牙利算法"; }
 QString HungarianModule::getDefaultInput() const { return "3 3\n1 1\n1 2\n2 2\n3 3"; }
 
 bool HungarianModule::supportsGraphOptions() const { return true; }
@@ -148,8 +148,8 @@ std::vector<AnimFrame> HungarianModule::runAlgorithm() {
                                 QString("尝试匹配 L%1 - R%2").arg(u).arg(v)});
             if (matchRight.find(v) == matchRight.end()) {
                 m_frames.push_back({ActionType::HN_ASSIGN, u, v, 0, 0, {},
-                                    QString("右 %1 空闲，直接匹配 L%1 - R%2").arg(v).arg(u).arg(v),
-                                    QString("R%1 未被占用 → 匹配 L%1 - R%2").arg(v).arg(u).arg(v)});
+                                    QString("右 %1 空闲，直接匹配 L%2 - R%1").arg(v).arg(u),
+                                    QString("R%1 未被占用 → 匹配 L%2 - R%1").arg(v).arg(u)});
                 matchRight[v] = u;
                 matchLeft[u] = v;
                 return true;
@@ -160,8 +160,8 @@ std::vector<AnimFrame> HungarianModule::runAlgorithm() {
                                 QString("R%1 已被 L%2 占用 → 递归 augment(L%2)").arg(v).arg(holder)});
             if (augment(holder)) {
                 m_frames.push_back({ActionType::HN_BACKTRACK, u, v, holder, 0, {},
-                                    QString("左 %2 成功另找对象，右 %1 让给左 %1").arg(holder).arg(v).arg(u),
-                                    QString("L%2 腾出位置 → R%1 改配 L%3").arg(v).arg(holder).arg(u)});
+                                    QString("左 %1 成功另找对象，右 %2 让给左 %1").arg(holder).arg(v),
+                                    QString("L%1 腾出位置 → R%2 改配 L%3").arg(holder).arg(v).arg(u)});
                 matchRight[v] = u;
                 matchLeft[u] = v;
                 matchLeft.erase(holder);

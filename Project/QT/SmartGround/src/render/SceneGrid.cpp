@@ -3,6 +3,7 @@
 #include "ui/UiTheme.h"
 #include <QPainter>
 #include <QGraphicsScene>
+#include <QGraphicsView>
 #include <cmath>
 
 SceneGrid::Config SceneGrid::s_config;
@@ -10,29 +11,13 @@ SceneGrid::Config SceneGrid::s_config;
 void SceneGrid::setConfig(QGraphicsScene* scene, const Config& config) {
     s_config = config;
     if (!scene) return;
-    for (QGraphicsItem* item : scene->items()) {
-        if (dynamic_cast<GridGuideLayer*>(item)) {
-            item->update();
-            return;
-        }
+    if (GridGuideScene* guided = dynamic_cast<GridGuideScene*>(scene)) {
+        guided->refresh();
     }
 }
 
 SceneGrid::Config SceneGrid::currentConfig() {
     return s_config;
-}
-
-void SceneGrid::attach(QGraphicsScene* scene, const Config& config) {
-    if (!scene) return;
-    s_config = config;
-    for (QGraphicsItem* item : scene->items()) {
-        if (dynamic_cast<GridGuideLayer*>(item)) {
-            item->update();
-            return;
-        }
-    }
-    GridGuideLayer* layer = new GridGuideLayer(scene);
-    layer->setZValue(-100);
 }
 
 QPointF SceneGrid::snapToCell(const QPointF& pos, const Config& config) {
@@ -84,11 +69,14 @@ QPolygonF SceneGrid::hexagonAt(const QPointF& center, qreal radius) {
     return poly;
 }
 
-void SceneGrid::drawGuides(QPainter* painter, const QGraphicsScene* scene, const Config& config) {
-    if (!painter || !scene) return;
-    QRectF bounds = scene->itemsBoundingRect().adjusted(-300, -300, 300, 300);
+void SceneGrid::drawGuides(QPainter* painter, const QRectF& bounds, const Config& config) {
+    if (!painter) return;
+    if (!config.enabled || !config.showGuides) return;
     qreal step = config.cell > 0 ? config.cell : 56.0;
+    if (step <= 0.0) return;
 
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(QPen(UiTheme::canvasGrid(), 1, Qt::DotLine));
     for (qreal x = std::floor(bounds.left() / step) * step; x <= bounds.right(); x += step) {
         painter->drawLine(QPointF(x, bounds.top()), QPointF(x, bounds.bottom()));
@@ -96,26 +84,25 @@ void SceneGrid::drawGuides(QPainter* painter, const QGraphicsScene* scene, const
     for (qreal y = std::floor(bounds.top() / step) * step; y <= bounds.bottom(); y += step) {
         painter->drawLine(QPointF(bounds.left(), y), QPointF(bounds.right(), y));
     }
+    painter->restore();
 }
 
-GridGuideLayer::GridGuideLayer(QGraphicsScene* scene) {
-    setZValue(-100);
-    setAcceptedMouseButtons(Qt::NoButton);
-    setFlag(QGraphicsItem::ItemIsSelectable, false);
+GridGuideScene::GridGuideScene(QObject* parent) : QGraphicsScene(parent) {
+    setBackgroundBrush(UiTheme::canvasBg());
 }
 
-void GridGuideLayer::refresh() {
-    update();
+void GridGuideScene::refresh() {
+    if (views().isEmpty()) {
+        setSceneRect(sceneRect());
+        return;
+    }
+    for (QGraphicsView* view : views()) {
+        view->viewport()->update();
+    }
 }
 
-QRectF GridGuideLayer::boundingRect() const {
-    if (!scene()) return QRectF();
-    return scene()->itemsBoundingRect().adjusted(-600, -600, 600, 600);
-}
-
-void GridGuideLayer::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) {
+void GridGuideScene::drawBackground(QPainter* painter, const QRectF& rect) {
+    QGraphicsScene::drawBackground(painter, rect);
     SceneGrid::Config cfg = SceneGrid::currentConfig();
-    if (!cfg.showGuides) return;
-    painter->setRenderHint(QPainter::Antialiasing);
-    SceneGrid::drawGuides(painter, scene(), cfg);
+    SceneGrid::drawGuides(painter, rect, cfg);
 }

@@ -16,6 +16,13 @@
 #include "ui/widgets/MyCheckBox.h"
 #include "ui/widgets/MyCollapsible.h"
 #include "ui/widgets/MySlider.h"
+#include "canvas/ToolController.h"
+
+class CanvasView;
+class AnnotationScene;
+class ToolController;
+class CanvasToolBar;
+class MyTextEdit;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -24,6 +31,7 @@ public:
     ~MainWindow();
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 private slots:
     void onModuleChanged(int index);
     void onBtnBuildClicked();
@@ -39,6 +47,10 @@ private slots:
     void onFrameSliderReleased(int value);
     void seekToFrame(int index);
     void syncFrameSlider();
+    void onExportPdf();
+    void onClearAnnotations();
+    void onAnnotationVisibilityToggled();
+    void onAnnotationLockToggled();
 private:
     void setupUI();
     void applyStyleSheet();
@@ -56,6 +68,10 @@ private:
     void finishAutoPlay();
     void advanceFrame();
     int frameDelayMs(const AnimFrame& frame) const;
+    void setupCanvasTools();
+    void exportCanvasToPdf(const QString& path);
+    void syncAnnotationToolButtons(int tool);
+    QString toolName(ToolController::Tool tool) const;
 
     MyComboBox *comboModules;
     MyTextEdit *textInput;
@@ -63,7 +79,7 @@ private:
     MySlider *frameSlider;
     QLabel *labelStatus;
     QLabel *labelFrameBadge;
-    QGraphicsView *graphicsView;
+    CanvasView *graphicsView;
     QGraphicsScene *graphicsScene;
     QWidget *graphPanelHost;
     MyCollapsible *graphPanel;
@@ -73,6 +89,7 @@ private:
     QLabel *labelWeightHint;
     QVBoxLayout *leftLayout;
     std::vector<IModule*> registeredModules;
+    std::vector<int> comboToModule;
     IModule* currentModule;
     std::vector<AnimFrame> m_frames;
     int m_frameIndex;
@@ -88,6 +105,15 @@ private:
     QTimer *m_settleTimer;
     QElapsedTimer m_frameClock;
 
+    AnnotationScene* m_annotationScene = nullptr;
+    ToolController* m_toolController = nullptr;
+    CanvasToolBar* m_canvasToolBar = nullptr;
+    MyButton* m_btnExportPdf = nullptr;
+    MyButton* m_btnClearAnnotations = nullptr;
+    MyButton* m_btnToggleAnnotations = nullptr;
+    MyButton* m_btnLockAnnotations = nullptr;
+    bool m_annotationsVisible = true;
+    bool m_annotationsLocked = false;
     friend class UiBehaviorProbe;
     friend class GroupAProbe;
 
@@ -103,6 +129,14 @@ public:
     QStringList probeModuleNames() const {
         QStringList names;
         for (int i = 1; i < comboModules->count(); ++i) names << comboModules->itemText(i);
+        return names;
+    }
+    QStringList probeUniqueModuleNames() const {
+        QStringList names;
+        for (IModule* m : registeredModules) {
+            const QString name = m->getModuleName();
+            if (!names.contains(name)) names << name;
+        }
         return names;
     }
     void probeSelectModule(const QString& name) {

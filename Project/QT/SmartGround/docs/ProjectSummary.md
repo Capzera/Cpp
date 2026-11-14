@@ -8,11 +8,12 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 
 ## 当前代码状态
 
-- 菜单中注册了 37 个可运行模块（32 个算法模块 + 5 个自由结构沙盒模块）。
+- 菜单中注册了 37 个唯一可运行模块（32 个算法模块 + 5 个自由结构沙盒模块），因跨分支别名下拉条目共 38 个。
 - 已无待实现的头文件骨架。
-- 本轮改动已通过 Qt 6.11.1 / MinGW 13.1 Debug 构建，29 个测试套件在 `offscreen` 与 `windows` 两种平台下串行全绿。
+- 本轮改动已通过 Qt 6.11.1 / MinGW 13.1 Debug 构建，42 个测试套件在 `offscreen` 平台下串行全绿。
 - 项目已纳入 `D:\Program\Cpp` 的 Git 仓库（SmartGround 位于 `Project/QT/SmartGround` 子路径），可查看提交历史与工作树状态。
 - 根目录 main.cpp 是辅助入口；CMake 实际编译 src/main.cpp。
+- Release 产物以 Windows GUI 子系统链接（`WIN32_EXECUTABLE TRUE`），`windeployqt` 打包后不再弹出黑色控制台窗口。
 
 ### 已注册模块
 
@@ -23,7 +24,7 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 - 动态规划：Knapsack01Module、KnapsackCompleteModule、LISModule
 - 字符串：KMPNextModule（已改造为 `pi[]` 1-indexed + `#` 哨兵）、KMPMatchModule（匹配过程）
 - 线段树：SegmentTreeBuildModule（建树）、SegmentTreeTagModule（区间乘/加懒标记）、SegmentTreeQueryModule（区间查询）
-- 自由结构沙盒（不含算法，仅作讲题草稿）：SandboxArrayModule、SandboxMatrixModule、SandboxTreeModule、SandboxGraphModule、SandboxLatexModule
+- 自由结构沙盒（不含算法，仅作讲题草稿）：SandboxArrayModule、SandboxMatrixModule、SandboxTreeModule、SandboxGraphModule、SandboxBlankModule（空白画布，供老师叠加批注）
 
 ## 核心架构
 
@@ -34,12 +35,136 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 - src/modules/SegmentTreeCommon.h 提供线段树共用的 `ls`/`rs` 移位约定、输入解析、树形拓扑生成（节点坐标由递归二分展开）。
 - src/modules/SegmentTreeEditBase.h 为懒标记与查询两模块的共享基类，统一树布局、`tr`/`add`/`mul` 三条物理数组、节点高亮与指针移动逻辑。
 - src/modules/HeapTreeBase.h 为堆类模块的共享基类，统一层序数组排布、完全二叉树拓扑构建与数组值到树节点的同步。
+- src/modules/TwoRowArrayModule.h 为前缀和 / 差分等「双行数组」模块的共享基类，统一输入解析、双行布局构建、`PD_*` 帧渲染与多源数字飞入动画。
 - src/render/GraphElements.h 与 cpp 定义数组、指针、栈、图节点和可交互图边等图元；`GraphNode` 另支持子标签（区间 `[l,r]`）、值文本（`tr=值`）与懒标记徽章（`tagText` + `tagColor`）；`GraphEdge` 支持自定义线宽（`setPenWidth()`），供割点桥模块把桥加粗高亮。
 - src/render/SceneGrid.h 提供隐形对齐网格（磁吸对齐 + 单元格吸附 + Ctrl 自由拖动）。
 - src/core/ViewportFitter.h 统一画布居中与自适应缩放。
+- src/canvas/ 为画布批注层（双层架构，详见下方「画布批注层」章节）：AnnotationScene、AnnotationItem 及其子类 StrokeItem / ShapeItem / TextBoxItem / MarkdownItem / LatexItem / CanvasTableItem，ToolController 工具状态机，CanvasView 叠加渲染，LatexService Node 渲染助手。
 - src/ui/UiTheme.h 为全项目设计令牌（颜色、圆角、间距、字体）。
-- src/ui/widgets/ 为自研控件库：MyButton、MyToggleSwitch、MyRadioButton、MyCheckBox、MyComboBox、MyTextEdit、MyCollapsible。MyComboBox 为真正的 `Qt::Popup` 浮层（自绘圆角卡片 + 投影 + 内嵌滚动区），长列表可滚动。
-- src/ui/MainWindow.cpp 管理模块注册、输入、构建、录制、播放、撤销和循环播放，并渲染图结构选项面板。
+- src/ui/widgets/ 为自研控件库：MyButton、MyToggleSwitch、MyRadioButton、MyCheckBox、MyComboBox、MyTextEdit、MyCollapsible、ToolIconButton。MyComboBox 为真正的 `Qt::Popup` 浮层（自绘圆角卡片 + 多层柔和投影 + 内嵌滚动区），长列表可滚动；支持 `addGroup()` 分组模式，展开为 11 类分组的 3 列按钮瓦片网格（冷调渐变瓦片 + hover 发光边框 + 彩色分节标题），类内按课程进度排序。ToolIconButton 以 `QPainterPath` 手工绘制矢量图标，供浮动轻套件使用。
+- src/ui/MainWindow.cpp 管理模块注册、输入、构建、录制、播放、撤销和循环播放，并渲染图结构选项面板；模块按 11 个分类分组注册，`comboToModule` 把下拉条目序号映射到唯一模块实例下标，使同一模块可跨分支出现（如 Kruskal 同时挂在「并查集」与「图论 · 最小生成树」）。
+
+## 画布批注层（双层架构，2026-11-14 三轮落地）
+
+### 架构
+
+- **双层画布**：下层 `GridGuideScene` 承载算法图元，上层 `AnnotationScene` 独立承载批注图元。上层不进入下层的 `itemsBoundingRect()`，因此 `ViewportFitter` 的居中与缩放永远只由算法内容决定，批注不会把画布顶偏。
+- **叠加渲染**：`CanvasView::drawForeground()` 用 `QGraphicsScene::render()` 把上层场景按视口变换贴到算法层之上。绘制器在该回调中已带视图变换，因此**不能再叠加 `setTransform(transform())`**（会二次变换），也**不能用视口像素坐标裁剪**（`drawForeground` 的 painter 处于场景坐标系，负坐标内容会被整体裁掉，见 BUG-109）。
+- **所有权**：`AnnotationScene` 用 `m_owned` 列表统一持有全部批注图元，`ToolController` 只负责挂载 / 卸载，不持有也不销毁任何图元。这样清空重做栈时不会误删已经通过撤销复活的图元（BUG-110）。
+
+### 工具（Batch 1）
+
+- 14 种工具：指针 / 选中 / 画笔 / 荧光笔 / 橡皮 / 直线 / 方框 / 圆形 / 箭头 / 三角 / 马赛克 / 文本框 / Markdown / LaTeX / 表格。
+- `ToolController` 作为视口事件过滤器拦截原生 `QMouseEvent`，再经 `view->mapToScene()` 换算场景坐标。**不要**向 `viewport()` 投递合成的 `QGraphicsSceneMouseEvent`：`QApplication::notify` 会把它当作 `QEventPoint` 处理并访问 `QEventPoint::position()`，直接崩溃。
+- Shift 约束：直线 / 箭头吸附 45°；方框 / 圆形锁定正方形 / 正圆；三角形按等边三角形（高 = 边长 × √3/2）定位。
+- 橡皮只命中上层批注图元并跳过锁定项，对下层算法结构零影响。
+
+### 选中与历史（Batch 2）
+
+- 框选矩形与选区命中测试都在上层完成，移动只改批注图元 `pos()`，缩放以选区中心为轴，**绝不改动下层结构**。
+- 撤销 / 重做栈区分 `Add` / `Remove` 两类命令；`Ctrl+Z` / `Ctrl+Y` / `Ctrl+Shift+Z` 三向快捷键同时挂在视口与主窗口上。
+- 样式条：颜色取色盘、粗细滑块、不透明度滑块、撤销 / 重做、显隐切换、锁定切换、表格行列滑块、文本字号滑块、加粗 / 斜体 / 下划线。（Batch 2 的样式条为平铺形态，已在 BUG-113 中重构为浮动轻套件的「样式 / 更多」两个互斥浮层。）
+
+### 卡片（Batch 3）
+
+- **Markdown 卡片**：`QTextDocument::setMarkdown(..., MarkdownDialectGitHub)` + GitHub 风格样式表，固定宽度自动换行；双击经 `AnnotationEditor` 左编辑右实时预览。
+- **LaTeX 公式卡片**：常驻 Node 助手 `tools/latex/serve.js`（`mathjax-full`）以 JSON 行协议渲染 SVG，`QSvgRenderer` 贴进卡片；双击改源码后实时重渲染。
+- **富文本框**：字体族 / 字号 / 加粗 / 斜体 / 下划线 / 文字颜色可调。
+- **可编辑表格**：行列数可配，双击单元格就地编辑；与「自由结构 - 行列式」的区别是**单元格默认为空字符串而非 0**。
+- **编辑器对话框** `src/ui/widgets/AnnotationEditor`：纯文本 / Markdown / LaTeX 三种模式，全部自绘，不引入原生输入控件。
+
+### 导出与快捷键
+
+- `MainWindow::exportCanvasToPdf()` 自动取两层 `itemsBoundingRect()` 的并集作为画布范围，加 40px 边距后按页面尺寸等比缩放，`QPdfWriter` 输出单页 PDF。
+- 工具快捷键：`V` 指针 / `A` 选中 / `B` 画笔 / `H` 荧光笔 / `E` 橡皮 / `L` 直线 / `R` 方框 / `O` 圆形 / `D` 箭头 / `T` 三角 / `M` 马赛克 / `N` 文本 / `G` 笔记 / `X` 公式 / `I` 表格。
+- 颜色快捷键：`1`~`7` 红 / 绿 / 蓝 / 黄 / 橙 / 粉 / 深灰；`Alt + R/G/B/Y/O/P/K` 备用。
+
+## 画笔手感升级（2026-11-14，ZoomIt 风格，BUG-114 / 115 / 116）
+
+### 笔迹锯齿（BUG-114）
+
+- **根因**：`StrokeItem::buildPath()` 用 `QPainterPath::lineTo()` 直接连**原始鼠标采样点**，得到的是折线而非曲线；鼠标移动越快采样越稀，阶梯状棱角越明显。
+- **处置**：`smoothPoints()` 改为 **Catmull-Rom 转三次贝塞尔**插值——每段取 `p0..p3`，控制点 `c1 = p1 + (p2-p0)/6`、`c2 = p2 - (p3-p1)/6`，每段细分 12 步采样，彻底消除折角。
+- **渲染**：`paint()` 不再描边，而是沿平滑路径逐点求切线法向、左右各偏移**半个笔宽**生成左右轮廓，合拢为闭合**丝带多边形**后填充。笔画边缘随曲线走向自然过渡，宽度恒定且无锯齿。
+- **降噪**：最小采样间距 `kMinSampleDistance = 0.9`，剔除鼠标抖动点。
+
+### 不实时刷新（BUG-115，架构性缺陷）
+
+- **根因**：批注层是独立的 `AnnotationScene`，**从未挂接到任何 `QGraphicsView`**。因此 `StrokeItem::update()` 与 `AnnotationScene::removeItem()` 触发的只是「无人观看的场景」自身的重绘调度，`CanvasView::drawForeground()` 根本不会被调用。缩放 / 平移之所以能「刷新」，是因为那会触发 `CanvasView` 整体重绘。
+- **处置**：
+  - `AnnotationScene` 新增 `setHostView()` / `hostView()`；`CanvasView::setAnnotationScene()` 自动完成挂接。
+  - `AnnotationScene::addItem()` / `removeItem()` / `destroyItem()` 变更后立即 `m_hostView->viewport()->update()`。
+  - `AnnotationItem` 新增 `contentChanged()` 信号与 `notifyContentChanged()`；`AnnotationScene::addItem()` 为每个图元连接该信号，**笔画绘制过程中每加一个采样点即通知画布重绘**，不再等到松手才出现。
+  - `ToolController` 的 `updateStroke` / `finishStroke` / `updateShape` / `finishShape` / `updateEraseDrag` / `finishEraseDrag` 均显式调用 `m_view->refreshOverlay()`。
+- **实测**：按下鼠标尚未松开即已可见 629 像素；拖动时笔画实时增长 629 → 1819；擦除即刻生效 3149 → 128；撤销后实时复原。
+
+### 橡皮（BUG-116）
+
+- **根因**：橡皮在 `onMousePress()` 里一次性调用 `eraseAt(pos)`，`onMouseMove()` 中橡皮分支缺失，**按住拖动完全无效**；且命中判定用 `shape().contains()`，而平滑后的曲线偏离原始采样点，命中容差为零。
+- **处置**：新增 `beginEraseDrag()` / `updateEraseDrag()` / `finishEraseDrag()`，按住拖动连续擦除，路径上按 `eraserRadius * 0.4` 步长插值采样逐段擦除。
+- **命中统一**：`AnnotationItem::hitTest(scenePos, radius)` 虚函数；`StrokeItem` 覆写为「样条轮廓命中 **或** 距任一原始采样点 ≤ 半径 + 半笔宽」，兼顾平滑偏差与细笔画。
+- **可视化**：`CanvasView::drawForeground()` 在橡皮激活时绘制**红色描边 + 半透明填充圆环**，实时跟随鼠标，直观显示擦除范围。
+
+### ZoomIt 风格增强
+
+- **荧光笔**：新增 `StrokeItem::Mode { Ink, Highlighter }`；alpha 0.38、宽度为普通笔 2.4 倍、`FlatCap + RoundJoin` 马克笔笔头，**叠加处不加深**；快捷键 `H`。
+- **滚轮调笔宽**：画笔 / 荧光笔激活时滚轮增减笔宽（0.5px 步进，1~40px）；橡皮激活时滚轮增减橡皮半径（2px 步进）——ZoomIt 最具辨识度的操作手感。
+- **数字键换色**：`1`~`7` 切换 红 / 绿 / 蓝 / 黄 / 橙 / 粉 / 深灰；`Alt + R/G/B/Y/O/P/K` 为备用组合（`B`/`R`/`G`/`O` 已占用为工具快捷键，故不用裸字母）。
+- **橡皮尺寸**：样式浮层新增「橡皮」滑块（4~60px）。
+
+## 浮动轻套件（2026-11-14 重构，BUG-113）
+
+### 布局回归的根因与处置
+
+- **根因**：`CanvasToolBar` 此前被 `rightLayout->addWidget(...)` 塞进主窗口主布局，内部用 `FlowLayout` 按自然宽度一行铺开 14 个文字按钮 + 5 个滑块 + 色块 + 8 个动作按钮，把窗口自然宽度撑到 1920px 屏外。
+- **处置**：工具条改为**浮动覆盖层**，不再参与任何布局计算，因而对窗口尺寸零贡献。
+
+### 结构
+
+- `CanvasToolBar` 以 `CanvasView` 为父级的透明覆盖层（`WA_TranslucentBackground`），顶边居中悬浮，不吃鼠标事件（画布其余区域照常绘制与交互）。
+- **主条**（451 × 50px）：10 个 34px 矢量图标按钮（指针 / 选中 / 画笔 / 橡皮 / 直线 / 方框 / 圆形 / 箭头 / 三角 / 马赛克）+ 分隔线 + 样式入口 + 更多入口。
+- **样式浮层**：颜色取色盘、粗细滑块、不透明度滑块、加粗 / 斜体 / 下划线、字号滑块。
+- **更多浮层**：文本框 / Markdown / LaTeX / 表格四个插入图标、表格行列滑块、撤销 / 重做 / 删除、批注显隐 / 锁定、导出 PDF / 清空批注。
+- 两个浮层**互斥展开**，按宿主尺寸自动避让左右与上下边界；宿主 `Resize` 时经 `eventFilter` 重新定位。
+- 矢量图标由新增 `src/ui/widgets/ToolIconButton.cpp` 用 `QPainterPath` 手工绘制，**不依赖 Segoe UI Symbol 字形**，从根本上杜绝缺字方框。
+
+### 收益
+
+- 窗口自然宽度 **694px**、`minimumSizeHint` **558px**，1080p（1920 × 1080）下宽裕。
+- `CanvasToolBar` 不再拥有 `MyButton` 导出 / 清空实例，改由 `exportRequested` / `clearRequested` 信号转交 `MainWindow`，避免同一动作出现两套控件。
+
+### 下拉分类标题修复（BUG-112）
+
+- **根因**：`ComboSectionHeader::paintEvent()` 用 `painter.setBrush(渐变)` + `painter.setPen(Qt::NoPen)` 后调用 `drawText()`。`QPainter::drawText()` **只使用画笔绘制文字、忽略画刷**，于是分类标题被以 `NoPen` 绘制 = 完全隐形。逐像素采样截图证实：标题行只有 `(59,125,221)` 强调色竖条，深色文字像素为 **0**。
+- **处置**：标题改用 `painter.setPen(深色)` 绘制；竖条与尾部装饰线继续用画刷。强调色过浅时回退 `UiTheme::textPrimary()` 保证对比度。
+- 该缺陷此前的两次修复（`lighter(128)` → `darker(140/110)`）都只是调色，未触及「`drawText` 忽略画刷」这一根因，故未能奏效。
+
+## 本轮三项缺陷修复（2026-11-14）
+
+1. **下拉分类标题不可见**：真实根因见上方「下拉分类标题修复（BUG-112）」——`drawText` 只用画笔绘制，代码却把它设成了 `NoPen`。早先的调色修复方向错误，现已改为画笔绘制并加对比度兜底。
+2. **Release 黑框与内部告警**：`MyCollapsible` 补 `Q_PROPERTY(qreal ratio ...)`（此前 `QPropertyAnimation` 指向未声明属性）；清理 KMP / Heap 中无占位符却调用 `.arg()` 的文案，并把 `HungarianModule` 的重复占位符改成显式编号；CMake 为 `SmartGround` 设置 `WIN32_EXECUTABLE TRUE`，Release 产物不再附带控制台（BUG-107）。
+3. **Dijkstra 结点改值叠字**：`GraphNode::paint()` 里 `customValueText` 与 `value > 0` 兜底分支同时生效，导致新值与旧值叠在一起。兜底分支改为仅在 `valueText` 与 `customValueText` 皆空时生效，`commitEdit()` 统一走 `setValueText()`（BUG-108）。
+
+## 本轮调整（2026-11-14，分层格阵 / 科技感下拉 / 命名精简 / 代码瘦身）
+
+1. **下拉浮层边缘暗线修复**：原先浮层阴影绘制在 `ComboPopupFrame` 上但被浮层矩形裁剪，多层圆角阴影的右下溢出被硬切成直角暗带。现改用「外环 - 内环」奇偶填充差集路径逐层绘制柔和投影（12 环、向下偏移 4px），浮层外边距放宽至 18/18/18/22、宽度补偿 +36，卡片边框改半透明。
+2. **树状数组二叉分层格阵**：底层是完整数组 `a[1..n]`，其上按 `ctz(i)`（`log2(lowbit(i))`）分 `floor(log2(n))+1` 层；第 `k` 层的 `t[i]` 块宽度 = `lowbit(i) * cellW`、水平覆盖 `[i-lowbit(i)+1, i]`，每层标注 `L0..Lk`、`lowbit` 与覆盖区间，层间以半透明梯形引导线连接。
+3. **树状数组合并动画**：新增 `ActionType::FT_MERGE`，构建序列改为自底向上的二叉合并 `t[i] = t[i-2^(k-1)] + a[i-2^(k-1)+1] + ... + a[i]`；渲染时兄弟块与底层 `a[]` 格的数字**同时飞入** `t[i]` 合成新值（例：`c2 = c1 + a2`）。为此在 `IModule` 新增 `playMultiValueFlight()`，支持任意数量来源的弧线飞入。
+4. **下拉科技感升级**：瓦片改为冷调渐变 + 细边框 + hover 发光边框 + 左侧强调条 + 选中态顶部高光条；分节标题改为彩色竖条 + 渐变标题文字 + 尾部渐隐短横线（原横贯分割线已移除）；全部字体统一 `UiTheme::uiFont()`（Microsoft YaHei UI）。
+5. **分组细化与跨分支**：分组由 4 类细化为 11 类（自由结构 / 数学基础 / 线性结构 / 经典排序 / 堆结构 / 并查集 / 树状数组 / 线段树 / 图论算法 / 匹配与动态规划 / 字符串算法），Kruskal 可同时出现在「并查集」与「图论 · 最小生成树」。
+6. **命名精简**：16 个模块显示名改为短标签（匈牙利算法、线段树 (lz标记)、KMP (pi数组)、Dijkstra 最短路、01 背包、堆调整 up/down 等）。
+7. **代码瘦身**：新增 `TwoRowArrayModule` 公共基类收敛前缀和 / 差分的重复样板（约 -45%）；删除死文件 `ArrayModule.h/.cpp` 与 `IModuleHelpers.h`；清理 `IModule` 8 个无调用方辅助函数、`GraphRenderHelper.h` 2 个未用函数、`HeapTreeBase.h` 从未写入的 `m_relationLabels`；同步更新两份 `CMakeLists.txt`。
+
+## 上一轮八项调整（2026-11-14）
+
+1. **线段树-建树** 精简为第一节课形态：只留 `tr[]` 与 `lz[]` 两行，删除 `mul[]` 与全部 `% p` 取模；`push_up` = `tr[ls] + tr[rs]`，叶子 = `a[l]`；输入只需 `n` 与 `a[1..n]`。
+2. **树状数组** 改用嵌套三角几何：`t[i]` 为顶点、其覆盖区间对应的 `a` 格为底边，绘制半透明填充三角并向区间内每格拉辐射线，形成「大三角套小三角」的经典结构图。（该实现已被本轮的二叉分层格阵取代，见上文第 2、3 条）
+3. **五个自由结构沙盒** 清空画布文字（`FreeStructureBase::showHint()` 空实现、不再创建 `m_mathText`），只保留纯数据结构图元。
+4. **沙盒-图结构** 每行支持 `u v` 或 `u v w`；写 3 个数该边带权，写 2 个数不带权，无任何默认权值注入。
+5. **图结点与边权** 全面支持双击就地编辑：`IModule::enableLiveEditing()` 为未登记的结点（行 `"v"`）与边（行 `"w"`）自动补槽位；无权边双击后自动补上权值；结点新值直接显示在圆内。
+6. **右下角进度条** 旋钮不再被裁切：`MySlider` 引入左右对称内边距 14px，旋钮圆心始终落在 `[14, width-14]` 内，辉光按可用半径逐环裁剪。
+7. **算法模块下拉** 改为分组按钮网格：`MyComboBox::addGroup()` + `ComboTile` / `ComboSectionHeader`，四个分类、每类 3 列瓦片、类内按课程进度排序。
+8. **堆结构动画** 重构：结点值写在圆内（`customValueText`）、1-based 序号写在圆外上方（`subLabel`）；交换帧真正互换数组块与结点值；下方完整二叉树数组行实时高亮 `i/2`、`2i`、`2i+1` 父子关系并给出关系说明文字。
 - docs/outlines.md 记录算法教学需求；docs/ModuleStatus.md 记录实现状态；docs/BugLog.md 记录缺陷和修复。
 
 ## 实时可编辑数据（老师中途改值真实生效）
@@ -85,6 +210,7 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 
 - 每次构建图形后统一走 `ViewportFitter::fitToItems()`：先 `fitInView(KeepAspectRatio)`，再钳制缩放区间（0.25 - 2.4），最后 `centerOn` 内容中心，保证图形永远居中且大小合适。
 - 节点拖动时启用 `SceneGrid::magneticAlign()`：18px 半径内自动吸附到邻近节点的横纵坐标轴，其余情况按 56px 单元格吸附；按住 `Ctrl` 可临时关闭吸附进行自由摆放。
+- 网格参考线走**场景背景层**而非场景图元：`GridGuideScene`（继承 `QGraphicsScene`）覆写 `drawBackground()` 绘制淡色点线，`MainWindow` 直接以它作为画布场景。这样网格既不进入 `itemsBoundingRect()`（不影响居中与缩放适配），也不会被 `clearScene()` 的 `scene->clear()` 清掉。（详见 BUG-105：旧实现因图元未加入场景且 `boundingRect()` 自引用递归，网格其实从未绘制过。）
 
 ## 数组下标与表格排版规范
 
@@ -206,10 +332,12 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 
 ## 当前开发优先级
 
-1. **线段树建树（SegmentTreeBuildModule）**：补齐最后一个已有头文件骨架，闭合项目「一课一模块」的骨架清单。
-2. **KMP 匹配过程**：与已完成的 KMP Next 预处理构成完整闭环，是大纲中最自然的下一步。
-3. **完全背包 DP**：复用 01 背包的二维网格渲染管线，改动量最小、复用度最高。
-4. **线段树单点修改与区间查询**：接在建树之后，共享同一套树形布局。
+1. **批注层深化**：把 LaTeX 公式卡的实时预览也搬进 `AnnotationEditor`（目前预览区只显示源码文本），并让 Markdown 预览支持代码块语法高亮。
+2. **批注与算法联动**：把批注层随模块切换自动归档 / 恢复，避免切换模块时批注被误清。
+3. **线段树建树（SegmentTreeBuildModule）**：补齐最后一个已有头文件骨架，闭合项目「一课一模块」的骨架清单。
+4. **KMP 匹配过程**：与已完成的 KMP Next 预处理构成完整闭环，是大纲中最自然的下一步。
+5. **完全背包 DP**：复用 01 背包的二维网格渲染管线，改动量最小、复用度最高。
+6. **线段树单点修改与区间查询**：接在建树之后，共享同一套树形布局。
 
 新算法模块先提交动画分镜，包括游标数量、暂存结构、标签、颜色语义和帧序列，再等用户确认后实现。
 
@@ -217,7 +345,7 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 
 所有任务遵循根目录 .cursorrules 与 Cursor_Workflow.md。Codex 使用 AGENTS.md 获取项目级约束，Cursor 使用 .cursor/rules/smartground-project.mdc。修复缺陷或改变模块状态时，同步更新 BugLog.md、ModuleStatus.md 和本摘要。
 
-代码验证以当前 Qt/CMake 配置为准。本轮 Release 与 Debug 构建均通过；`tests/` 无头自动化测试覆盖极端输入、动画中断清理、边权跟随、箭头几何、UI 状态机、单元格单线边框、就地编辑崩溃回归，全部通过（27 个测试套件全绿）。GUI 交互和算法结果测试尚未执行。
+代码验证以当前 Qt/CMake 配置为准。本轮 Release 与 Debug 构建均通过；`tests/` 无头自动化测试覆盖极端输入、动画中断清理、边权跟随、箭头几何、UI 状态机、单元格单线边框、就地编辑崩溃回归、画布批注层工具与渲染、浮动工具套件布局与下拉分类标题像素，全部通过（42 个测试套件全绿）。GUI 交互和算法结果测试尚未执行。
 
 ## 工程整洁度（2026-11-14）
 

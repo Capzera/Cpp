@@ -6,12 +6,13 @@
 SandboxGraphModule::SandboxGraphModule() {}
 
 QString SandboxGraphModule::getModuleName() const { return "自由结构 - 图结构"; }
-QString SandboxGraphModule::getDefaultInput() const { return "5\n1 2\n1 3\n2 4\n3 4\n4 5"; }
+QString SandboxGraphModule::getDefaultInput() const { return "5\n1 2 3\n1 3 2\n2 4 5\n3 4 1\n4 5 4"; }
 QString SandboxGraphModule::getInputHint() const {
     return "第一行输入顶点数 n\n"
-           "接下来每行输入一条边的两个端点 u v\n"
+           "接下来每行输入一条边的三个数 u v w：端点 u、端点 v、边权 w\n"
+           "若某行只写了两个数 u v，则该条边不带权（画图时不显示权值）\n"
            "提示：可在左侧「图结构选项」切换有向 / 无向、双向箭头\n"
-           "节点与边均可自由拖动";
+           "节点与边均可自由拖动，双击节点或边权可直接修改";
 }
 
 GraphModuleUtils::GraphOptions SandboxGraphModule::getGraphOptions() const {
@@ -27,22 +28,12 @@ void SandboxGraphModule::buildLayout(QGraphicsScene* scene, const QString& input
     m_scene = scene;
     reset();
     m_scene = scene;
-    m_mathText = scene->addText(getInputHint());
-    m_mathText->setFont(QFont("Consolas", 12, QFont::Bold));
-    m_mathText->setDefaultTextColor(QColor(40, 70, 110));
-    m_mathText->setPos(50, 20);
 
     QStringList lines = inputData.split(QRegularExpression("[\\r\\n]"), Qt::SkipEmptyParts);
-    if (lines.isEmpty()) {
-        m_mathText->setPlainText("输入错误：需要顶点数 n 以及至少一条边");
-        return;
-    }
+    if (lines.isEmpty()) return;
     bool ok = false;
     m_n = lines[0].toInt(&ok);
-    if (!ok || m_n < 1 || m_n > 12) {
-        m_mathText->setPlainText("输入错误：顶点数 n 需为 1 - 12 的整数");
-        return;
-    }
+    if (!ok || m_n < 1 || m_n > 12) return;
     m_edges.clear();
     for (int i = 1; i < lines.size(); ++i) {
         QStringList tokens = lines[i].split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
@@ -52,11 +43,21 @@ void SandboxGraphModule::buildLayout(QGraphicsScene* scene, const QString& input
         int u = tokens[0].toInt(&uok);
         int v = tokens[1].toInt(&vok);
         if (!uok || !vok || u < 1 || u > m_n || v < 1 || v > m_n) continue;
-        m_edges.push_back(std::make_pair(u, v));
+        EdgeSpec spec;
+        spec.u = u;
+        spec.v = v;
+        if (tokens.size() >= 3) {
+            bool wok = false;
+            int w = tokens[2].toInt(&wok);
+            if (wok) {
+                spec.hasWeight = true;
+                spec.weight = w;
+            }
+        }
+        m_edges.push_back(spec);
     }
     m_valid = true;
     rebuildGraph();
-    m_mathText->setPlainText(QString("自由图：%1 个顶点，%2 条边　（节点与边可自由拖动）").arg(m_n).arg(m_edges.size()));
 }
 
 void SandboxGraphModule::rebuildGraph() {
@@ -85,16 +86,20 @@ void SandboxGraphModule::rebuildGraph() {
         node->color = QColor(252, 252, 254);
         m_scene->addItem(node);
         m_nodes[i + 1] = node;
+        registerNodeSlot(i + 1, "v", i + 1);
     }
-    for (const auto& pair : m_edges) {
-        GraphNode* u = m_nodes[pair.first];
-        GraphNode* v = m_nodes[pair.second];
+    int counter = 0;
+    for (const auto& spec : m_edges) {
+        GraphNode* u = m_nodes[spec.u];
+        GraphNode* v = m_nodes[spec.v];
         if (!u || !v) continue;
         GraphEdge* edge = new GraphEdge(u, v, m_options.directed, m_options.bidirectional);
+        if (spec.hasWeight) edge->setWeight(spec.weight);
         m_scene->addItem(edge);
         u->addEdge(edge);
         v->addEdge(edge);
         m_edgesItems.push_back(edge);
+        registerEdgeSlot(edge->key(), "w", counter++);
     }
 }
 

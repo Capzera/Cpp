@@ -10,7 +10,7 @@ static const QColor kKcPale = QColor(250, 250, 252);
 
 KnapsackCompleteModule::KnapsackCompleteModule() {}
 
-QString KnapsackCompleteModule::getModuleName() const { return "完全背包 DP"; }
+QString KnapsackCompleteModule::getModuleName() const { return "完全背包"; }
 QString KnapsackCompleteModule::getDefaultInput() const { return "3 8\n2 3\n3 4\n4 5"; }
 
 QString KnapsackCompleteModule::getInputHint() const {

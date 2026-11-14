@@ -1,4 +1,4 @@
-﻿#include "HeapBasicsModule.h"
+#include "HeapBasicsModule.h"
 #include <QRegularExpression>
 #include <QPropertyAnimation>
 #include <QFont>

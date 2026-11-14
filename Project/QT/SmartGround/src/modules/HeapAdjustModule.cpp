@@ -12,7 +12,7 @@ static const QColor kHgDown = QColor(250, 200, 150);
 
 HeapAdjustModule::HeapAdjustModule() {}
 
-QString HeapAdjustModule::getModuleName() const { return "堆调整 up / down"; }
+QString HeapAdjustModule::getModuleName() const { return "堆调整 up/down"; }
 QString HeapAdjustModule::getDefaultInput() const { return "5\n10 5 8 2 9"; }
 
 QString HeapAdjustModule::getInputHint() const {
@@ -166,6 +166,19 @@ void HeapAdjustModule::renderFrame(const AnimFrame& frame) {
             edge->second->color = kHgUp;
             edge->second->update();
         }
+        int current = frame.u;
+        int partner = frame.v;
+        QString caption;
+        if (partner == current / 2 && partner > 0) {
+            caption = QString("父节点关系：%1 的父亲是 %1/2 = %2").arg(current).arg(partner);
+        } else if (partner > 0 && (partner == current * 2 || partner == current * 2 + 1)) {
+            caption = QString("孩子关系：%1 的孩子是 %1*2 = %2 与 %1*2+1 = %3")
+                          .arg(current).arg(current * 2).arg(current * 2 + 1);
+        } else {
+            caption = QString("下标 %1　父 %2　孩子 %3 与 %4")
+                          .arg(current).arg(current / 2).arg(current * 2).arg(current * 2 + 1);
+        }
+        highlightRelation(current, partner, kHgCompare, caption);
     } else if (frame.type == ActionType::HG_SWAP) {
         int a = frame.u;
         int b = frame.v;
@@ -178,6 +191,7 @@ void HeapAdjustModule::renderFrame(const AnimFrame& frame) {
             ba->update();
             bb->update();
         }
+        swapHeapValues(a, b, frame.val1, frame.val2);
         GraphNode* na = m_treeNodes.count(a) ? m_treeNodes[a] : nullptr;
         GraphNode* nb = m_treeNodes.count(b) ? m_treeNodes[b] : nullptr;
         if (na) { na->color = kHgSwap; na->setHighlightColor(kHgSwap); na->update(); }
@@ -187,6 +201,10 @@ void HeapAdjustModule::renderFrame(const AnimFrame& frame) {
             edge->second->color = kHgSwap;
             edge->second->setPenWidth(4.0);
             edge->second->update();
+        }
+        if (m_relationText) {
+            m_relationText->setPlainText(QString("swap(heap[%1], heap[%2])：值真正互换").arg(b).arg(a));
+            m_relationText->setDefaultTextColor(kHgSwap.darker(120));
         }
     } else if (frame.type == ActionType::HG_DONE) {
         for (auto& kv : m_arrayBlocks) {

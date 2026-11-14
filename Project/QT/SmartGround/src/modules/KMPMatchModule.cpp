@@ -1,4 +1,4 @@
-﻿#include "KMPMatchModule.h"
+#include "KMPMatchModule.h"
 #include "ui/UiTheme.h"
 #include <QFont>
 #include <QRegularExpression>
@@ -10,7 +10,7 @@ static const QColor kKmpGreen = QColor(140, 205, 150);
 
 KMPMatchModule::KMPMatchModule() {}
 
-QString KMPMatchModule::getModuleName() const { return "KMP 匹配过程"; }
+QString KMPMatchModule::getModuleName() const { return "KMP (匹配)"; }
 QString KMPMatchModule::getDefaultInput() const { return "ABABCABAA\nABAB"; }
 QString KMPMatchModule::getInputHint() const {
     return "第一行输入主串 s，第二行输入模式串 p\n"
@@ -148,7 +148,7 @@ std::vector<AnimFrame> KMPMatchModule::runAlgorithm() {
                             QString("pi[%1] = %2").arg(i).arg(j)});
     }
     m_frames.push_back({ActionType::KMPM_RESET, 1, 0, 0, 0, {},
-                        QString("pi[] 构建完成，开始在主串 s 上匹配").arg(m_m),
+                        QString("pi[] 构建完成，开始在主串 s 上匹配"),
                         QString("for (i = 1, j = 0; i <= n; i++)")});
 
     for (int i = 1, j = 0; i <= m_n; ++i) {
@@ -165,7 +165,7 @@ std::vector<AnimFrame> KMPMatchModule::runAlgorithm() {
         if (j < m_m && m_s[i - 1] == m_p[j]) {
             j++;
             m_frames.push_back({ActionType::KMPM_ADVANCE, i, j, 0, 0, {},
-                                QString("匹配成功，j 加一").arg(j),
+                                QString("匹配成功，j 加一"),
                                 QString("if (s[%1] == p[%2]) j++　→ j = %3").arg(i).arg(j).arg(j)});
         }
         if (j == m_m) {
@@ -175,7 +175,7 @@ std::vector<AnimFrame> KMPMatchModule::runAlgorithm() {
                                 QString("cout << i - j + 1 = %1").arg(i - m_m + 1)});
             j = m_pi[j];
             m_frames.push_back({ActionType::KMPM_ADVANCE, i, j, 0, 0, {},
-                                QString("命中后按 pi 继续匹配，主串指针依旧不回退").arg(j),
+                                QString("命中后按 pi 继续匹配，主串指针依旧不回退"),
                                 QString("j = pi[%1] = %2").arg(m_m).arg(j)});
         }
     }

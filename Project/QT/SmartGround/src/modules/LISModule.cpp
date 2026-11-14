@@ -1,11 +1,11 @@
-﻿#include "LISModule.h"
+#include "LISModule.h"
 #include <QFont>
 #include <QRegularExpression>
 #include <algorithm>
 
 LISModule::LISModule() : m_ptrI(nullptr), m_ptrJ(nullptr), m_mathText(nullptr), m_startX(0), m_valid(false) {}
 
-QString LISModule::getModuleName() const { return "最长递增子序列 LIS"; }
+QString LISModule::getModuleName() const { return "LIS 最长递增子序列"; }
 QString LISModule::getDefaultInput() const { return "8\n10 9 2 5 3 7 101 18"; }
 QString LISModule::getInputHint() const {
     return "第一行输入一个正整数 n，表示数组长度（n <= 12）\n"

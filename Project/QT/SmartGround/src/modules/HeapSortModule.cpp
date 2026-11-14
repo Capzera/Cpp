@@ -110,7 +110,7 @@ std::vector<AnimFrame> HeapSortModule::runAlgorithm() {
             int best = 0;
             if (left <= heapSize && right <= heapSize) {
                 m_frames.push_back({ActionType::HS_COMPARE, node, left, heap[node], heap[left], {},
-                                    QString("缩小堆区间后重新比较孩子").arg(0),
+                                    QString("缩小堆区间后重新比较孩子"),
                                     QString("heap[%1]=%2  vs  heap[%3]=%4").arg(left).arg(heap[left]).arg(right).arg(heap[right])});
                 best = (heap[left] >= heap[right]) ? left : right;
             } else if (left <= heapSize) {
@@ -164,6 +164,19 @@ void HeapSortModule::renderFrame(const AnimFrame& frame) {
         };
         paint(frame.u, kHsCompare);
         if (frame.v > 0) paint(frame.v, kHsHeap);
+        int current = frame.u;
+        int partner = frame.v;
+        QString caption;
+        if (partner > 0 && (partner == current * 2 || partner == current * 2 + 1)) {
+            caption = QString("孩子关系：%1 的孩子是 %1*2 = %2 与 %1*2+1 = %3")
+                          .arg(current).arg(current * 2).arg(current * 2 + 1);
+        } else if (partner == current / 2 && partner > 0) {
+            caption = QString("父节点关系：%1 的父亲是 %1/2 = %2").arg(current).arg(partner);
+        } else {
+            caption = QString("下标 %1　父 %2　孩子 %3 与 %4")
+                          .arg(current).arg(current / 2).arg(current * 2).arg(current * 2 + 1);
+        }
+        highlightRelation(current, partner, kHsCompare, caption);
     } else if (frame.type == ActionType::HS_SWAP) {
         ArrayBlock* ba = m_arrayBlocks.count(frame.u) ? m_arrayBlocks[frame.u] : nullptr;
         ArrayBlock* bb = m_arrayBlocks.count(frame.v) ? m_arrayBlocks[frame.v] : nullptr;
@@ -174,10 +187,16 @@ void HeapSortModule::renderFrame(const AnimFrame& frame) {
             ba->update();
             bb->update();
         }
+        swapHeapValues(frame.u, frame.v, frame.val1, frame.val2);
         GraphNode* na = m_treeNodes.count(frame.u) ? m_treeNodes[frame.u] : nullptr;
         GraphNode* nb = m_treeNodes.count(frame.v) ? m_treeNodes[frame.v] : nullptr;
         if (na) { na->color = kHsSwap; na->setHighlightColor(kHsSwap); na->update(); }
         if (nb) { nb->color = kHsSwap; nb->setHighlightColor(kHsSwap); nb->update(); }
+        if (m_relationText) {
+            m_relationText->setPlainText(QString("swap(heap[%1], heap[%2])：值真正互换")
+                                             .arg(frame.u).arg(frame.v));
+            m_relationText->setDefaultTextColor(kHsSwap.darker(120));
+        }
     } else if (frame.type == ActionType::HS_DONE) {
         if (frame.val2 == 1) {
             for (auto& kv : m_arrayBlocks) { kv.second->color = kHsHeap; kv.second->update(); }

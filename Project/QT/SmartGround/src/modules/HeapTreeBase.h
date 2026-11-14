@@ -27,7 +27,7 @@ public:
 
         const double cellW = 62.0;
         const double arrY = 560.0;
-        const double treeTop = 190.0;
+        const double treeTop = 200.0;
         const double levelGap = 108.0;
         const double halfSpan = 210.0;
         const double centerX = 400.0;
@@ -60,6 +60,8 @@ public:
             GraphNode* node = new GraphNode(i);
             node->setPos(x, y);
             node->color = QColor(250, 250, 252);
+            node->setCustomValueText(QString::number(heap[i]));
+            node->setSubLabel(QString::number(i));
             m_scene->addItem(node);
             m_treeNodes[i] = node;
 
@@ -77,14 +79,98 @@ public:
         treeTitle->setFont(QFont("Microsoft YaHei UI", 11, QFont::Bold));
         treeTitle->setDefaultTextColor(QColor(120, 130, 145));
         treeTitle->setPos(centerX - 240, treeTop - 54);
+
+        m_relationText = m_scene->addText("");
+        m_relationText->setFont(QFont("Consolas", 12, QFont::Bold));
+        m_relationText->setDefaultTextColor(QColor(190, 110, 40));
+        m_relationText->setPos(centerX - 220, arrY + 62);
     }
 
     void syncTreeValues(const std::vector<int>& heap) {
         for (size_t i = 1; i < heap.size(); ++i) {
             auto it = m_treeNodes.find(static_cast<int>(i));
             if (it == m_treeNodes.end()) continue;
-            it->second->setValueText(QString("heap[%1]=%2").arg(static_cast<int>(i)).arg(heap[i]));
+            it->second->setCustomValueText(QString::number(heap[i]));
             it->second->update();
+        }
+    }
+
+    void applyHeapValues(const std::vector<int>& heap) {
+        for (size_t i = 1; i < heap.size(); ++i) {
+            auto ab = m_arrayBlocks.find(static_cast<int>(i));
+            if (ab != m_arrayBlocks.end()) {
+                ab->second->value = heap[i];
+                ab->second->customValue.clear();
+                ab->second->showValue = true;
+                ab->second->update();
+            }
+            auto tn = m_treeNodes.find(static_cast<int>(i));
+            if (tn != m_treeNodes.end()) {
+                tn->second->setCustomValueText(QString::number(heap[i]));
+                tn->second->update();
+            }
+        }
+    }
+
+    void swapHeapValues(int a, int b, int valueA, int valueB) {
+        auto abA = m_arrayBlocks.find(a);
+        auto abB = m_arrayBlocks.find(b);
+        if (abA != m_arrayBlocks.end()) {
+            abA->second->value = valueB;
+            abA->second->customValue.clear();
+            abA->second->showValue = true;
+            abA->second->update();
+        }
+        if (abB != m_arrayBlocks.end()) {
+            abB->second->value = valueA;
+            abB->second->customValue.clear();
+            abB->second->showValue = true;
+            abB->second->update();
+        }
+        auto tnA = m_treeNodes.find(a);
+        auto tnB = m_treeNodes.find(b);
+        if (tnA != m_treeNodes.end()) {
+            tnA->second->setCustomValueText(QString::number(valueB));
+            tnA->second->update();
+        }
+        if (tnB != m_treeNodes.end()) {
+            tnB->second->setCustomValueText(QString::number(valueA));
+            tnB->second->update();
+        }
+    }
+
+    void highlightRelation(int current, int partner, const QColor& color, const QString& caption) {
+        for (auto& kv : m_arrayBlocks) {
+            kv.second->color = QColor(250, 250, 252);
+            kv.second->update();
+        }
+        for (auto& kv : m_treeNodes) {
+            kv.second->setHighlightColor(Qt::transparent);
+            kv.second->update();
+        }
+        auto mark = [&](int index, const QColor& c) {
+            if (index <= 0) return;
+            auto ab = m_arrayBlocks.find(index);
+            if (ab != m_arrayBlocks.end()) {
+                ab->second->color = c;
+                ab->second->update();
+            }
+            auto tn = m_treeNodes.find(index);
+            if (tn != m_treeNodes.end()) {
+                tn->second->color = c;
+                tn->second->setHighlightColor(c.darker(112));
+                tn->second->update();
+            }
+        };
+        mark(current, color);
+        mark(partner, color);
+        int parent = current / 2;
+        mark(parent, QColor(215, 228, 245));
+        mark(current * 2, QColor(215, 228, 245));
+        mark(current * 2 + 1, QColor(215, 228, 245));
+        if (m_relationText) {
+            m_relationText->setPlainText(caption);
+            m_relationText->setDefaultTextColor(color.darker(120));
         }
     }
 
@@ -93,6 +179,7 @@ protected:
     std::map<int, ArrayBlock*> m_arrayBlocks;
     std::map<int, GraphNode*> m_treeNodes;
     std::map<std::pair<int, int>, GraphEdge*> m_treeEdges;
+    QGraphicsTextItem* m_relationText = nullptr;
     int m_n = 0;
 };
 

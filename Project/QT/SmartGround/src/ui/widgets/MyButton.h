@@ -30,6 +30,7 @@ public:
     QSize minimumSizeHint() const override;
 
 protected:
+    virtual void paintContent(QPainter& painter, const QRectF& rect) const;
     void paintEvent(QPaintEvent*) override;
     void enterEvent(QEnterEvent*) override;
     void leaveEvent(QEvent*) override;
@@ -38,8 +39,6 @@ protected:
     void keyPressEvent(QKeyEvent*) override;
 
 private:
-    void paintContent(QPainter& painter, const QRectF& rect) const;
-
     QString m_text;
     QString m_glyph;
     QColor m_accent;

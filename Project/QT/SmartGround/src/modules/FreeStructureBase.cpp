@@ -7,16 +7,11 @@ void FreeStructureBase::buildLayout(QGraphicsScene* scene, const QString& inputD
     m_scene = scene;
     reset();
     m_scene = scene;
-    m_mathText = scene->addText(getInputHint());
-    m_mathText->setFont(QFont("Consolas", 12, QFont::Bold));
-    m_mathText->setDefaultTextColor(QColor(40, 70, 110));
-    m_mathText->setPos(50, 20);
-    showHint(inputData);
+    Q_UNUSED(inputData);
 }
 
 void FreeStructureBase::showHint(const QString& message) {
-    if (!m_mathText) return;
-    m_mathText->setPlainText(message.isEmpty() ? getInputHint() : message);
+    Q_UNUSED(message);
 }
 
 void FreeStructureBase::parseKeyValues(const QString& inputData, std::vector<QPair<QString, QString>>& out) {

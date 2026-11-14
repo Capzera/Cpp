@@ -25,6 +25,7 @@ public:
     int formulaIndex() const { return m_index; }
     void setScaleFactor(qreal s);
     qreal scaleFactor() const { return m_scale; }
+    void setTargetHeight(qreal h);
     void setTint(const QColor& color);
 
     QRectF boundingRect() const override;
@@ -33,6 +34,7 @@ public:
 private:
     int m_index = 0;
     qreal m_scale = 1.0;
+    qreal m_targetHeight = 0.0;
     QColor m_tint = QColor(31, 39, 51);
 };
 

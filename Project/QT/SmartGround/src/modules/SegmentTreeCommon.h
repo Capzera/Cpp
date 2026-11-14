@@ -25,21 +25,17 @@ public:
     static int ls(int node) { return node << 1; }
     static int rs(int node) { return node << 1 | 1; }
 
-    static bool parseInput(const QString& inputData, std::vector<int>& a, int& mod, QString& error) {
+    static bool parseInput(const QString& inputData, std::vector<int>& a, QString& error) {
         QStringList lines = inputData.split(QRegularExpression("[\\r\\n]"), Qt::SkipEmptyParts);
         if (lines.isEmpty()) { error = "输入为空"; return false; }
         QStringList head = lines[0].split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-        if (head.size() < 2) { error = "第一行需要 n 和 p"; return false; }
+        if (head.isEmpty()) { error = "第一行需要 n"; return false; }
         bool ok = false;
         int n = head[0].toInt(&ok);
         if (!ok || n < 1 || n > 8) { error = "n 需为 1–8 的整数"; return false; }
-        int p = head[1].toInt(&ok);
-        if (!ok || p < 1 || p > 1000000000) { error = "p 需为正整数"; return false; }
-        mod = p;
         a.assign(n + 1, 0);
-        QStringList rest;
-        for (int i = 1; i < lines.size(); ++i) rest << lines[i];
-        QStringList all = rest.join(' ').split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        QStringList all;
+        for (int i = 1; i < lines.size(); ++i) all << lines[i].split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
         if (all.size() < n) { error = "数组元素不足 n 个"; return false; }
         for (int i = 1; i <= n; ++i) {
             a[i] = all[i - 1].toInt(&ok);
