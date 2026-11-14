@@ -33,10 +33,17 @@ public:
     void commitEdit();
     void cancelEdit();
 
+    bool supportsInlineEdit() const override { return true; }
+    bool beginInlineEdit() override;
+    bool isInlineEditing() const override { return m_editing; }
+    void commitInlineEdit() override;
+    void cancelInlineEdit() override;
+
     QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override;
     void applyStyle() override;
     QRectF contentBounds() const override;
+    AnnotationItem* cloneItem() const override;
     QJsonObject toJson() const override;
     void fromJson(const QJsonObject& obj) override;
 

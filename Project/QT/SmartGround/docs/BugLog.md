@@ -201,6 +201,84 @@
 - **数字键换色**：`1`~`7` 快速切换 红 / 绿 / 蓝 / 黄 / 橙 / 粉 / 深灰（与 ZoomIt 的颜色快捷键一致）；`Alt + R/G/B/Y/O/P/K` 为备用组合。
 - **实时重绘**：见 BUG-115，笔画绘制过程中即时上屏。
 
+## BUG-117 笔刷快速移动断裂 + 笔迹自交处被抹成白色
+
+- **现象**：
+  1. 鼠标移动过快时，笔画中间出现明显断裂（多个独立小段）。
+  2. 笔迹回绕或与自身路径重叠时，重叠区域变成白色，画布上出现"空洞"。
+- **根因**：
+  1. 鼠标采样点稀疏且不均匀，直接送入均匀 Catmull-Rom 样条会产生巨大的切向量，导致曲线过冲、翻折甚至自交。
+  2. 笔画以「左边界正向 + 右边界反向」的闭合多边形（ribbon）填充绘制，而 `QPainterPath` 默认 `Qt::OddEvenFill`。笔迹自交处两侧被判定为内部重叠，奇偶校验为偶数，于是被挖成空洞，透出白色背景。
+- **修复**：
+  - `StrokeItem::resampledPoints()`：先按 2.5px 间距对原始采样点做**线性重采样**，保证控制点均匀分布。
+  - 样条求值改为逐段求三次贝塞尔（每段 8 步细分），再拼成中心线路径。
+  - 绘制改用 `QPen` 直接描中心线（`RoundCap` + `RoundJoin` + 抗锯齿），彻底放弃自交 ribbon 多边形，从根本上消除白色空洞。
+- **验证**：`SmartGroundCanvasPolish` 断言「1000px 快速划线后断裂列数为 0」、「自交笔画核心 ±3px 内白色像素为 0」。
+
+## BUG-118 形状拖动期间无实时预览
+
+- **现象**：画直线 / 矩形 / 圆时，鼠标未松开前画布上看不到任何预览，必须松开鼠标，或者缩放 / 平移窗口后形状才突然显示。
+- **根因**：`ShapeItem` 的 `setGeometry()` / `setMosaicCells()` / `setKind()` 只修改内部数据并 `update()`。但 `AnnotationScene` 是挂在 `CanvasView` 上的**分离 overlay 场景**（基础 `GridGuideScene` 才是真正 setScene 的对象），对 overlay item 调用 `update()` 只会弄脏 `AnnotationScene` 本身，不会触发 `CanvasView::viewport()->update()`。
+- **修复**：
+  - `ShapeItem` 所有几何/内容 setter 统一调用 `notifyContentChanged()`，由 `AnnotationItem` 发出 `contentChanged()` 信号，`AnnotationScene` 转发至宿主视图 `m_hostView->viewport()->update()`。
+  - `ToolController` 的形状拖动过程中调用 `m_view->refreshOverlay()`，保证拖动期间实时可见。
+- **验证**：`SmartGroundCanvasPolish` 断言「鼠标未松开时画布已出现 >12000 个形状像素」。
+
+## BUG-119 马赛克只呈现为几条竖线
+
+- **现象**：马赛克工具画出来是几条深色竖线，完全没有"像素化"效果。
+- **根因**：旧实现用多边形网格模拟马赛克，网格线绘制成了实心竖条，且没有采样底层画布的真实颜色。
+- **修复**：
+  - `CanvasView::captureSceneRegion()`：把底层算法场景（不含批注层）渲染到 `QPixmap` 快照。
+  - `ToolController::captureMosaic()`：将快照降采样为 `cols × rows` 网格（`cell` 像素一块），再以块状方式放大，得到真正的像素化马赛克。
+  - `ShapeItem` 新增 `setMosaicImage()`，马赛克绘制时优先渲染像素化位图，位图缺失时回退到网格多边形。
+  - 序列化：马赛克位图以 base64 PNG（`mosaicPng`）写入 JSON，并记录 `mosaicRx/mosaicRy/mosaicRw/mosaicRh`，撤销 / 重做 / 归档后仍可还原。
+- **验证**：`SmartGroundCanvasPolish` 断言「马赛克位图非空」且「块内像素颜色与底层场景主色一致」。
+
+## BUG-120 双击文本框会新建第二个文本框
+
+- **现象**：插入文本框后工具仍停留在文本框模式，双击已有文本框会再叠一个新文本框，非常难用。
+- **根因**：`ToolController::createItemForTool()` 创建完 item 后没有复位工具；且鼠标双击事件被 `onMousePress()` 当作普通按下处理。
+- **修复**：
+  - `createItemForTool()` 创建完成后立即 `setTool(AnnotationSelect)`，并对文本框 / 笔记调用 `beginInlineEdit()` 进入**画布内直接编辑**。
+  - `ToolController::eventFilter()` 新增 `QEvent::MouseButtonDblClick` 分支：命中已存在的文本框 / 笔记时切换其行内编辑态，**不再新建元素**。
+  - LaTeX 双击改为非模态 `AnnotationEditor`（`setLiveMode(true)`），避免模态对话框在自动化测试中死锁。
+- **验证**：`SmartGroundCanvasEditing` 断言「插入后工具回落为选择」、「双击不新增元素且切换行内编辑」。
+
+## BUG-121 LaTeX 公式无法编辑 / 工具属性被藏在右侧
+
+- **现象**：插入 LaTeX 只能得到固定的 `E = mc^2`，没有编辑框；笔刷颜色 / 宽度等属性只能去右侧浮层找，交互反直觉。
+- **根因**：`LatexItem` 插入时写死默认公式；工具栏所有按钮一视同仁，点一下直接切工具，没有"再点一次展开详细设置"的两段式交互。
+- **修复**：
+  - `ToolController::openLatexEditor()`：插入 LaTeX 时打开**非模态** `AnnotationEditor`，左侧源码编辑、右侧 `QSvgRenderer` 实时渲染预览，源码改动即时写回画布卡片。
+  - `CanvasToolBar` 改为两段式交互：按钮点击时若该工具已是当前工具，则切换 `m_toolPanel`（`QStackedWidget`）中对应工具的独立属性页；否则仅切换工具并收起浮层。
+  - 全部 15 个工具统一进入主工具条，属性页覆盖：画笔 / 橡皮 / 形状 / 马赛克 / 表格 / 文本 / 笔记 / LaTeX。
+- **验证**：`SmartGroundToolSuite` 断言「首次点击切工具不弹浮层」、「再次点击弹出该工具属性页」。
+
+## 图标规范化（BUG-122）
+
+- **现象**：画笔 / 橡皮 / 文本框图标抽象难辨。
+- **修复**：`ToolIconButton` 重绘为通用 UI 符号：
+  - 画笔 → **铅笔**（斜置笔身 + 笔尖 + 笔芯）。
+  - 橡皮 → **传统斜置橡皮块**（带分隔带的矩形）。
+  - 文本框 → **方框内一个 "T"**。
+  - 马赛克 → **带白边棋盘格色块**（不再与竖线混淆）。
+  - 按钮尺寸由 34×34 收紧至 30×30，15 个工具一行排布不超出 1920 屏幕。
+
+## 批注剪贴板（Ctrl+X / Ctrl+C / Ctrl+V）
+
+- `ToolController::copySelection()` / `cutSelection()` / `pasteAt()` / `pasteAtCursor()`：依赖各 `AnnotationItem` 子类的 `cloneItem()` 虚函数复制。
+- 粘贴时按当前鼠标的**场景坐标**落位，并注册 undo 命令，`Ctrl+Z` / `Ctrl+Y` 可回退。
+- **验证**：`SmartGroundCanvasPolish` 断言「复制后粘贴元素数量 +1」「剪切后数量 -1」「撤销 / 重做数量恢复正确」。
+
+## 模块切换批注归档（第 4 批联动）
+
+- **问题**：切换算法模块会清空画布，批注层的笔记、公式、手绘内容一并丢失。
+- **修复**：
+  - `AnnotationScene::stashTo(bucket)` / `restoreFrom(bucket)`：以 `QHash<QString, QJsonObject>` 按模块名归档批注 JSON。
+  - `MainWindow::archiveAnnotations()` / `restoreAnnotations()`：在 `onModuleChanged()` 中于切模块前归档当前模块批注，切模块后恢复目标模块批注。
+- **验证**：`SmartGroundCanvasEditing` 断言「归档后画布清空」、「恢复后元素数量一致」、「恢复不存在的模块为空操作」。
+
 ## 测试运行方式
 
 ```powershell

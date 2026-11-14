@@ -1,8 +1,24 @@
 # SmartGround 模块开发状态跟踪
 
-> **更新时间**: 2026-11-14 - 画笔手感升级轮（ZoomIt 风格）
+> **更新时间**: 2026-11-14 - 画板交互修复轮 + 第 4 批联动
 > **当前进度**: 37 个唯一可运行模块（38 个下拉条目） | 0 个头文件骨架
-> **核心变化**: 画笔手感三项重做——①**笔迹改用 Catmull-Rom 三次贝塞尔平滑 + 变宽丝带渲染**，消除折线锯齿（BUG-114）；②**修复批注层架构性不刷新缺陷**：批注场景从未挂接 view，现由 `setHostView()` 挂载并以 `contentChanged()` 信号逐点驱动画布重绘，画完/擦完**即刻上屏**，无需缩放平移（BUG-115）；③**橡皮改为可拖动连续擦除 + 红色光标圆环指示擦除范围**（BUG-116）；并按 ZoomIt 范式补齐**荧光笔**、**滚轮调笔宽/橡皮半径**、**数字键换色**。全量 44 个测试套件串行全绿
+> **核心变化**: 画板十项交互问题一次性修完——①**笔迹重采样 + 中心线描边**，快划不断裂、自交不再出现白色空洞（BUG-117）；②**形状拖动期间实时预览**（BUG-118）；③**马赛克改为真像素化**，基于底层场景快照降采样再块状放大（BUG-119）；④**文本框 / 笔记插入后回落选择工具并进入行内编辑，双击不再新建**（BUG-120）；⑤**LaTeX 改为非模态实时预览编辑器**（BUG-121）；⑥**图标规范化**为铅笔 / 橡皮 / 方框 T（BUG-122）；⑦**全工具两段式交互**（首次选工具、再点展开该工具属性）；⑧**Ctrl+X/C/V 剪贴板**可在鼠标位置粘贴；⑨**模块切换批注按模块归档**，笔记公式不再随切模块丢失（第 4 批联动）；⑩Markdown 代码块与 LaTeX 预览样式细化。全量 47 个测试套件串行全绿
+
+## 2026-11-14 画板交互修复轮 + 第 4 批联动
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 笔迹重采样与中心线描边 | `src/canvas/StrokeItem.{h,cpp}` | `resampledPoints()` 按 2.5px 线性重采样原始采样点，消除稀疏采样导致的样条过冲与断裂；样条改为逐段三次贝塞尔（每段 8 步）；`paint()` 改用 `QPen(RoundCap/RoundJoin)` 直接描中心线，彻底放弃自交 ribbon 多边形，重叠处不再挖出白色空洞（BUG-117） |
+| 形状实时预览 | `src/canvas/ShapeItem.{h,cpp}` | `setGeometry()` / `setMosaicCells()` / `setKind()` 统一调用 `notifyContentChanged()`，经 `contentChanged()` 信号驱动宿主 `viewport()->update()`，拖动期间即时可见（BUG-118） |
+| 真像素化马赛克 | `CanvasView::captureSceneRegion()` + `ToolController::captureMosaic()` + `ShapeItem` | 底层算法场景渲染为快照 → 降采样为 `cols×rows` 网格 → 块状放大得到像素化位图；`ShapeItem::setMosaicImage()` 优先渲染位图，缺失时回退网格多边形；位图以 base64 PNG 序列化（BUG-119） |
+| 文本框 / 笔记行内编辑 | `src/canvas/ToolController.cpp` | `createItemForTool()` 完成后立即 `setTool(AnnotationSelect)`，文本框与笔记调用 `beginInlineEdit()`；`eventFilter()` 新增 `MouseButtonDblClick` 分支，双击已有元素只切换行内编辑态，不新建（BUG-120） |
+| LaTeX 实时编辑器 | `src/canvas/ToolController.cpp` + `src/canvas/LatexItem.cpp` | 插入与双击均改为非模态 `AnnotationEditor`（`setLiveMode(true)`），左侧源码右侧 `QSvgRenderer` 实时渲染，源码改动即时写回卡片（BUG-121） |
+| 图标规范化 | `src/ui/widgets/ToolIconButton.{h,cpp}` | 画笔 → 铅笔（笔身 + 笔尖 + 笔芯）；橡皮 → 传统斜置橡皮块（带分隔带）；文本框 → 方框内 "T"；马赛克 → 带白边棋盘格；按钮尺寸 34×34 → 30×30（BUG-122） |
+| 两段式工具交互 | `src/ui/widgets/CanvasToolBar.{h,cpp}` | 15 个工具全部进入主条；按钮点击时若已是当前工具则切换 `m_toolPanel`（`QStackedWidget`）对应属性页，否则仅切工具并收起浮层。属性页覆盖：画笔 / 橡皮 / 形状 / 马赛克 / 表格 / 文本 / 笔记 / LaTeX |
+| 批注剪贴板 | `src/canvas/ToolController.{h,cpp}` | `copySelection()` / `cutSelection()` / `pasteAt()` / `pasteAtCursor()`，依赖各 `AnnotationItem::cloneItem()` 虚函数；粘贴按当前鼠标场景坐标落位并注册 undo 命令 |
+| 模块切换批注归档 | `src/canvas/AnnotationScene.{h,cpp}` + `src/ui/MainWindow.{h,cpp}` | `AnnotationScene::stashTo()/restoreFrom()` 以 `QHash<QString, QJsonObject>` 按模块名归档；`MainWindow::archiveAnnotations()/restoreAnnotations()` 嵌入 `onModuleChanged()`，切模块前归档、切回后恢复（第 4 批联动） |
+| Markdown 代码块样式 | `src/canvas/MarkdownItem.cpp` + `src/ui/widgets/AnnotationEditor.{h,cpp}` | 卡片与编辑器预览统一补齐 `pre` / `code` / `blockquote` / `em` / `hr` 规则，代码块使用 Cascadia Mono + 浅蓝底，编辑器预览新增 `applyMarkdownPreviewStyle()` |
+| 新增测试 | `tests/CanvasPolishTest.cpp`、`tests/CanvasEditingTest.cpp` | 前者 19 项断言（快划零断裂列、自交零白洞、形状实时预览、真马赛克像素、剪贴板增删与撤销重做、两段式点击）；后者 16 项断言（插入回落、行内编辑、归档 / 恢复、双击不新建） |
 
 ## 2026-11-14 画笔手感升级轮（ZoomIt 风格）
 

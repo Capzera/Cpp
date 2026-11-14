@@ -176,6 +176,18 @@ void CanvasTableItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, 
     drawSelectionFrame(painter);
 }
 
+AnnotationItem* CanvasTableItem::cloneItem() const {
+    auto* copy = new CanvasTableItem(m_rows, m_cols);
+    copy->m_data = m_data;
+    copy->setTitle(m_title);
+    copy->setCellSize(m_cell);
+    copy->setPenColor(m_penColor);
+    copy->setPenWidth(m_penWidth);
+    copy->setFillOpacity(m_fillOpacity);
+    copy->setLocked(m_locked);
+    return copy;
+}
+
 QJsonObject CanvasTableItem::toJson() const {
     QJsonObject obj = AnnotationItem::toJson();
     obj["rows"] = m_rows;

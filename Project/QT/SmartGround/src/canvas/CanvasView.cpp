@@ -49,6 +49,28 @@ void CanvasView::refreshOverlay() {
     if (m_annotationScene) viewport()->update();
 }
 
+QPixmap CanvasView::captureSceneRegion(const QRectF& region) const {
+    if (region.isEmpty()) return QPixmap();
+    const QPointF topLeft = mapToScene(QPoint(0, 0));
+    const QPointF bottomRight = mapToScene(QPoint(width(), height()));
+    const QRectF viewRect{topLeft, bottomRight};
+    const QRectF clipped = region.intersected(viewRect.normalized());
+    if (clipped.isEmpty()) return QPixmap();
+
+    const QSize size = clipped.size().toSize();
+    if (size.isEmpty()) return QPixmap();
+
+    QPixmap pixmap(size);
+    pixmap.fill(Qt::transparent);
+
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
+    if (scene()) scene()->render(&painter, clipped, clipped, Qt::KeepAspectRatio);
+    painter.end();
+    return pixmap;
+}
+
 void CanvasView::drawForeground(QPainter* painter, const QRectF& rect) {
     QGraphicsView::drawForeground(painter, rect);
     if (!m_annotationScene) return;

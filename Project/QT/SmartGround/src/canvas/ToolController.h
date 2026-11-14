@@ -67,6 +67,16 @@ public:
     void setLatexSource(const QString& src);
     QString latexSource() const { return m_latexSource; }
 
+    int mosaicCellSize() const { return m_mosaicCell; }
+    void setMosaicCellSize(int px);
+
+    bool hasClipboard() const { return !m_clipboardItems.isEmpty(); }
+    bool copySelection();
+    bool cutSelection();
+    bool pasteAt(const QPointF& scenePos);
+    bool pasteAtCursor();
+    void clearClipboard();
+
     QVector<AnnotationItem*> selectedItems() const { return m_selected; }
     QRectF marqueeRect() const;
 
@@ -133,6 +143,9 @@ private:
     void applySelectionStyle();
     void setSelectedFlag(AnnotationItem* item, bool on);
     AnnotationItem* itemAt(const QPointF& pos);
+    void captureMosaic(const QRectF& region);
+    void openEditorFor(AnnotationItem* item);
+    void openLatexEditor(LatexItem* item);
 
 public:
     void setSelectedTextFamily(const QString& family);
@@ -154,8 +167,12 @@ public:
     qreal m_opacity = 1.0;
     int m_tableRows = 3;
     int m_tableCols = 3;
+    int m_mosaicCell = 14;
     QString m_latexSource = "E = mc^2";
     Qt::KeyboardModifiers m_modifiers = Qt::NoModifier;
+
+    QVector<AnnotationItem*> m_clipboardItems;
+    QPointF m_clipboardAnchor;
 
     StrokeItem* m_activeStroke = nullptr;
     ShapeItem* m_activeShape = nullptr;

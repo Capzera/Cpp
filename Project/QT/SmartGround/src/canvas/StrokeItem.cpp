@@ -8,7 +8,9 @@
 
 namespace {
 
-constexpr qreal kMinSampleDistance = 0.9;
+constexpr qreal kMinSampleDistance = 0.4;
+constexpr qreal kResampleSpacing = 3.0;
+constexpr qreal kCentripetalAlpha = 0.5;
 
 }  // namespace
 
@@ -48,36 +50,51 @@ void StrokeItem::setPoints(const QVector<QPointF>& pts) {
 
 void StrokeItem::rebuild() {
     prepareGeometryChange();
-    m_smooth = smoothPoints();
     m_center = buildCenterPath();
-    m_path = buildPath();
     update();
+}
+
+QVector<QPointF> StrokeItem::resampledPoints() const {
+    QVector<QPointF> out;
+    if (m_points.isEmpty()) return out;
+    out << m_points.first();
+    for (int i = 1; i < m_points.size(); ++i) {
+        const QPointF a = m_points.at(i - 1);
+        const QPointF b = m_points.at(i);
+        const qreal len = std::hypot(b.x() - a.x(), b.y() - a.y());
+        if (len < 1e-6) continue;
+        const int steps = qMax(1, static_cast<int>(std::ceil(len / kResampleSpacing)));
+        for (int s = 1; s <= steps; ++s) {
+            const qreal t = static_cast<qreal>(s) / steps;
+            out << (a + (b - a) * t);
+        }
+    }
+    return out;
 }
 
 QVector<QPointF> StrokeItem::smoothPoints() const {
     QVector<QPointF> out;
-    if (m_points.isEmpty()) return out;
-    if (m_points.size() == 1) {
-        out << m_points.first();
+    const QVector<QPointF> pts = resampledPoints();
+    if (pts.isEmpty()) return out;
+    if (pts.size() == 1) {
+        out << pts.first();
         return out;
     }
-    if (m_points.size() == 2) {
-        out << m_points.at(0);
-        out << m_points.at(1);
+    if (pts.size() == 2) {
+        out << pts.at(0) << pts.at(1);
         return out;
     }
-    for (int i = 0; i < m_points.size() - 1; ++i) {
-        const QPointF p0 = m_points.at(i > 0 ? i - 1 : 0);
-        const QPointF p1 = m_points.at(i);
-        const QPointF p2 = m_points.at(i + 1);
-        const QPointF p3 = m_points.at(i + 2 < m_points.size() ? i + 2 : i + 1);
+    for (int i = 0; i < pts.size() - 1; ++i) {
+        const QPointF p0 = pts.at(i > 0 ? i - 1 : 0);
+        const QPointF p1 = pts.at(i);
+        const QPointF p2 = pts.at(i + 1);
+        const QPointF p3 = pts.at(i + 2 < pts.size() ? i + 2 : i + 1);
 
         const QPointF c1 = p1 + (p2 - p0) / 6.0;
         const QPointF c2 = p2 - (p3 - p1) / 6.0;
 
-        const int steps = 12;
-        for (int s = 0; s < steps; ++s) {
-            const qreal t = static_cast<qreal>(s) / steps;
+        for (int s = 0; s < 8; ++s) {
+            const qreal t = static_cast<qreal>(s) / 8.0;
             const qreal mt = 1.0 - t;
             const qreal a = mt * mt * mt;
             const qreal b = 3.0 * mt * mt * t;
@@ -87,20 +104,49 @@ QVector<QPointF> StrokeItem::smoothPoints() const {
                            a * p1.y() + b * c1.y() + c * c2.y() + d * p2.y());
         }
     }
-    out << m_points.last();
+    out << pts.last();
     return out;
 }
 
 QPainterPath StrokeItem::buildCenterPath() const {
     QPainterPath path;
-    if (m_smooth.isEmpty()) return path;
-    path.moveTo(m_smooth.first());
-    if (m_smooth.size() == 1) {
-        path.lineTo(m_smooth.first() + QPointF(0.01, 0.0));
+    const QVector<QPointF> pts = resampledPoints();
+    if (pts.isEmpty()) return path;
+    path.moveTo(pts.first());
+    if (pts.size() == 1) {
+        path.lineTo(pts.first() + QPointF(0.01, 0.0));
         return path;
     }
-    for (int i = 1; i < m_smooth.size(); ++i) {
-        path.lineTo(m_smooth.at(i));
+    if (pts.size() == 2) {
+        path.lineTo(pts.at(1));
+        return path;
+    }
+
+    const int n = pts.size();
+    for (int i = 0; i < n - 1; ++i) {
+        const QPointF p1 = pts.at(i);
+        const QPointF p2 = pts.at(i + 1);
+        const QPointF p0 = (i > 0) ? pts.at(i - 1) : (p1 * 2.0 - p2);
+        const QPointF p3 = (i + 2 < n) ? pts.at(i + 2) : (p2 * 2.0 - p1);
+
+        const qreal d1 = std::pow(std::hypot(p1.x() - p0.x(), p1.y() - p0.y()), kCentripetalAlpha);
+        const qreal d2 = std::pow(std::hypot(p2.x() - p1.x(), p2.y() - p1.y()), kCentripetalAlpha);
+        const qreal d3 = std::pow(std::hypot(p3.x() - p2.x(), p3.y() - p2.y()), kCentripetalAlpha);
+        const qreal e1 = qMax(d1, 1e-4);
+        const qreal e2 = qMax(d2, 1e-4);
+        const qreal e3 = qMax(d3, 1e-4);
+
+        const qreal k1 = 3.0 * e1 * (e1 + e2);
+        const qreal k2 = 3.0 * e3 * (e3 + e2);
+
+        const QPointF c1(
+            (e1 * e1 * p2.x() - e2 * e2 * p0.x() + (2.0 * e1 * e1 + 3.0 * e1 * e2 + e2 * e2) * p1.x()) / k1,
+            (e1 * e1 * p2.y() - e2 * e2 * p0.y() + (2.0 * e1 * e1 + 3.0 * e1 * e2 + e2 * e2) * p1.y()) / k1);
+        const QPointF c2(
+            (e3 * e3 * p1.x() - e2 * e2 * p3.x() + (2.0 * e3 * e3 + 3.0 * e3 * e2 + e2 * e2) * p2.x()) / k2,
+            (e3 * e3 * p1.y() - e2 * e2 * p3.y() + (2.0 * e3 * e3 + 3.0 * e3 * e2 + e2 * e2) * p2.y()) / k2);
+
+        path.cubicTo(c1, c2, p2);
     }
     return path;
 }
@@ -129,66 +175,22 @@ void StrokeItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidg
     if (m_points.isEmpty()) return;
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
     painter->setBrush(Qt::NoBrush);
 
+    const qreal width = qMax(0.6, m_penWidth);
     if (m_mode == Highlighter) {
         QColor ink = m_penColor;
-        ink.setAlphaF(0.38 * qBound(0.0, m_fillOpacity, 1.0));
-        QPen pen(ink, m_penWidth * 2.4, Qt::SolidLine, Qt::FlatCap, Qt::RoundJoin);
+        ink.setAlphaF(0.36 * qBound(0.0, m_fillOpacity, 1.0));
+        QPen pen(ink, width * 2.4, Qt::SolidLine, Qt::FlatCap, Qt::RoundJoin);
         painter->setPen(pen);
         painter->drawPath(m_center);
-        painter->restore();
-        drawSelectionFrame(painter);
-        return;
-    }
-
-    const qreal width = qMax(0.6, m_penWidth);
-    if (m_smooth.size() < 2 || width < 1.2) {
-        QPen pen(m_penColor, width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+    } else {
+        QColor ink = m_penColor;
+        ink.setAlphaF(qBound(0.0, m_fillOpacity, 1.0));
+        QPen pen(ink, width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
         painter->setPen(pen);
         painter->drawPath(m_center);
-        painter->restore();
-        drawSelectionFrame(painter);
-        return;
     }
-
-    const qreal half = width * 0.5;
-    QPainterPath left;
-    QPainterPath right;
-    const QVector<QPointF>& pts = m_smooth;
-    left.moveTo(pts.first());
-    right.moveTo(pts.first());
-    for (int i = 1; i < pts.size(); ++i) {
-        const QPointF& a = pts.at(i - 1);
-        const QPointF& b = pts.at(i);
-        QPointF tangent = b - a;
-        const qreal len = std::hypot(tangent.x(), tangent.y());
-        if (len < 0.0001) continue;
-        tangent /= len;
-        const QPointF normal(-tangent.y(), tangent.x());
-        const QPointF off = normal * half;
-        left.lineTo(b + off);
-        right.lineTo(b - off);
-    }
-    QPainterPath ribbon = left;
-    for (int i = pts.size() - 1; i >= 0; --i) {
-        const QPointF& a = pts.at(i);
-        const QPointF& b = (i > 0) ? pts.at(i - 1) : a;
-        QPointF tangent = a - b;
-        const qreal len = std::hypot(tangent.x(), tangent.y());
-        if (len < 0.0001) continue;
-        tangent /= len;
-        const QPointF normal(-tangent.y(), tangent.x());
-        ribbon.lineTo(a - normal * half);
-    }
-    ribbon.closeSubpath();
-
-    QColor ink = m_penColor;
-    ink.setAlphaF(qBound(0.0, m_fillOpacity, 1.0));
-    painter->setPen(Qt::NoPen);
-    painter->setBrush(ink);
-    painter->drawPath(ribbon);
     painter->restore();
     drawSelectionFrame(painter);
 }
@@ -216,6 +218,17 @@ bool StrokeItem::hitTest(const QPointF& scenePos, qreal radius) const {
         best = qMin(best, std::hypot(dx, dy));
     }
     return best <= radius + m_penWidth * 0.5;
+}
+
+AnnotationItem* StrokeItem::cloneItem() const {
+    auto* copy = new StrokeItem();
+    copy->setMode(m_mode);
+    copy->setPoints(m_points);
+    copy->setPenColor(m_penColor);
+    copy->setPenWidth(m_penWidth);
+    copy->setFillOpacity(m_fillOpacity);
+    copy->setLocked(m_locked);
+    return copy;
 }
 
 QJsonObject StrokeItem::toJson() const {

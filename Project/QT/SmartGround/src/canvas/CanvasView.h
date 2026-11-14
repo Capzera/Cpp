@@ -19,6 +19,8 @@ public:
 
     void refreshOverlay();
 
+    QPixmap captureSceneRegion(const QRectF& region) const;
+
 protected:
     void drawForeground(QPainter* painter, const QRectF& rect) override;
     bool eventFilter(QObject* obj, QEvent* event) override;

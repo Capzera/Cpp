@@ -36,7 +36,10 @@ void AnnotationItem::fromJson(const QJsonObject& obj) {
     setLocked(obj.value("locked").toBool(false));
     setPos(obj.value("x").toDouble(), obj.value("y").toDouble());
     const qreal s = obj.value("scale").toDouble(1.0);
-    if (s > 0.001 && !qFuzzyCompare(s, 1.0)) setScale(s);
+    if (s > 0.001 && !qFuzzyCompare(s, 1.0)) {
+        setTransformOriginPoint(QPointF(0, 0));
+        setScale(s);
+    }
 }
 
 void AnnotationItem::setPenColor(const QColor& c) {
@@ -69,11 +72,18 @@ void AnnotationItem::setLocked(bool on) {
 }
 
 void AnnotationItem::scaleBy(qreal factor, const QPointF& pivot) {
-    if (factor <= 0.001) return;
-    const QPointF localPivot = mapFromScene(pivot);
+    scaleAbout(pivot, factor, factor);
+}
+
+void AnnotationItem::scaleAbout(const QPointF& scenePivot, qreal sx, qreal sy) {
+    if (sx <= 0.0001 || sy <= 0.0001) return;
     prepareGeometryChange();
-    setTransformOriginPoint(localPivot);
-    setScale(scale() * factor);
+    setTransformOriginPoint(QPointF(0, 0));
+    const QPointF p = pos();
+    const QPointF np(scenePivot.x() + (p.x() - scenePivot.x()) * sx,
+                     scenePivot.y() + (p.y() - scenePivot.y()) * sy);
+    setScale(scale() * sx, scale() * sy);
+    setPos(np);
     notifyContentChanged();
 }
 

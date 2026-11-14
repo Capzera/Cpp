@@ -79,6 +79,48 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 - 工具快捷键：`V` 指针 / `A` 选中 / `B` 画笔 / `H` 荧光笔 / `E` 橡皮 / `L` 直线 / `R` 方框 / `O` 圆形 / `D` 箭头 / `T` 三角 / `M` 马赛克 / `N` 文本 / `G` 笔记 / `X` 公式 / `I` 表格。
 - 颜色快捷键：`1`~`7` 红 / 绿 / 蓝 / 黄 / 橙 / 粉 / 深灰；`Alt + R/G/B/Y/O/P/K` 备用。
 
+## 画板交互修复轮 + 第 4 批联动（2026-11-14，BUG-117 ~ 122）
+
+### 笔迹：快划断裂与自交白洞（BUG-117）
+
+- **断裂根因**：鼠标采样点稀疏且间距不均，直接送入均匀 Catmull-Rom 样条会产生巨大切向量，导致曲线过冲、翻折甚至自交，视觉上断成多段。
+- **白洞根因**：笔画原以「左边界正向 + 右边界反向」的闭合 ribbon 多边形填充，而 `QPainterPath` 默认 `Qt::OddEvenFill`；笔迹自交处两侧被判定为内部重叠，奇偶校验为偶数，于是被挖成空洞，透出白色背景。
+- **处置**：`StrokeItem::resampledPoints()` 先按 2.5px 线性重采样保证控制点均匀；样条改为逐段三次贝塞尔（每段 8 步）；绘制改用 `QPen(RoundCap/RoundJoin)` 直接描中心线，**彻底放弃自交 ribbon 多边形**。
+
+### 形状实时预览（BUG-118）
+
+- **根因**：`AnnotationScene` 是挂在 `CanvasView` 上的**分离 overlay 场景**（真正 `setScene` 的是下层 `GridGuideScene`）。对 overlay item 调用 `update()` 只弄脏 `AnnotationScene` 本身，不会触发 `CanvasView::viewport()->update()`。
+- **处置**：`ShapeItem` 的 `setGeometry()` / `setMosaicCells()` / `setKind()` 统一调用 `notifyContentChanged()`，经 `contentChanged()` 信号驱动宿主视口重绘。
+
+### 真像素化马赛克（BUG-119）
+
+- `CanvasView::captureSceneRegion()` 把**底层算法场景**（不含批注层）渲染为快照。
+- `ToolController::captureMosaic()` 将快照降采样为 `cols × rows` 网格，再块状放大，得到真正的像素化马赛克。
+- `ShapeItem::setMosaicImage()` 优先渲染位图，缺失时回退网格多边形；位图以 base64 PNG 序列化，撤销 / 重做 / 归档后仍可还原。
+
+### 文本框与笔记（BUG-120）
+
+- `createItemForTool()` 完成后立即 `setTool(AnnotationSelect)`，文本框 / 笔记直接 `beginInlineEdit()` 进入**画布内编辑**。
+- `ToolController::eventFilter()` 新增 `QEvent::MouseButtonDblClick` 分支：双击已有元素只切换行内编辑态，**不再新建**。
+
+### LaTeX 实时编辑器（BUG-121）
+
+- 插入与双击均改为**非模态** `AnnotationEditor`（`setLiveMode(true)`）：左侧源码、右侧 `QSvgRenderer` 实时渲染，源码改动即时写回画布卡片。模态 `exec()` 会造成事件循环重入，自动化测试中会死锁。
+
+### 两段式工具交互与图标（BUG-122）
+
+- 15 个工具全部进入主条；点击按钮时若该工具已是当前工具，则切换 `m_toolPanel`（`QStackedWidget`）中对应工具的独立属性页；否则仅切工具并收起浮层。属性页覆盖：画笔 / 橡皮 / 形状 / 马赛克 / 表格 / 文本 / 笔记 / LaTeX。
+- 图标改为通用符号：画笔 → 铅笔，橡皮 → 传统斜置橡皮块，文本框 → 方框内 "T"，马赛克 → 带白边棋盘格。
+
+### 批注剪贴板
+
+- `copySelection()` / `cutSelection()` / `pasteAt()` / `pasteAtCursor()`，依赖各 `AnnotationItem::cloneItem()` 虚函数；粘贴按当前鼠标的**场景坐标**落位并注册 undo 命令。
+
+### 批注按模块归档（第 4 批联动）
+
+- `AnnotationScene::stashTo(bucket)` / `restoreFrom(bucket)` 以 `QHash<QString, QJsonObject>` 按模块名归档批注 JSON。
+- `MainWindow::archiveAnnotations()` / `restoreAnnotations()` 嵌入 `onModuleChanged()`：切模块前归档当前模块批注，切回后恢复目标模块批注，笔记 / 公式 / 手绘不再随切模块丢失。
+
 ## 画笔手感升级（2026-11-14，ZoomIt 风格，BUG-114 / 115 / 116）
 
 ### 笔迹锯齿（BUG-114）
@@ -332,8 +374,8 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 
 ## 当前开发优先级
 
-1. **批注层深化**：把 LaTeX 公式卡的实时预览也搬进 `AnnotationEditor`（目前预览区只显示源码文本），并让 Markdown 预览支持代码块语法高亮。
-2. **批注与算法联动**：把批注层随模块切换自动归档 / 恢复，避免切换模块时批注被误清。
+1. ~~**批注层深化**~~：LaTeX 实时 SVG 预览已搬进 `AnnotationEditor`（`setLiveMode(true)`），Markdown 预览已支持 `pre` / `code` / `blockquote` 语法高亮样式 → **本轮已完成**。
+2. ~~**批注与算法联动**~~：批注层已随模块切换自动归档 / 恢复（`AnnotationScene::stashTo/restoreFrom` + `MainWindow::archiveAnnotations/restoreAnnotations`）→ **本轮已完成**。
 3. **线段树建树（SegmentTreeBuildModule）**：补齐最后一个已有头文件骨架，闭合项目「一课一模块」的骨架清单。
 4. **KMP 匹配过程**：与已完成的 KMP Next 预处理构成完整闭环，是大纲中最自然的下一步。
 5. **完全背包 DP**：复用 01 背包的二维网格渲染管线，改动量最小、复用度最高。
@@ -345,7 +387,7 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 
 所有任务遵循根目录 .cursorrules 与 Cursor_Workflow.md。Codex 使用 AGENTS.md 获取项目级约束，Cursor 使用 .cursor/rules/smartground-project.mdc。修复缺陷或改变模块状态时，同步更新 BugLog.md、ModuleStatus.md 和本摘要。
 
-代码验证以当前 Qt/CMake 配置为准。本轮 Release 与 Debug 构建均通过；`tests/` 无头自动化测试覆盖极端输入、动画中断清理、边权跟随、箭头几何、UI 状态机、单元格单线边框、就地编辑崩溃回归、画布批注层工具与渲染、浮动工具套件布局与下拉分类标题像素，全部通过（42 个测试套件全绿）。GUI 交互和算法结果测试尚未执行。
+代码验证以当前 Qt/CMake 配置为准。本轮 Release 与 Debug 构建均通过；`tests/` 无头自动化测试覆盖极端输入、动画中断清理、边权跟随、箭头几何、UI 状态机、单元格单线边框、就地编辑崩溃回归、画布批注层工具与渲染、快划笔画连续性、自交无白洞、形状实时预览、真像素化马赛克、批注剪贴板、两段式工具交互、插入后工具回落与双击行内编辑、批注按模块归档 / 恢复，全部通过（47 个测试套件全绿）。GUI 交互和算法结果测试尚未执行。
 
 ## 工程整洁度（2026-11-14）
 

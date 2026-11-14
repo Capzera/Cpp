@@ -31,6 +31,7 @@ public:
     void applyStyle() override;
     QRectF contentBounds() const override;
     bool hitTest(const QPointF& scenePos, qreal radius) const override;
+    AnnotationItem* cloneItem() const override;
     QJsonObject toJson() const override;
     void fromJson(const QJsonObject& obj) override;
 
@@ -40,11 +41,10 @@ protected:
 private:
     QPainterPath buildPath() const;
     QPainterPath buildCenterPath() const;
-    QVector<QPointF> smoothPoints() const;
+    QVector<QPointF> resampledPoints() const;
     void rebuild();
 
     QVector<QPointF> m_points;
-    QVector<QPointF> m_smooth;
     QPainterPath m_path;
     QPainterPath m_center;
     Mode m_mode = Ink;

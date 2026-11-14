@@ -55,6 +55,8 @@ private:
     void setupUI();
     void applyStyleSheet();
     void clearScene();
+    void archiveAnnotations();
+    void restoreAnnotations();
     void adjustSceneBoundary(bool centerView = false);
     void rebuildCurrentLayout(const QString& inputData, bool animated, bool centerView);
     void computeFrames();

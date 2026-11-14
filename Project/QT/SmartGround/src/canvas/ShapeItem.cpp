@@ -1,6 +1,7 @@
 #include "ShapeItem.h"
 #include <QPainter>
 #include <QJsonArray>
+#include <QBuffer>
 #include <cmath>
 
 ShapeItem::ShapeItem(Kind kind, QGraphicsItem* parent) : AnnotationItem(parent) {
@@ -14,20 +15,27 @@ void ShapeItem::setKind(Kind k) {
     m_kind = k;
     prepareGeometryChange();
     applyStyle();
-    update();
+    notifyContentChanged();
 }
 
 void ShapeItem::setGeometry(const QPointF& start, const QPointF& end) {
     m_start = start;
     m_end = end;
     prepareGeometryChange();
-    update();
+    notifyContentChanged();
 }
 
 void ShapeItem::setMosaicCells(const QVector<QPolygonF>& cells) {
     m_cells = cells;
     prepareGeometryChange();
-    update();
+    notifyContentChanged();
+}
+
+void ShapeItem::setMosaicImage(const QImage& image, const QRectF& region) {
+    m_mosaicImage = image;
+    m_mosaicRegion = region;
+    prepareGeometryChange();
+    notifyContentChanged();
 }
 
 QPainterPath ShapeItem::buildOutline() const {
@@ -92,6 +100,13 @@ QPolygonF ShapeItem::arrowPolygon(const QPointF& from, const QPointF& to) const 
     return poly;
 }
 
+bool ShapeItem::hitTest(const QPointF& scenePos, qreal radius) const {
+    const QPointF local = mapFromScene(scenePos);
+    if (shape().contains(local)) return true;
+    const QRectF b = boundingRect();
+    return b.adjusted(-radius, -radius, radius, radius).contains(local);
+}
+
 QRectF ShapeItem::contentBounds() const {
     if (m_kind == Mosaic && !m_cells.isEmpty()) {
         QRectF r;
@@ -128,10 +143,16 @@ void ShapeItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidge
     const QPainterPath outline = buildOutline();
 
     if (m_kind == Mosaic) {
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(m_penColor);
-        for (const QPolygonF& cell : m_cells) {
-            painter->drawPolygon(cell);
+        if (!m_mosaicImage.isNull() && !m_mosaicRegion.isEmpty()) {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(Qt::NoBrush);
+            painter->drawImage(m_mosaicRegion, m_mosaicImage);
+        } else {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(m_penColor);
+            for (const QPolygonF& cell : m_cells) {
+                painter->drawPolygon(cell);
+            }
         }
         painter->restore();
         drawSelectionFrame(painter);
@@ -187,6 +208,18 @@ void ShapeItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidge
     drawSelectionFrame(painter);
 }
 
+AnnotationItem* ShapeItem::cloneItem() const {
+    auto* copy = new ShapeItem(m_kind);
+    copy->setGeometry(m_start, m_end);
+    copy->setMosaicCells(m_cells);
+    if (!m_mosaicImage.isNull()) copy->setMosaicImage(m_mosaicImage, m_mosaicRegion);
+    copy->setPenColor(m_penColor);
+    copy->setPenWidth(m_penWidth);
+    copy->setFillOpacity(m_fillOpacity);
+    copy->setLocked(m_locked);
+    return copy;
+}
+
 QJsonObject ShapeItem::toJson() const {
     QJsonObject obj = AnnotationItem::toJson();
     obj["kind"] = static_cast<int>(m_kind);
@@ -208,6 +241,17 @@ QJsonObject ShapeItem::toJson() const {
         cells.push_back(c);
     }
     obj["cells"] = cells;
+    if (!m_mosaicImage.isNull()) {
+        QByteArray png;
+        QBuffer buffer(&png);
+        buffer.open(QIODevice::WriteOnly);
+        m_mosaicImage.save(&buffer, "PNG");
+        obj["mosaicPng"] = QString::fromLatin1(png.toBase64());
+        obj["mosaicRx"] = m_mosaicRegion.x();
+        obj["mosaicRy"] = m_mosaicRegion.y();
+        obj["mosaicRw"] = m_mosaicRegion.width();
+        obj["mosaicRh"] = m_mosaicRegion.height();
+    }
     return obj;
 }
 
@@ -229,6 +273,17 @@ void ShapeItem::fromJson(const QJsonObject& obj) {
         cells.push_back(poly);
     }
     m_cells = cells;
+    const QString png = obj.value("mosaicPng").toString();
+    if (!png.isEmpty()) {
+        const QByteArray raw = QByteArray::fromBase64(png.toLatin1());
+        QImage image;
+        if (image.loadFromData(raw, "PNG")) {
+            setMosaicImage(image, QRectF(obj.value("mosaicRx").toDouble(),
+                                         obj.value("mosaicRy").toDouble(),
+                                         obj.value("mosaicRw").toDouble(),
+                                         obj.value("mosaicRh").toDouble()));
+        }
+    }
     prepareGeometryChange();
     applyStyle();
     update();

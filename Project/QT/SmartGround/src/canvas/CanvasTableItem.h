@@ -34,6 +34,7 @@ public:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override;
     void applyStyle() override;
     QRectF contentBounds() const override;
+    AnnotationItem* cloneItem() const override;
     QJsonObject toJson() const override;
     void fromJson(const QJsonObject& obj) override;
 

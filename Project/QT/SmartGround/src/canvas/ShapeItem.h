@@ -24,12 +24,17 @@ public:
 
     void setMosaicCells(const QVector<QPolygonF>& cells);
     const QVector<QPolygonF>& mosaicCells() const { return m_cells; }
+    void setMosaicImage(const QImage& image, const QRectF& region);
+    QImage mosaicImage() const { return m_mosaicImage; }
+    QRectF mosaicRegion() const { return m_mosaicRegion; }
 
     QRectF boundingRect() const override;
     QPainterPath shape() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override;
     void applyStyle() override;
     QRectF contentBounds() const override;
+    bool hitTest(const QPointF& scenePos, qreal radius) const override;
+    AnnotationItem* cloneItem() const override;
     QJsonObject toJson() const override;
     void fromJson(const QJsonObject& obj) override;
 
@@ -41,6 +46,8 @@ private:
     QPointF m_start;
     QPointF m_end;
     QVector<QPolygonF> m_cells;
+    QImage m_mosaicImage;
+    QRectF m_mosaicRegion;
 };
 
 #endif

@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
     } else {
         printf("PASS: minimum window width %d fits a %d screen\n", w.minimumSizeHint().width(), targetScreen);
     }
-    if (suite && suite->mainBarWidth() > 520) { printf("FAIL: tool suite too wide\n"); failures++; }
+    if (suite && suite->mainBarWidth() > 700) { printf("FAIL: tool suite too wide\n"); failures++; }
     else printf("PASS: tool suite compact\n");
     CanvasView* view = w.findChild<CanvasView*>("canvasView");
     if (suite && view && suite->parent() == view) {

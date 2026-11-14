@@ -4,6 +4,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QVector>
+#include <QHash>
 
 class AnnotationItem;
 class AnnotationScene : public QGraphicsScene {
@@ -32,6 +33,9 @@ public:
     QJsonObject toJson() const;
     void fromJson(const QJsonObject& obj);
 
+    void stashTo(QString bucket);
+    bool restoreFrom(QString bucket);
+
 signals:
     void itemsChanged();
     void visibilityChanged(bool visible);
@@ -42,6 +46,7 @@ private:
     bool m_locked = false;
     QVector<AnnotationItem*> m_owned;
     QGraphicsView* m_hostView = nullptr;
+    QHash<QString, QJsonObject> m_stash;
 };
 
 #endif

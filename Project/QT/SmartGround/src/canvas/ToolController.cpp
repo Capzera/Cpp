@@ -8,10 +8,13 @@
 #include "LatexItem.h"
 #include "CanvasTableItem.h"
 #include "CanvasView.h"
+#include "ui/widgets/AnnotationEditor.h"
 #include <QMouseEvent>
 #include <QKeyEvent>
 #include <QJsonDocument>
 #include <QFile>
+#include <QDialog>
+#include <QCursor>
 #include <cmath>
 
 ToolController::ToolController(AnnotationScene* scene, CanvasView* view, QObject* parent)
@@ -91,8 +94,84 @@ void ToolController::setTableSize(int rows, int cols) {
     m_tableCols = qMax(1, cols);
 }
 
+void ToolController::setMosaicCellSize(int px) {
+    m_mosaicCell = qBound(4, px, 60);
+}
+
 void ToolController::setLatexSource(const QString& src) {
     m_latexSource = src;
+}
+
+bool ToolController::copySelection() {
+    if (m_selected.isEmpty()) return false;
+    m_clipboardItems = m_selected;
+    QRectF bounds;
+    for (AnnotationItem* item : m_clipboardItems) {
+        const QRectF r = item->mapRectToScene(item->contentBounds());
+        bounds = bounds.isNull() ? r : bounds.united(r);
+    }
+    m_clipboardAnchor = bounds.isNull() ? QPointF() : bounds.topLeft();
+    emit statusMessage(QString("已复制 %1 个批注元素").arg(m_clipboardItems.size()));
+    return true;
+}
+
+bool ToolController::cutSelection() {
+    if (m_selected.isEmpty()) return false;
+    if (!copySelection()) return false;
+    Command cmd;
+    cmd.kind = Command::Remove;
+    cmd.items = m_selected;
+    for (AnnotationItem* item : m_selected) {
+        m_scene->removeItem(item, false);
+    }
+    m_selected.clear();
+    emit selectionChanged(0);
+    pushCommand(cmd);
+    emit statusMessage(QString("已剪切 %1 个批注元素").arg(cmd.items.size()));
+    return true;
+}
+
+bool ToolController::pasteAt(const QPointF& scenePos) {
+    if (m_clipboardItems.isEmpty()) return false;
+    QRectF bounds;
+    for (AnnotationItem* item : m_clipboardItems) {
+        const QRectF r = item->mapRectToScene(item->contentBounds());
+        bounds = bounds.isNull() ? r : bounds.united(r);
+    }
+    const QPointF sourceAnchor = bounds.isNull() ? QPointF() : bounds.topLeft();
+    const QPointF delta = scenePos - sourceAnchor;
+
+    QVector<AnnotationItem*> created;
+    for (AnnotationItem* source : m_clipboardItems) {
+        AnnotationItem* clone = source->cloneItem();
+        if (!clone) continue;
+        clone->setPos(source->pos() + delta);
+        m_scene->addItem(clone);
+        created.push_back(clone);
+    }
+    if (created.isEmpty()) return false;
+    Command cmd;
+    cmd.kind = Command::Add;
+    cmd.items = created;
+    pushCommand(cmd);
+    deselectAll();
+    for (AnnotationItem* item : created) {
+        setSelectedFlag(item, true);
+        m_selected.push_back(item);
+    }
+    emit selectionChanged(m_selected.size());
+    emit statusMessage(QString("已粘贴 %1 个批注元素").arg(created.size()));
+    return true;
+}
+
+bool ToolController::pasteAtCursor() {
+    if (!m_view) return false;
+    const QPoint local = m_view->viewport()->mapFromGlobal(QCursor::pos());
+    return pasteAt(m_view->mapToScene(local));
+}
+
+void ToolController::clearClipboard() {
+    m_clipboardItems.clear();
 }
 
 void ToolController::pushCommand(const Command& cmd) {
@@ -178,6 +257,28 @@ bool ToolController::eventFilter(QObject* obj, QEvent* event) {
     case QEvent::MouseButtonRelease:
         onMouseRelease(static_cast<QMouseEvent*>(event));
         return isDrawingTool();
+    case QEvent::MouseButtonDblClick: {
+        QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+        const QPointF pos = m_view->mapToScene(mouseEvent->position().toPoint());
+        const AnnotationItem* hit = itemAt(pos);
+        if (hit) {
+            AnnotationItem* item = const_cast<AnnotationItem*>(hit);
+            if (item->supportsInlineEdit()) {
+                if (item->isInlineEditing()) {
+                    item->commitInlineEdit();
+                } else {
+                    item->beginInlineEdit();
+                }
+                if (m_view) m_view->refreshOverlay();
+                event->accept();
+                return true;
+            }
+            openEditorFor(item);
+            event->accept();
+            return true;
+        }
+        return false;
+    }
     case QEvent::KeyPress: {
         QKeyEvent* key = static_cast<QKeyEvent*>(event);
         onKeyPress(key);
@@ -328,6 +429,26 @@ void ToolController::onKeyPress(QKeyEvent* event) {
             event->accept();
             return;
         }
+        if (event->key() == Qt::Key_C) {
+            copySelection();
+            event->accept();
+            return;
+        }
+        if (event->key() == Qt::Key_X) {
+            cutSelection();
+            event->accept();
+            return;
+        }
+        if (event->key() == Qt::Key_V) {
+            pasteAtCursor();
+            event->accept();
+            return;
+        }
+        if (event->key() == Qt::Key_A) {
+            selectAll();
+            event->accept();
+            return;
+        }
         return;
     }
 
@@ -456,11 +577,13 @@ void ToolController::beginShape(const QPointF& pos) {
     m_drawing = true;
     m_pressPos = pos;
     m_currentPos = pos;
+    if (m_view) m_view->refreshOverlay();
 }
 
 void ToolController::updateShape(const QPointF& pos) {
     if (!m_activeShape) return;
     m_activeShape->setGeometry(m_pressPos, constrainPoint(pos, m_pressPos));
+    if (m_view) m_view->refreshOverlay();
 }
 
 void ToolController::finishShape() {
@@ -471,6 +594,7 @@ void ToolController::finishShape() {
     m_activeShape = nullptr;
     m_drawing = false;
     pushCommand(cmd);
+    if (m_view) m_view->refreshOverlay();
 }
 
 void ToolController::beginMosaic(const QPointF& pos) {
@@ -484,11 +608,12 @@ void ToolController::beginMosaic(const QPointF& pos) {
     m_drawing = true;
     m_pressPos = pos;
     m_currentPos = pos;
+    if (m_view) m_view->refreshOverlay();
 }
 
 void ToolController::updateMosaic(const QPointF& pos) {
     if (!m_activeShape) return;
-    const qreal cell = 14.0;
+    const qreal cell = static_cast<qreal>(m_mosaicCell);
     const int x0 = static_cast<int>(std::floor(m_pressPos.x() / cell));
     const int y0 = static_cast<int>(std::floor(m_pressPos.y() / cell));
     const int x1 = static_cast<int>(std::floor(pos.x() / cell));
@@ -504,8 +629,49 @@ void ToolController::updateMosaic(const QPointF& pos) {
             m_mosaicCells.push_back(poly);
         }
     }
+    const QRectF region(x0 * cell, y0 * cell, (x1 - x0 + 1) * cell, (y1 - y0 + 1) * cell);
     m_activeShape->setMosaicCells(m_mosaicCells);
-    m_activeShape->setGeometry(QPointF(x0 * cell, y0 * cell), QPointF((x1 + 1) * cell, (y1 + 1) * cell));
+    m_activeShape->setGeometry(region.topLeft(), region.bottomRight());
+    captureMosaic(region);
+    if (m_view) m_view->refreshOverlay();
+}
+
+void ToolController::captureMosaic(const QRectF& region) {
+    if (!m_activeShape || !m_view) return;
+    QPixmap shot = m_view->captureSceneRegion(region);
+    if (shot.isNull()) return;
+
+    const int cell = qMax(2, m_mosaicCell);
+    const int cols = qMax(1, shot.width() / cell);
+    const int rows = qMax(1, shot.height() / cell);
+    const int outW = cols * cell;
+    const int outH = rows * cell;
+
+    QImage small(cols, rows, QImage::Format_ARGB32);
+    small.fill(Qt::transparent);
+    for (int y = 0; y < rows; ++y) {
+        for (int x = 0; x < cols; ++x) {
+            const QPoint sample(cell * x + cell / 2, cell * y + cell / 2);
+            if (sample.x() >= shot.width() || sample.y() >= shot.height()) continue;
+            small.setPixelColor(x, y, shot.toImage().pixelColor(sample));
+        }
+    }
+
+    QImage blocky(outW, outH, QImage::Format_ARGB32);
+    blocky.fill(Qt::transparent);
+    for (int y = 0; y < rows; ++y) {
+        for (int x = 0; x < cols; ++x) {
+            const QColor c = small.pixelColor(x, y);
+            for (int dy = 0; dy < cell; ++dy) {
+                for (int dx = 0; dx < cell; ++dx) {
+                    const int px = x * cell + dx;
+                    const int py = y * cell + dy;
+                    if (px < outW && py < outH) blocky.setPixelColor(px, py, c);
+                }
+            }
+        }
+    }
+    m_activeShape->setMosaicImage(blocky, QRectF(region.topLeft(), QSizeF(outW, outH)));
 }
 
 void ToolController::finishMosaic() {
@@ -516,6 +682,7 @@ void ToolController::finishMosaic() {
     m_activeShape = nullptr;
     m_drawing = false;
     pushCommand(cmd);
+    if (m_view) m_view->refreshOverlay();
 }
 
 void ToolController::eraseAt(const QPointF& pos) {
@@ -771,23 +938,62 @@ void ToolController::finishMoveSelection() {
     m_moveOrigins.clear();
 }
 
+void ToolController::openEditorFor(AnnotationItem* item) {
+    if (!item || item->isLocked()) return;
+    if (auto* box = dynamic_cast<TextBoxItem*>(item)) {
+        box->beginInlineEdit();
+        if (m_view) m_view->refreshOverlay();
+        emit statusMessage("文本框已进入编辑状态，直接在画布上输入。");
+        return;
+    }
+    if (auto* md = dynamic_cast<MarkdownItem*>(item)) {
+        md->beginInlineEdit();
+        if (m_view) m_view->refreshOverlay();
+        emit statusMessage("笔记已进入编辑状态，直接在画布上输入 Markdown 源码。");
+        return;
+    }
+    if (auto* latex = dynamic_cast<LatexItem*>(item)) {
+        openLatexEditor(latex);
+        return;
+    }
+}
+
+void ToolController::openLatexEditor(LatexItem* item) {
+    if (!item) return;
+    AnnotationEditor* editor = new AnnotationEditor(AnnotationEditor::LatexMode, item->tex(), nullptr);
+    editor->setAttribute(Qt::WA_DeleteOnClose);
+    editor->setLiveMode(true);
+    editor->setWindowTitle("编辑 LaTeX 公式");
+    connect(editor, &AnnotationEditor::contentChanged, item, [item](const QString& text) {
+        item->setTex(text);
+    });
+    connect(editor, &QDialog::finished, editor, &QObject::deleteLater);
+    editor->show();
+    editor->raise();
+}
+
 AnnotationItem* ToolController::createItemForTool(const QPointF& pos) {
     AnnotationItem* item = nullptr;
+    bool openEditor = false;
+    bool latexEditor = false;
     if (m_tool == TextBox) {
         auto* box = new TextBoxItem();
         box->setPenColor(m_penColor);
-        box->setPlainText("双击编辑文字");
+        box->setPlainText("");
         item = box;
+        openEditor = true;
     } else if (m_tool == Markdown) {
         auto* md = new MarkdownItem();
         md->setPenColor(m_penColor);
-        md->setMarkdown("# 笔记\n\n支持 **Markdown** 语法：\n\n- 列表\n- 代码块\n\n```cpp\nint main() { return 0; }\n```");
+        md->setMarkdown("");
         item = md;
+        openEditor = true;
     } else if (m_tool == Latex) {
         auto* latex = new LatexItem();
         latex->setPenColor(m_penColor);
         latex->setTex(m_latexSource.isEmpty() ? QString("E = mc^2") : m_latexSource);
         item = latex;
+        latexEditor = true;
     } else if (m_tool == Table) {
         auto* table = new CanvasTableItem(m_tableRows, m_tableCols);
         table->setPenColor(m_penColor);
@@ -800,5 +1006,12 @@ AnnotationItem* ToolController::createItemForTool(const QPointF& pos) {
     cmd.kind = Command::Add;
     cmd.items.push_back(item);
     pushCommand(cmd);
+
+    setTool(AnnotationSelect);
+    if (latexEditor) {
+        openLatexEditor(dynamic_cast<LatexItem*>(item));
+    } else if (openEditor) {
+        openEditorFor(item);
+    }
     return item;
 }

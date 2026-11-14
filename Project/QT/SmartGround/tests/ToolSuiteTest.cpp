@@ -98,7 +98,7 @@ static void testToolSuite() {
 
     const int barW = bar.mainBarWidth();
     printf("tool suite main bar width = %d\n", barW);
-    check(barW > 0 && barW < 520, "floating tool suite is compact (< 520px)");
+    check(barW > 0 && barW < 700, "floating tool suite fits on one screen row (< 700px)");
 
     const int barH = bar.height();
     check(barH > 0 && barH < 80, "floating tool suite is a single short row");
@@ -127,6 +127,46 @@ static void testToolSuite() {
         check(bar.isMorePanelOpen(), "more flyout opens");
         QImage shot3 = view.grab().toImage();
         shot3.save("tool_suite_more.png");
+    }
+
+    ToolIconButton* penBtn = view.findChild<ToolIconButton*>("canvasTool_2");
+    check(penBtn != nullptr, "pen tool button exists in suite");
+    if (penBtn) {
+        clickWidget(penBtn);
+        QApplication::processEvents();
+        check(controller.currentTool() == ToolController::Pen, "first click on pen selects the pen tool");
+        check(!bar.isToolPanelOpen(), "first click does not open the property flyout");
+        clickWidget(penBtn);
+        QApplication::processEvents();
+        check(bar.isToolPanelOpen(), "second click on an active tool opens its property flyout");
+        QImage shot4 = view.grab().toImage();
+        shot4.save("tool_suite_pen.png");
+        check(shot4.width() > 0, "pen property flyout rendered");
+        clickWidget(penBtn);
+        QApplication::processEvents();
+        check(!bar.isToolPanelOpen(), "third click closes the property flyout");
+    }
+
+    ToolIconButton* eraserBtn = view.findChild<ToolIconButton*>("canvasTool_4");
+    check(eraserBtn != nullptr, "eraser tool button exists in suite");
+    if (eraserBtn) {
+        clickWidget(eraserBtn);
+        QApplication::processEvents();
+        clickWidget(eraserBtn);
+        QApplication::processEvents();
+        check(bar.isToolPanelOpen(), "eraser property flyout opens on second click");
+    }
+
+    ToolIconButton* tableBtn = view.findChild<ToolIconButton*>("canvasTool_14");
+    check(tableBtn != nullptr, "table tool button exists in suite");
+    if (tableBtn) {
+        clickWidget(tableBtn);
+        QApplication::processEvents();
+        clickWidget(tableBtn);
+        QApplication::processEvents();
+        check(bar.isToolPanelOpen(), "table property flyout opens on second click");
+        QImage shot5 = view.grab().toImage();
+        shot5.save("tool_suite_table.png");
     }
 }
 

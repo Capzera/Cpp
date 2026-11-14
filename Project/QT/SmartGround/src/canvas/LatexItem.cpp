@@ -94,14 +94,32 @@ void LatexItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidge
 
 void LatexItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event) {
     if (!m_locked) {
-        AnnotationEditor editor(AnnotationEditor::LatexMode, m_tex, nullptr);
-        if (editor.exec() == QDialog::Accepted) {
-            setTex(editor.content());
-        }
+        AnnotationEditor* editor = new AnnotationEditor(AnnotationEditor::LatexMode, m_tex, nullptr);
+        editor->setAttribute(Qt::WA_DeleteOnClose);
+        editor->setLiveMode(true);
+        editor->setWindowTitle("编辑 LaTeX 公式");
+        connect(editor, &AnnotationEditor::contentChanged, this, [this](const QString& text) {
+            setTex(text);
+        });
+        connect(editor, &QDialog::finished, editor, &QObject::deleteLater);
+        editor->show();
+        editor->raise();
         event->accept();
         return;
     }
     QGraphicsObject::mouseDoubleClickEvent(event);
+}
+
+AnnotationItem* LatexItem::cloneItem() const {
+    auto* copy = new LatexItem();
+    copy->setTex(m_tex);
+    copy->setSvg(m_svg, m_srcWidth, m_srcHeight);
+    copy->setTargetHeight(m_targetHeight);
+    copy->setPenColor(m_penColor);
+    copy->setPenWidth(m_penWidth);
+    copy->setFillOpacity(m_fillOpacity);
+    copy->setLocked(m_locked);
+    return copy;
 }
 
 QJsonObject LatexItem::toJson() const {

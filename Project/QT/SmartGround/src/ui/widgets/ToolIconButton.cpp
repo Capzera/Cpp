@@ -23,7 +23,7 @@ void drawCursor(QPainter& painter, const QRectF& box, const QColor& color) {
     path.lineTo(x, y + h);
     path.lineTo(x + w * 0.28, y + h * 0.72);
     path.lineTo(x + w * 0.52, y + h * 1.06);
-    path.lineTo(x + w * 0.68, y + h * 0.96);
+    path.lineTo(x + w * 0.68, y + 0.96 * h);
     path.lineTo(x + w * 0.44, y + h * 0.62);
     path.lineTo(x + w * 0.78, y + h * 0.56);
     path.closeSubpath();
@@ -48,19 +48,31 @@ void drawFrame(QPainter& painter, const QRectF& box, const QColor& color) {
     painter.drawRoundedRect(QRectF(r.right() - d / 2, r.bottom() - d / 2, d, d), 1, 1);
 }
 
-void drawPen(QPainter& painter, const QRectF& box, const QColor& color) {
-    QPainterPath path;
+void drawPencil(QPainter& painter, const QRectF& box, const QColor& color) {
     const QPointF c = box.center();
     const double s = qMin(box.width(), box.height()) * 0.5;
-    path.moveTo(c.x() - s * 0.42, c.y() + s * 0.46);
-    path.lineTo(c.x() + s * 0.26, c.y() - s * 0.44);
-    path.lineTo(c.x() + s * 0.50, c.y() - s * 0.18);
-    path.lineTo(c.x() - s * 0.18, c.y() + s * 0.72);
-    path.closeSubpath();
+
+    QPainterPath body;
+    body.moveTo(c.x() - s * 0.30, c.y() + s * 0.34);
+    body.lineTo(c.x() + s * 0.26, c.y() - s * 0.44);
+    body.lineTo(c.x() + s * 0.50, c.y() - s * 0.20);
+    body.lineTo(c.x() - s * 0.06, c.y() + s * 0.58);
+    body.closeSubpath();
     iconPen(painter, color, 1.5);
-    painter.drawPath(path);
-    painter.drawLine(QPointF(c.x() - s * 0.30, c.y() + s * 0.58),
-                     QPointF(c.x() + s * 0.14, c.y() - s * 0.28));
+    painter.drawPath(body);
+
+    QPainterPath tip;
+    tip.moveTo(c.x() - s * 0.30, c.y() + s * 0.34);
+    tip.lineTo(c.x() - s * 0.06, c.y() + s * 0.58);
+    tip.lineTo(c.x() - s * 0.42, c.y() + s * 0.72);
+    tip.closeSubpath();
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(color);
+    painter.drawPath(tip);
+
+    painter.setPen(QPen(color, 1.3));
+    painter.drawLine(QPointF(c.x() + s * 0.12, c.y() - s * 0.60),
+                     QPointF(c.x() + s * 0.38, c.y() - s * 0.34));
 }
 
 void drawHighlighter(QPainter& painter, const QRectF& box, const QColor& color) {
@@ -91,18 +103,23 @@ void drawHighlighter(QPainter& painter, const QRectF& box, const QColor& color) 
 }
 
 void drawEraser(QPainter& painter, const QRectF& box, const QColor& color) {
-    QPainterPath path;
     const QPointF c = box.center();
     const double s = qMin(box.width(), box.height()) * 0.5;
-    path.moveTo(c.x() - s * 0.62, c.y() + s * 0.36);
-    path.lineTo(c.x() - s * 0.02, c.y() - s * 0.38);
-    path.lineTo(c.x() + s * 0.62, c.y() - s * 0.10);
-    path.lineTo(c.x() + s * 0.34, c.y() + s * 0.44);
-    path.closeSubpath();
+
+    QPainterPath body;
+    body.moveTo(c.x() - s * 0.62, c.y() + s * 0.38);
+    body.lineTo(c.x() - s * 0.02, c.y() - s * 0.40);
+    body.lineTo(c.x() + s * 0.62, c.y() - s * 0.12);
+    body.lineTo(c.x() + s * 0.34, c.y() + s * 0.46);
+    body.closeSubpath();
     iconPen(painter, color, 1.5);
-    painter.drawPath(path);
-    painter.drawLine(QPointF(c.x() - s * 0.20, c.y() + s * 0.02),
-                     QPointF(c.x() + s * 0.44, c.y() + s * 0.14));
+    painter.drawPath(body);
+
+    painter.setPen(QPen(color, 1.4));
+    painter.drawLine(QPointF(c.x() - s * 0.28, c.y() + s * 0.06),
+                     QPointF(c.x() + s * 0.34, c.y() + s * 0.22));
+    painter.drawLine(QPointF(c.x() - s * 0.44, c.y() + s * 0.30),
+                     QPointF(c.x() + s * 0.18, c.y() + s * 0.46));
 }
 
 void drawLine(QPainter& painter, const QRectF& box, const QColor& color) {
@@ -135,7 +152,7 @@ void drawArrow(QPainter& painter, const QRectF& box, const QColor& color) {
     const QPointF b = box.center() + QPointF(box.width() * 0.34, -box.height() * 0.28);
     iconPen(painter, color, 1.6);
     painter.drawLine(a, b);
-    const QPointF dir = (b - a);
+    const QPointF dir = b - a;
     const double len = std::hypot(dir.x(), dir.y());
     if (len > 0.1) {
         const double ang = std::atan2(dir.y(), dir.x());
@@ -163,72 +180,87 @@ void drawTriangle(QPainter& painter, const QRectF& box, const QColor& color) {
 }
 
 void drawMosaic(QPainter& painter, const QRectF& box, const QColor& color) {
-    const double cell = qMin(box.width(), box.height()) * 0.26;
+    const double cell = qMin(box.width(), box.height()) * 0.27;
     const double ox = box.center().x() - cell * 1.5;
     const double oy = box.center().y() - cell * 1.5;
     for (int r = 0; r < 3; ++r) {
         for (int c = 0; c < 3; ++c) {
-            const bool filled = (r + c) % 2 == 0;
             const QRectF cellRect(ox + c * cell, oy + r * cell, cell, cell);
-            if (filled) {
-                painter.setPen(Qt::NoPen);
-                painter.setBrush(color);
-                painter.drawRect(cellRect);
-            } else {
-                iconPen(painter, color, 1.0);
-                painter.drawRect(cellRect);
-            }
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(color);
+            painter.drawRect(cellRect);
+            painter.setPen(QPen(QColor(255, 255, 255, 190), 1.0));
+            painter.setBrush(Qt::NoBrush);
+            painter.drawRect(cellRect);
         }
     }
+    painter.setPen(QPen(color, 1.2));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawRect(QRectF(ox - cell * 0.15, oy - cell * 0.15, cell * 3.3, cell * 3.3));
 }
 
-void drawText(QPainter& painter, const QRectF& box, const QColor& color) {
+void drawTextBox(QPainter& painter, const QRectF& box, const QColor& color) {
+    const QRectF r = box.adjusted(box.width() * 0.14, box.height() * 0.18,
+                                  -box.width() * 0.14, -box.height() * 0.18);
+    iconPen(painter, color, 1.5);
+    painter.drawRect(r);
+
     QFont f("Segoe UI");
     f.setPointSize(11);
     f.setBold(true);
     painter.setFont(f);
     painter.setPen(color);
-    painter.drawText(box, Qt::AlignCenter, QString("T"));
+    painter.drawText(r, Qt::AlignCenter, QString("T"));
 }
 
 void drawMarkdown(QPainter& painter, const QRectF& box, const QColor& color) {
-    const QPointF c = box.center();
-    const double s = qMin(box.width(), box.height()) * 0.5;
-    QPainterPath path;
-    path.moveTo(c.x() - s * 0.62, c.y() - s * 0.44);
-    path.lineTo(c.x() - s * 0.30, c.y() - s * 0.44);
-    path.lineTo(c.x() - s * 0.30, c.y() + s * 0.44);
-    path.moveTo(c.x() - s * 0.62, c.y() - s * 0.44);
-    path.lineTo(c.x() - s * 0.62, c.y() + s * 0.44);
-    path.moveTo(c.x() - s * 0.30, c.y() - s * 0.10);
-    path.lineTo(c.x() - s * 0.08, c.y() + s * 0.44);
-    path.moveTo(c.x() - s * 0.08, c.y() + s * 0.44);
-    path.lineTo(c.x() - s * 0.08, c.y() - s * 0.44);
-    path.lineTo(c.x() + s * 0.26, c.y() - s * 0.44);
-    path.lineTo(c.x() + s * 0.26, c.y() + s * 0.44);
-    path.lineTo(c.x() + s * 0.26, c.y() - s * 0.44);
-    path.lineTo(c.x() + s * 0.62, c.y() - s * 0.44);
-    path.lineTo(c.x() + s * 0.62, c.y() + s * 0.44);
-    path.lineTo(c.x() + s * 0.62, c.y() - s * 0.44);
+    const QRectF r = box.adjusted(box.width() * 0.14, box.height() * 0.18,
+                                  -box.width() * 0.14, -box.height() * 0.18);
     iconPen(painter, color, 1.5);
+    painter.drawRect(r);
+
+    const QPointF c = r.center();
+    const double s = qMin(r.width(), r.height()) * 0.5;
+    QPainterPath path;
+    path.moveTo(c.x() - s * 0.58, c.y() - s * 0.34);
+    path.lineTo(c.x() - s * 0.34, c.y() - s * 0.34);
+    path.lineTo(c.x() - s * 0.34, c.y() + s * 0.34);
+    path.moveTo(c.x() - s * 0.58, c.y() - s * 0.34);
+    path.lineTo(c.x() - s * 0.58, c.y() + s * 0.34);
+    path.moveTo(c.x() - s * 0.34, c.y() - s * 0.04);
+    path.lineTo(c.x() - s * 0.14, c.y() + s * 0.34);
+    path.moveTo(c.x() - s * 0.14, c.y() + s * 0.34);
+    path.lineTo(c.x() - s * 0.14, c.y() - s * 0.34);
+    path.moveTo(c.x() + s * 0.04, c.y() - s * 0.34);
+    path.lineTo(c.x() + s * 0.04, c.y() + s * 0.34);
+    path.moveTo(c.x() + s * 0.04, c.y() - s * 0.34);
+    path.lineTo(c.x() + s * 0.56, c.y() - s * 0.34);
+    path.lineTo(c.x() + s * 0.56, c.y() + s * 0.34);
+    path.lineTo(c.x() + s * 0.56, c.y() - s * 0.34);
+    iconPen(painter, color, 1.4);
     painter.drawPath(path);
 }
 
 void drawLatex(QPainter& painter, const QRectF& box, const QColor& color) {
+    const QRectF r = box.adjusted(box.width() * 0.14, box.height() * 0.18,
+                                  -box.width() * 0.14, -box.height() * 0.18);
+    iconPen(painter, color, 1.5);
+    painter.drawRect(r);
+
     QFont f("Cambria Math");
     if (QFontMetrics(f).horizontalAdvance("∑") <= 0) f = QFont("Segoe UI");
     f.setPointSize(13);
     painter.setFont(f);
     painter.setPen(color);
-    painter.drawText(box, Qt::AlignCenter, QString("∑"));
+    painter.drawText(r, Qt::AlignCenter, QString("∑"));
 }
 
 void drawTable(QPainter& painter, const QRectF& box, const QColor& color) {
-    const QRectF r = box.adjusted(box.width() * 0.20, box.height() * 0.24,
-                                  -box.width() * 0.20, -box.height() * 0.24);
-    iconPen(painter, color, 1.4);
+    const QRectF r = box.adjusted(box.width() * 0.16, box.height() * 0.20,
+                                  -box.width() * 0.16, -box.height() * 0.20);
+    iconPen(painter, color, 1.5);
     painter.drawRect(r);
-    painter.setPen(QPen(color, 1.0));
+    painter.setPen(QPen(color, 1.1));
     painter.drawLine(QPointF(r.left(), r.top() + r.height() / 3), QPointF(r.right(), r.top() + r.height() / 3));
     painter.drawLine(QPointF(r.left(), r.top() + r.height() * 2 / 3), QPointF(r.right(), r.top() + r.height() * 2 / 3));
     painter.drawLine(QPointF(r.center().x(), r.top()), QPointF(r.center().x(), r.bottom()));
@@ -292,7 +324,7 @@ ToolIconButton::ToolIconButton(Kind kind, const QString& tip, QWidget* parent)
     setToolTip(tip);
     setCursor(Qt::PointingHandCursor);
     setAttribute(Qt::WA_Hover, true);
-    setFixedSize(34, 34);
+    setFixedSize(30, 30);
     setFocusPolicy(Qt::StrongFocus);
 }
 
@@ -302,11 +334,17 @@ void ToolIconButton::setActive(bool on) {
     update();
 }
 
+void ToolIconButton::setBadge(const QString& text) {
+    if (m_badge == text) return;
+    m_badge = text;
+    update();
+}
+
 void ToolIconButton::paintIcon(QPainter& painter, Kind kind, const QRectF& box, const QColor& color) {
     switch (kind) {
     case Select: drawCursor(painter, box, color); break;
     case Marquee: drawFrame(painter, box, color); break;
-    case Pen: drawPen(painter, box, color); break;
+    case Pen: drawPencil(painter, box, color); break;
     case Highlighter: drawHighlighter(painter, box, color); break;
     case Eraser: drawEraser(painter, box, color); break;
     case Line: drawLine(painter, box, color); break;
@@ -315,7 +353,7 @@ void ToolIconButton::paintIcon(QPainter& painter, Kind kind, const QRectF& box, 
     case Arrow: drawArrow(painter, box, color); break;
     case Triangle: drawTriangle(painter, box, color); break;
     case Mosaic: drawMosaic(painter, box, color); break;
-    case Text: drawText(painter, box, color); break;
+    case Text: drawTextBox(painter, box, color); break;
     case Markdown: drawMarkdown(painter, box, color); break;
     case Latex: drawLatex(painter, box, color); break;
     case Table: drawTable(painter, box, color); break;
@@ -332,7 +370,7 @@ void ToolIconButton::paintEvent(QPaintEvent*) {
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setRenderHint(QPainter::TextAntialiasing);
 
-    const QRectF box = QRectF(rect()).adjusted(7.5, 7.5, -7.5, -7.5);
+    const QRectF box = QRectF(rect()).adjusted(6.5, 6.5, -6.5, -6.5);
     QColor iconColor = m_active ? UiTheme::textOnAccent() : UiTheme::textSecondary();
 
     if (m_active) {
@@ -347,6 +385,19 @@ void ToolIconButton::paintEvent(QPaintEvent*) {
     }
 
     paintIcon(painter, m_kind, box, iconColor);
+
+    if (!m_badge.isEmpty()) {
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(m_active ? UiTheme::accentHover() : UiTheme::accent());
+        const QRectF dot = QRectF(rect().right() - 15.0, rect().bottom() - 15.0, 11.0, 11.0);
+        painter.drawEllipse(dot);
+        QFont f("Segoe UI");
+        f.setPointSize(7);
+        f.setBold(true);
+        painter.setFont(f);
+        painter.setPen(UiTheme::textOnAccent());
+        painter.drawText(dot, Qt::AlignCenter, m_badge);
+    }
 }
 
 void ToolIconButton::enterEvent(QEnterEvent* event) {
@@ -380,7 +431,7 @@ void ToolIconButton::mouseReleaseEvent(QMouseEvent* event) {
         if (wasPressed) {
             const QPoint local = mapFromGlobal(event->globalPosition().toPoint());
             if (rect().contains(local)) {
-                emit clicked();
+                QAbstractButton::clicked();
                 event->accept();
                 return;
             }

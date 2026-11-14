@@ -96,6 +96,19 @@ void TextBoxItem::beginEdit() {
     update();
 }
 
+bool TextBoxItem::beginInlineEdit() {
+    beginEdit();
+    return m_editing;
+}
+
+void TextBoxItem::commitInlineEdit() {
+    commitEdit();
+}
+
+void TextBoxItem::cancelInlineEdit() {
+    cancelEdit();
+}
+
 void TextBoxItem::commitEdit() {
     if (!m_editing) return;
     m_editing = false;
@@ -145,6 +158,22 @@ void TextBoxItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWid
     painter->drawRoundedRect(r.adjusted(-5, -5, 5, 5), 6, 6);
     painter->restore();
     drawSelectionFrame(painter);
+}
+
+AnnotationItem* TextBoxItem::cloneItem() const {
+    auto* copy = new TextBoxItem();
+    copy->setPlainText(m_document.toPlainText());
+    copy->setFontFamily(m_family);
+    copy->setFontSize(m_fontSize);
+    copy->setBold(m_bold);
+    copy->setItalic(m_italic);
+    copy->setUnderline(m_underline);
+    copy->setTextColor(m_textColor);
+    copy->setPenColor(m_penColor);
+    copy->setPenWidth(m_penWidth);
+    copy->setFillOpacity(m_fillOpacity);
+    copy->setLocked(m_locked);
+    return copy;
 }
 
 QJsonObject TextBoxItem::toJson() const {

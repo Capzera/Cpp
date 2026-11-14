@@ -1,4 +1,4 @@
-#include "MainWindow.h"
+﻿#include "MainWindow.h"
 #include "UiTheme.h"
 #include "modules/TarjanModule.h"
 #include "modules/BubbleSortModule.h"
@@ -353,15 +353,15 @@ QString MainWindow::toolName(ToolController::Tool tool) const {
     case ToolController::Pen: return "画笔";
     case ToolController::Highlighter: return "荧光笔（半透明叠加）";
     case ToolController::Eraser: return "橡皮（拖动擦除，只影响上层批注）";
+    case ToolController::Mosaic: return "马赛克（对下层内容做像素化）";
+    case ToolController::TextBox: return "文本框（插入后直接编辑，双击可再次编辑）";
+    case ToolController::Markdown: return "Markdown 笔记（插入后直接编辑）";
+    case ToolController::Latex: return "LaTeX 公式（插入后直接编辑源码并实时渲染）";
     case ToolController::Line: return "直线（Shift 约束 45 度）";
     case ToolController::Rect: return "方框（Shift 为正方形）";
     case ToolController::Circle: return "圆形（Shift 为正圆）";
     case ToolController::Arrow: return "箭头（Shift 约束 45 度）";
     case ToolController::Triangle: return "三角形（Shift 为正三角形）";
-    case ToolController::Mosaic: return "马赛克";
-    case ToolController::TextBox: return "文本框（双击编辑）";
-    case ToolController::Markdown: return "Markdown 笔记（双击编辑）";
-    case ToolController::Latex: return "LaTeX 公式";
     case ToolController::Table: return "表格（双击单元格编辑）";
     default: return "指针";
     }
@@ -516,6 +516,22 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
                 m_toolController->redo();
                 return;
             }
+            if (event->key() == Qt::Key_C) {
+                m_toolController->copySelection();
+                return;
+            }
+            if (event->key() == Qt::Key_X) {
+                m_toolController->cutSelection();
+                return;
+            }
+            if (event->key() == Qt::Key_V) {
+                m_toolController->pasteAtCursor();
+                return;
+            }
+            if (event->key() == Qt::Key_A) {
+                m_toolController->selectAll();
+                return;
+            }
         }
     }
     if (m_toolController && !event->modifiers().testFlag(Qt::ControlModifier)) {
@@ -548,6 +564,7 @@ void MainWindow::onModuleChanged(int index) {
     finishAutoPlay();
     m_playTimer->stop();
     m_settleTimer->stop();
+    archiveAnnotations();
     const int moduleIndex = index - 1;
     if (moduleIndex >= 0 && moduleIndex < static_cast<int>(comboToModule.size()) && comboToModule[moduleIndex] >= 0) {
         clearScene();
@@ -564,6 +581,7 @@ void MainWindow::onModuleChanged(int index) {
         updateInputHint();
         updateGraphOptionPanel();
         applyGraphOptions();
+        restoreAnnotations();
     } else {
         currentModule = nullptr;
         clearScene();
@@ -580,6 +598,21 @@ void MainWindow::onModuleChanged(int index) {
         syncFrameSlider();
         labelStatus->setText("已清空画布，请选择算法模块。");
     }
+}
+
+void MainWindow::archiveAnnotations() {
+    if (!m_annotationScene) return;
+    const QString bucket = currentModule ? currentModule->getModuleName() : QString();
+    m_annotationScene->stashTo(bucket);
+    if (m_toolController) m_toolController->deselectAll();
+}
+
+void MainWindow::restoreAnnotations() {
+    if (!m_annotationScene) return;
+    const QString bucket = currentModule ? currentModule->getModuleName() : QString();
+    if (bucket.isEmpty()) return;
+    m_annotationScene->restoreFrom(bucket);
+    graphicsView->refreshOverlay();
 }
 void MainWindow::updateInputHint() {
     if (!currentModule) return;

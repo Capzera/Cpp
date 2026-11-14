@@ -99,6 +99,23 @@ void AnnotationScene::clearAnnotations() {
     emit itemsChanged();
 }
 
+void AnnotationScene::stashTo(QString bucket) {
+    if (bucket.isEmpty()) return;
+    if (annotationItems().isEmpty()) {
+        m_stash.remove(bucket);
+        return;
+    }
+    m_stash.insert(bucket, toJson());
+    clearAnnotations();
+}
+
+bool AnnotationScene::restoreFrom(QString bucket) {
+    const auto it = m_stash.constFind(bucket);
+    if (it == m_stash.constEnd()) return false;
+    fromJson(it.value());
+    return true;
+}
+
 QJsonObject AnnotationScene::toJson() const {
     QJsonObject obj;
     obj["visible"] = m_visible;

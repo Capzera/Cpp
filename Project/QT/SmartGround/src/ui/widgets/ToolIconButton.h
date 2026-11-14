@@ -2,7 +2,6 @@
 #define TOOLICONBUTTON_H
 #include <QAbstractButton>
 #include <QColor>
-#include <QPainter>
 
 class ToolIconButton : public QAbstractButton {
     Q_OBJECT
@@ -35,21 +34,24 @@ public:
     Kind kind() const { return m_kind; }
     void setActive(bool on);
     bool isActive() const { return m_active; }
-
-    static void paintIcon(QPainter& painter, Kind kind, const QRectF& box, const QColor& color);
+    void setBadge(const QString& text);
+    QString badge() const { return m_badge; }
 
 protected:
     void paintEvent(QPaintEvent*) override;
-    void enterEvent(QEnterEvent*) override;
+    void enterEvent(QEnterEvent* event) override;
     void leaveEvent(QEvent* event) override;
-    void mousePressEvent(QMouseEvent*) override;
-    void mouseReleaseEvent(QMouseEvent*) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
 
 private:
-    Kind m_kind;
+    static void paintIcon(QPainter& painter, Kind kind, const QRectF& box, const QColor& color);
+
+    Kind m_kind = Select;
     bool m_active = false;
     bool m_hover = false;
     bool m_pressed = false;
+    QString m_badge;
 };
 
 #endif

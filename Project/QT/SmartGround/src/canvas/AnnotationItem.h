@@ -31,8 +31,16 @@ public:
 
     virtual QRectF contentBounds() const = 0;
     virtual void applyStyle() = 0;
+    virtual AnnotationItem* cloneItem() const = 0;
+
+    virtual bool supportsInlineEdit() const { return false; }
+    virtual bool beginInlineEdit() { return false; }
+    virtual bool isInlineEditing() const { return false; }
+    virtual void commitInlineEdit() {}
+    virtual void cancelInlineEdit() {}
 
     void scaleBy(qreal factor, const QPointF& pivot);
+    void scaleAbout(const QPointF& scenePivot, qreal sx, qreal sy);
 
     void notifyContentChanged();
 
