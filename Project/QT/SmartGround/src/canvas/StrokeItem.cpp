@@ -8,8 +8,8 @@
 
 namespace {
 
-constexpr qreal kMinSampleDistance = 0.4;
-constexpr qreal kResampleSpacing = 3.0;
+constexpr qreal kMinSampleDistance = 0.35;
+constexpr qreal kResampleSpacing = 2.6;
 constexpr qreal kCentripetalAlpha = 0.5;
 
 }  // namespace
@@ -37,122 +37,113 @@ void StrokeItem::addPoint(const QPointF& p) {
         const qreal dy = p.y() - last.y();
         if (dx * dx + dy * dy < kMinSampleDistance * kMinSampleDistance) return;
     }
+    if (m_points.isEmpty()) {
+        m_points.push_back(p);
+        m_resampled.push_back(p);
+        m_prefix.moveTo(p);
+        m_center = m_prefix;
+        m_cachedSegments = 0;
+        notifyContentChanged();
+        return;
+    }
+    const QPointF prev = m_points.last();
     m_points.push_back(p);
-    rebuild();
+    resampleSegment(prev, p);
+    rebuildTail();
     notifyContentChanged();
 }
 
 void StrokeItem::setPoints(const QVector<QPointF>& pts) {
-    m_points = pts;
-    rebuild();
+    m_points.clear();
+    m_resampled.clear();
+    m_prefix = QPainterPath();
+    m_center = QPainterPath();
+    m_cachedSegments = 0;
+    for (const QPointF& p : pts) {
+        if (!m_points.isEmpty()) {
+            const QPointF last = m_points.last();
+            const qreal dx = p.x() - last.x();
+            const qreal dy = p.y() - last.y();
+            if (dx * dx + dy * dy < kMinSampleDistance * kMinSampleDistance) continue;
+        }
+        if (m_points.isEmpty()) {
+            m_points.push_back(p);
+            m_resampled.push_back(p);
+            m_prefix.moveTo(p);
+            continue;
+        }
+        const QPointF prev = m_points.last();
+        m_points.push_back(p);
+        resampleSegment(prev, p);
+    }
+    m_center = m_prefix;
+    m_cachedSegments = qMax(0, m_resampled.size() - 2);
+    update();
     notifyContentChanged();
 }
 
-void StrokeItem::rebuild() {
-    prepareGeometryChange();
-    m_center = buildCenterPath();
-    update();
+void StrokeItem::resampleSegment(const QPointF& from, const QPointF& to) {
+    const qreal len = std::hypot(to.x() - from.x(), to.y() - from.y());
+    if (len < 1e-6) return;
+    const int steps = qMax(1, static_cast<int>(std::ceil(len / kResampleSpacing)));
+    for (int s = 1; s <= steps; ++s) {
+        const qreal t = static_cast<qreal>(s) / steps;
+        m_resampled.push_back(from + (to - from) * t);
+    }
 }
 
-QVector<QPointF> StrokeItem::resampledPoints() const {
-    QVector<QPointF> out;
-    if (m_points.isEmpty()) return out;
-    out << m_points.first();
+void StrokeItem::resampleAll() {
+    m_resampled.clear();
+    if (m_points.isEmpty()) return;
+    m_resampled.push_back(m_points.first());
     for (int i = 1; i < m_points.size(); ++i) {
-        const QPointF a = m_points.at(i - 1);
-        const QPointF b = m_points.at(i);
-        const qreal len = std::hypot(b.x() - a.x(), b.y() - a.y());
-        if (len < 1e-6) continue;
-        const int steps = qMax(1, static_cast<int>(std::ceil(len / kResampleSpacing)));
-        for (int s = 1; s <= steps; ++s) {
-            const qreal t = static_cast<qreal>(s) / steps;
-            out << (a + (b - a) * t);
-        }
+        resampleSegment(m_points.at(i - 1), m_points.at(i));
     }
-    return out;
 }
 
-QVector<QPointF> StrokeItem::smoothPoints() const {
-    QVector<QPointF> out;
-    const QVector<QPointF> pts = resampledPoints();
-    if (pts.isEmpty()) return out;
-    if (pts.size() == 1) {
-        out << pts.first();
-        return out;
-    }
-    if (pts.size() == 2) {
-        out << pts.at(0) << pts.at(1);
-        return out;
-    }
-    for (int i = 0; i < pts.size() - 1; ++i) {
-        const QPointF p0 = pts.at(i > 0 ? i - 1 : 0);
-        const QPointF p1 = pts.at(i);
-        const QPointF p2 = pts.at(i + 1);
-        const QPointF p3 = pts.at(i + 2 < pts.size() ? i + 2 : i + 1);
+void StrokeItem::appendSegment(QPainterPath& path, int index) const {
+    const int n = m_resampled.size();
+    if (index < 0 || index >= n - 1) return;
+    const QPointF p1 = m_resampled.at(index);
+    const QPointF p2 = m_resampled.at(index + 1);
+    const QPointF p0 = (index > 0) ? m_resampled.at(index - 1) : (p1 * 2.0 - p2);
+    const QPointF p3 = (index + 2 < n) ? m_resampled.at(index + 2) : (p2 * 2.0 - p1);
 
-        const QPointF c1 = p1 + (p2 - p0) / 6.0;
-        const QPointF c2 = p2 - (p3 - p1) / 6.0;
+    const qreal d1 = std::pow(std::hypot(p1.x() - p0.x(), p1.y() - p0.y()), kCentripetalAlpha);
+    const qreal d2 = std::pow(std::hypot(p2.x() - p1.x(), p2.y() - p1.y()), kCentripetalAlpha);
+    const qreal d3 = std::pow(std::hypot(p3.x() - p2.x(), p3.y() - p2.y()), kCentripetalAlpha);
+    const qreal e1 = qMax(d1, 1e-4);
+    const qreal e2 = qMax(d2, 1e-4);
+    const qreal e3 = qMax(d3, 1e-4);
 
-        for (int s = 0; s < 8; ++s) {
-            const qreal t = static_cast<qreal>(s) / 8.0;
-            const qreal mt = 1.0 - t;
-            const qreal a = mt * mt * mt;
-            const qreal b = 3.0 * mt * mt * t;
-            const qreal c = 3.0 * mt * t * t;
-            const qreal d = t * t * t;
-            out << QPointF(a * p1.x() + b * c1.x() + c * c2.x() + d * p2.x(),
-                           a * p1.y() + b * c1.y() + c * c2.y() + d * p2.y());
-        }
-    }
-    out << pts.last();
-    return out;
+    const qreal k1 = 3.0 * e1 * (e1 + e2);
+    const qreal k2 = 3.0 * e3 * (e3 + e2);
+
+    const QPointF c1(
+        (e1 * e1 * p2.x() - e2 * e2 * p0.x() + (2.0 * e1 * e1 + 3.0 * e1 * e2 + e2 * e2) * p1.x()) / k1,
+        (e1 * e1 * p2.y() - e2 * e2 * p0.y() + (2.0 * e1 * e1 + 3.0 * e1 * e2 + e2 * e2) * p1.y()) / k1);
+    const QPointF c2(
+        (e3 * e3 * p1.x() - e2 * e2 * p3.x() + (2.0 * e3 * e3 + 3.0 * e3 * e2 + e2 * e2) * p2.x()) / k2,
+        (e3 * e3 * p1.y() - e2 * e2 * p3.y() + (2.0 * e3 * e3 + 3.0 * e3 * e2 + e2 * e2) * p2.y()) / k2);
+
+    path.cubicTo(c1, c2, p2);
 }
 
-QPainterPath StrokeItem::buildCenterPath() const {
-    QPainterPath path;
-    const QVector<QPointF> pts = resampledPoints();
-    if (pts.isEmpty()) return path;
-    path.moveTo(pts.first());
-    if (pts.size() == 1) {
-        path.lineTo(pts.first() + QPointF(0.01, 0.0));
-        return path;
+void StrokeItem::rebuildTail() {
+    const int n = m_resampled.size();
+    if (n < 2) {
+        m_center = m_prefix;
+        m_cachedSegments = 0;
+        return;
     }
-    if (pts.size() == 2) {
-        path.lineTo(pts.at(1));
-        return path;
-    }
-
-    const int n = pts.size();
+    m_prefix = QPainterPath();
+    m_prefix.moveTo(m_resampled.first());
     for (int i = 0; i < n - 1; ++i) {
-        const QPointF p1 = pts.at(i);
-        const QPointF p2 = pts.at(i + 1);
-        const QPointF p0 = (i > 0) ? pts.at(i - 1) : (p1 * 2.0 - p2);
-        const QPointF p3 = (i + 2 < n) ? pts.at(i + 2) : (p2 * 2.0 - p1);
-
-        const qreal d1 = std::pow(std::hypot(p1.x() - p0.x(), p1.y() - p0.y()), kCentripetalAlpha);
-        const qreal d2 = std::pow(std::hypot(p2.x() - p1.x(), p2.y() - p1.y()), kCentripetalAlpha);
-        const qreal d3 = std::pow(std::hypot(p3.x() - p2.x(), p3.y() - p2.y()), kCentripetalAlpha);
-        const qreal e1 = qMax(d1, 1e-4);
-        const qreal e2 = qMax(d2, 1e-4);
-        const qreal e3 = qMax(d3, 1e-4);
-
-        const qreal k1 = 3.0 * e1 * (e1 + e2);
-        const qreal k2 = 3.0 * e3 * (e3 + e2);
-
-        const QPointF c1(
-            (e1 * e1 * p2.x() - e2 * e2 * p0.x() + (2.0 * e1 * e1 + 3.0 * e1 * e2 + e2 * e2) * p1.x()) / k1,
-            (e1 * e1 * p2.y() - e2 * e2 * p0.y() + (2.0 * e1 * e1 + 3.0 * e1 * e2 + e2 * e2) * p1.y()) / k1);
-        const QPointF c2(
-            (e3 * e3 * p1.x() - e2 * e2 * p3.x() + (2.0 * e3 * e3 + 3.0 * e3 * e2 + e2 * e2) * p2.x()) / k2,
-            (e3 * e3 * p1.y() - e2 * e2 * p3.y() + (2.0 * e3 * e3 + 3.0 * e3 * e2 + e2 * e2) * p2.y()) / k2);
-
-        path.cubicTo(c1, c2, p2);
+        appendSegment(m_prefix, i);
     }
-    return path;
-}
-
-QPainterPath StrokeItem::buildPath() const {
-    return m_center;
+    m_center = m_prefix;
+    m_cachedSegments = n - 2;
+    update();
 }
 
 QRectF StrokeItem::boundingRect() const {

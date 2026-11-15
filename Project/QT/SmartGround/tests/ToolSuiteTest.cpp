@@ -106,19 +106,6 @@ static void testToolSuite() {
     QImage shot = view.grab().toImage();
     shot.save("tool_suite_canvas.png");
 
-    ToolIconButton* styleBtn = view.findChild<ToolIconButton*>("canvasStyleToggle");
-    check(styleBtn != nullptr, "style toggle button exists in suite");
-    if (styleBtn) {
-        clickWidget(styleBtn);
-        QApplication::processEvents();
-        check(bar.isStylePanelOpen(), "style flyout opens");
-        QImage shot2 = view.grab().toImage();
-        shot2.save("tool_suite_style.png");
-        clickWidget(styleBtn);
-        QApplication::processEvents();
-        check(!bar.isStylePanelOpen(), "style flyout closes");
-    }
-
     ToolIconButton* moreBtn = view.findChild<ToolIconButton*>("canvasMoreToggle");
     check(moreBtn != nullptr, "more toggle button exists in suite");
     if (moreBtn) {

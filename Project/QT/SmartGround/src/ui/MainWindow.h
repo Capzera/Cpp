@@ -22,6 +22,8 @@ class CanvasView;
 class AnnotationScene;
 class ToolController;
 class CanvasToolBar;
+class TableToolBar;
+class CanvasTableItem;
 class MyTextEdit;
 
 class MainWindow : public QMainWindow {
@@ -71,6 +73,7 @@ private:
     void advanceFrame();
     int frameDelayMs(const AnimFrame& frame) const;
     void setupCanvasTools();
+    void positionTableToolBar();
     void exportCanvasToPdf(const QString& path);
     void syncAnnotationToolButtons(int tool);
     QString toolName(ToolController::Tool tool) const;
@@ -110,6 +113,7 @@ private:
     AnnotationScene* m_annotationScene = nullptr;
     ToolController* m_toolController = nullptr;
     CanvasToolBar* m_canvasToolBar = nullptr;
+    TableToolBar* m_tableToolBar = nullptr;
     MyButton* m_btnExportPdf = nullptr;
     MyButton* m_btnClearAnnotations = nullptr;
     MyButton* m_btnToggleAnnotations = nullptr;

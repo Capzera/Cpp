@@ -74,10 +74,10 @@ int main(int argc, char** argv) {
     view.show();
     pump(300);
 
+    controller.setTool(ToolController::Pen);
     controller.setPenColor(QColor(20, 20, 20));
     controller.setPenWidth(6.0);
 
-    controller.setTool(ToolController::Pen);
     QVector<QPointF> fast;
     for (int i = 0; i <= 8; ++i) {
         fast.push_back(QPointF(-400.0 + i * 80.0, -300.0 + (i % 2 ? 40.0 : -40.0)));

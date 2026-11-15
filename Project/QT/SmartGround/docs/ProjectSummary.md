@@ -79,6 +79,50 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 - 工具快捷键：`V` 指针 / `A` 选中 / `B` 画笔 / `H` 荧光笔 / `E` 橡皮 / `L` 直线 / `R` 方框 / `O` 圆形 / `D` 箭头 / `T` 三角 / `M` 马赛克 / `N` 文本 / `G` 笔记 / `X` 公式 / `I` 表格。
 - 颜色快捷键：`1`~`7` 红 / 绿 / 蓝 / 黄 / 橙 / 粉 / 深灰；`Alt + R/G/B/Y/O/P/K` 备用。
 
+## 画板十项需求轮（2026-11-15，BUG-123 ~ 126）
+
+### 笔刷设置跟随每个工具且具备记忆（BUG-124 关联）
+
+- `ToolController::ToolStyle` 结构体承载 color / width / opacity / eraserRadius / mosaicCell / tableRows / tableCols / textSize，`QHash<int, ToolStyle> m_styles` 按工具枚举索引**独立保存**。
+- 画笔与荧光笔的颜色、宽度、透明度完全互不干扰；切换工具后再切回来，属性原样保留；算法模块切换时 `ToolController` 生命周期长于模块，记忆自然延续。
+- `CanvasToolBar::placeToolPanelUnderButton()` 把属性浮层**精确对齐到当前工具按钮正下方**（浮层中心对齐按钮中心，边界自动避让画布四边），切换工具时实时重定位。
+
+### 笔迹平滑与 0 延迟跟随（BUG-124）
+
+- **向心 Catmull-Rom**（`alpha = 0.5`）：节点间距按 `‖P(i+1)-P(i)‖^0.5` 加权，急转弯不再产生 cusp（尖点）与自交，均匀 Catmull-Rom 的过冲问题消失。
+- 采样间距 3.0 → 2.6、最小采样距离 0.4 → 0.35，曲率大的地方自动加密。
+- `CanvasView::mapToSceneF()` 用 `viewportTransform().inverted()` 保留亚像素精度；`ToolController` 全部坐标换算改走该接口，消除 `toPoint()` 整像素截断造成的台阶顿挫。
+- `StrokeItem` 增量重建：`m_resampled` 缓存采样点，`rebuildTail()` 只重建末段，落笔后每加一点只重算一小段。
+
+### 无极取色（需求 3）
+
+- `MyColorPicker` 自绘连续色相条（拖动直接取色）+ 饱和 / 明度滑块 + 9 枚渐变预设芯片（`ColorChip` 自绘圆角色块）+ Hex 输入 + R / G / B 数字输入，全部为自研控件，未引入原生输入框。
+
+### 纯快捷键化（需求 4 / 5）
+
+- 工具栏移除复制 / 粘贴 / 剪切 / 删除 / 撤销 / 重做 / 全选专用按钮，「更多」浮层只保留显隐 / 锁定 / 导出 PDF / 清空批注并附快捷键说明。
+- `Backspace` 与 `Delete` 双绑定删除选区内全部批注元素，`Ctrl+Z` / `Ctrl+Y` 撤销重做，`Ctrl+C/X/V/A` 剪贴板与全选。
+
+### 框选拖动与缩放手柄（BUG-125）
+
+- 选框内部空白处按下即可整体拖动（`pointInsideSelection()`），不必精确点中元素本体。
+- `SelectionOverlay` 提供 8 个方向手柄（4 角 + 4 边中点），命中容差按视口缩放反向换算 `tol = 9.0 / max(0.2, zoom)`。
+- 新增 `AnnotationFrame`（origin + basisX + basisY）仿射抽象：缩放以**起始帧为绝对基准**，杜绝逐帧累乘漂移；等比缩放走 `setScale(uniform)` 保持 `QGraphicsItem::scale()` 语义正确。
+
+### 透明原地编辑（BUG-123）
+
+- 文本框与 Markdown 笔记移除一切不透明底色，只保留虚线框。
+- `AnnotationScene` 是**游离场景**，从未挂到 `QGraphicsView`，`QGraphicsTextItem` 拿不到原生焦点，键盘事件根本进不来；改为在 `ToolController::eventFilter` 拦截视口 `KeyPress`，用 `QTextCursor` 直接改文档并手动 `update()`。
+- 编辑态自绘光标（`QTextLayout::lineForTextPosition` + `cursorToX`），不依赖原生文本光标。
+- `createItemForTool()` 修正顺序：先 `setTool(AnnotationSelect)` 再 `beginInlineEdit(item)`，否则 `setTool` 内部的 `endInlineEdit(true)` 会把刚进入的编辑态关掉。
+
+### 表格上下文工具栏（BUG-126）
+
+- 新增自绘 `TableToolBar` 浮层：居中 / 左中 / 右中 / 顶端对齐、选中单元格 / 行 / 列、上 / 下 / 左 / 右插入行列、删除当前行 / 列、「插入 k 行 / k 列」用 `MyTextInput` 输入数量。
+- `MainWindow::positionTableToolBar()` 把浮层定位在表格上方并随表格移动 / 改尺寸自动重定位。
+- 右键表格弹出上下文菜单（`tableContextRequested` → `showContextMenu()`），同样提供四向插入与删除。
+- `handleTableClick()` 改为按点击位置动态解析目标表格，单元格命中用 `headerHeight()` 偏移，标题行不再误判为第 0 行。
+
 ## 画板交互修复轮 + 第 4 批联动（2026-11-14，BUG-117 ~ 122）
 
 ### 笔迹：快划断裂与自交白洞（BUG-117）
@@ -387,7 +431,7 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 
 所有任务遵循根目录 .cursorrules 与 Cursor_Workflow.md。Codex 使用 AGENTS.md 获取项目级约束，Cursor 使用 .cursor/rules/smartground-project.mdc。修复缺陷或改变模块状态时，同步更新 BugLog.md、ModuleStatus.md 和本摘要。
 
-代码验证以当前 Qt/CMake 配置为准。本轮 Release 与 Debug 构建均通过；`tests/` 无头自动化测试覆盖极端输入、动画中断清理、边权跟随、箭头几何、UI 状态机、单元格单线边框、就地编辑崩溃回归、画布批注层工具与渲染、快划笔画连续性、自交无白洞、形状实时预览、真像素化马赛克、批注剪贴板、两段式工具交互、插入后工具回落与双击行内编辑、批注按模块归档 / 恢复，全部通过（47 个测试套件全绿）。GUI 交互和算法结果测试尚未执行。
+代码验证以当前 Qt/CMake 配置为准。本轮 Release 与 Debug 构建均通过；`tests/` 无头自动化测试覆盖极端输入、动画中断清理、边权跟随、箭头几何、UI 状态机、单元格单线边框、就地编辑崩溃回归、画布批注层工具与渲染、快划笔画连续性、自交无白洞、形状实时预览、真像素化马赛克、批注剪贴板、两段式工具交互、插入后工具回落与双击行内编辑、批注按模块归档 / 恢复、笔刷分工具记忆、向心样条平滑、无极取色器、Backspace/Delete 删除、框选拖动与 8 向缩放手柄、透明原地行内编辑、LaTeX/笔记移动、表格上下文工具栏增删行列，全部通过（48 个测试套件全绿）。GUI 交互和算法结果测试尚未执行。
 
 ## 工程整洁度（2026-11-14）
 

@@ -1,8 +1,26 @@
 # SmartGround 模块开发状态跟踪
 
-> **更新时间**: 2026-11-14 - 画板交互修复轮 + 第 4 批联动
+> **更新时间**: 2026-11-15 - 画板十项需求轮（笔刷独立记忆 / 平滑笔迹 / 无极取色 / 快捷键化 / 框选拖拽缩放 / 透明行内编辑 / 表格上下文工具栏）
 > **当前进度**: 37 个唯一可运行模块（38 个下拉条目） | 0 个头文件骨架
-> **核心变化**: 画板十项交互问题一次性修完——①**笔迹重采样 + 中心线描边**，快划不断裂、自交不再出现白色空洞（BUG-117）；②**形状拖动期间实时预览**（BUG-118）；③**马赛克改为真像素化**，基于底层场景快照降采样再块状放大（BUG-119）；④**文本框 / 笔记插入后回落选择工具并进入行内编辑，双击不再新建**（BUG-120）；⑤**LaTeX 改为非模态实时预览编辑器**（BUG-121）；⑥**图标规范化**为铅笔 / 橡皮 / 方框 T（BUG-122）；⑦**全工具两段式交互**（首次选工具、再点展开该工具属性）；⑧**Ctrl+X/C/V 剪贴板**可在鼠标位置粘贴；⑨**模块切换批注按模块归档**，笔记公式不再随切模块丢失（第 4 批联动）；⑩Markdown 代码块与 LaTeX 预览样式细化。全量 47 个测试套件串行全绿
+> **核心变化**：画板十项需求一次性落地——①**笔刷设置跟随每个工具**并具备跨模块记忆（`ToolController::m_styles` 按工具索引存 `ToolStyle`，画笔与荧光笔颜色 / 宽度 / 透明度完全独立）；②**向心 Catmull-Rom 三次贝塞尔**替代均匀样条，笔迹急转弯无棱角，鼠标坐标改走 `CanvasView::mapToSceneF()` 保留亚像素精度实现 0 延迟跟随；③**无极取色器**（连续色相条 + 饱和 / 明度滑块 + 9 枚渐变预设 + Hex / RGB 输入）；④**移除复制粘贴剪切删除撤销重做全选按钮**，纯快捷键；⑤`Backspace` / `Delete` 双绑定删除选区元素；⑥**框选后可直接拖动**（选框内空白处按下即整体移动）；⑦**文本框 / 笔记完全透明 + 原地即时编辑**（游离场景焦点缺失，改由视口事件过滤器驱动 `QTextCursor`）；⑧**LaTeX 公式与 Markdown 笔记均可移动可编辑**；⑨**选框 8 向缩放手柄**（基于 `AnnotationFrame` 仿射基向量，消除累乘漂移）；⑩**表格上下文浮动工具栏**（对齐 / 选单元格行列 / 增删行列 / k 行 k 列输入 / 右键菜单）。全量 48 个测试套件串行全绿
+
+## 2026-11-15 画板十项需求轮
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 笔刷设置独立 + 记忆 | `src/canvas/ToolController.{h,cpp}` | 新增 `ToolStyle` 结构（color / width / opacity / eraserRadius / mosaicCell / tableRows / tableCols / textSize）与 `QHash<int, ToolStyle> m_styles`，按工具枚举索引独立保存；`styleFor()` / `setStyleFor()` 供 UI 读写；工具切换不互相污染，算法模块切换时 `ToolController` 生命周期长于模块，记忆自然保留 |
+| 两段式属性浮层 | `src/ui/widgets/CanvasToolBar.{h,cpp}` | 属性页仍用 `QStackedWidget` 按工具分页；新增 `placeToolPanelUnderButton()`，浮层**精确对齐到当前工具按钮正下方**（居中于按钮，边界避让画布边缘），切换工具时实时重定位 |
+| 向心 Catmull-Rom 笔迹 | `src/canvas/StrokeItem.{h,cpp}` | `kCentripetalAlpha = 0.5`，节点间距按 `‖Δ‖^0.5` 加权，急转弯不产生 cusp 与自交；采样间距 3.0 → 2.6，最小采样距离 0.4 → 0.35；`m_resampled` 增量缓存 + `rebuildTail()` 只重建末段，落笔跟手（BUG-124） |
+| 亚像素鼠标跟随 | `src/canvas/CanvasView.{h,cpp}` | 新增 `CanvasView::mapToSceneF()`（`viewportTransform().inverted()` 保留小数），`ToolController` 全部坐标换算改走该接口，消除整像素截断造成的台阶顿挫 |
+| 无极取色器 | `src/ui/widgets/MyColorPicker.{h,cpp}` | 自绘连续色相条（拖动取色）+ 饱和 / 明度滑块 + 9 枚渐变预设芯片（`ColorChip` 自绘）+ Hex 输入 + R / G / B 数字输入，全部自绘控件，未引入原生输入框 |
+| 精简工具栏 | `src/ui/widgets/CanvasToolBar.cpp` | 删除复制 / 粘贴 / 剪切 / 删除 / 撤销 / 重做 / 全选专用按钮；「更多」浮层保留显隐 / 锁定 / 导出 PDF / 清空批注，并附快捷键说明文字 |
+| 删除双键绑定 | `src/canvas/ToolController.cpp` | `onKeyPress()` 中 `Backspace` 与 `Delete` 均触发 `deleteSelected()`，删除选区内全部批注元素并注册 undo 命令 |
+| 框选拖动 | `src/canvas/ToolController.{h,cpp}` | 新增 `pointInsideSelection()`：在选框内部空白处按下即进入整体拖动，不必精确点中元素本体 |
+| 选框缩放手柄 | `src/canvas/SelectionOverlay.{h,cpp}` + `AnnotationItem.{h,cpp}` | 8 个方向手柄（4 角 + 4 边中点），容差 `tol = 9.0 / max(0.2, zoom)`；新增 `AnnotationFrame`（origin + basisX + basisY）抽象，缩放以**起始帧为绝对基准**，杜绝每帧累乘漂移；等比缩放走 `setScale(uniform)` 保持 `QGraphicsItem::scale()` 语义（BUG-125） |
+| 透明行内编辑 | `src/canvas/TextBoxItem.{h,cpp}` + `MarkdownItem.{h,cpp}` | 移除不透明底色绘制，只保留虚线框；游离 `AnnotationScene` 无原生焦点，键盘改由 `ToolController::eventFilter` 拦截视口 `KeyPress` 后用 `QTextCursor` 直接改文档；编辑态自绘光标（`QTextLayout::lineForTextPosition` + `cursorToX`）；`createItemForTool()` 修正为先切工具再 `beginInlineEdit()`（BUG-123） |
+| LaTeX / 笔记可移动 | `src/canvas/LatexItem.cpp` + `ToolController` | `LatexItem::applyStyle()` 接受 `Qt::LeftButton`，公式卡片进入选择态后可拖动；笔记与文本框同理走统一 `setPos()` 拖动管线 |
+| 表格上下文工具栏 | `src/ui/widgets/TableToolBar.{h,cpp}` | 新增自绘 `TableCard` 浮层：居中 / 左中 / 右中 / 顶端对齐、选中单元格 / 行 / 列、上 / 下 / 左 / 右插入行列、删除当前行 / 列、「插入 k 行 / k 列」用 `MyTextInput` 输入数量；`MainWindow::positionTableToolBar()` 浮动定位在表格上方并随表格移动重定位；右键表格弹 `tableContextRequested` → `showContextMenu()`（BUG-126） |
+| 新增测试 | `tests/SmartCanvasTest.cpp` | 40 项断言，覆盖 10 项需求：工具样式独立性、样条平滑、取色器存在、无冗余按钮、Backspace/Delete 删除与撤销、拖动移动、透明与行内输入、LaTeX/笔记移动、缩放手柄、表格对齐与增删行列、两段式点击 |
 
 ## 2026-11-14 画板交互修复轮 + 第 4 批联动
 

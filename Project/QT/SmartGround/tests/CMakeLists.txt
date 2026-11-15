@@ -123,6 +123,8 @@ set(SG_WIDGET_SOURCES
     ../src/ui/widgets/FlowLayout.cpp
     ../src/ui/widgets/AnnotationEditor.cpp
     ../src/canvas/LatexService.cpp
+    ../src/ui/widgets/MyColorPicker.cpp
+    ../src/ui/widgets/MyTextInput.cpp
 )
 
 set(SG_CANVAS_SOURCES
@@ -134,9 +136,12 @@ set(SG_CANVAS_SOURCES
     ../src/canvas/LatexItem.cpp
     ../src/canvas/CanvasTableItem.cpp
     ../src/canvas/AnnotationScene.cpp
+    ../src/canvas/InlineTextEdit.cpp
+    ../src/canvas/SelectionOverlay.cpp
     ../src/canvas/ToolController.cpp
     ../src/canvas/CanvasView.cpp
     ../src/ui/widgets/CanvasToolBar.cpp
+    ../src/ui/widgets/TableToolBar.cpp
     ../src/ui/widgets/ToolIconButton.cpp
 )
 
@@ -215,6 +220,7 @@ add_sg_canvas_test(SmartGroundToolSuite ToolSuiteTest.cpp)
 add_sg_canvas_test(SmartGroundBrushQuality BrushQualityTest.cpp)
 add_sg_canvas_test(SmartGroundCanvasPolish CanvasPolishTest.cpp)
 add_sg_canvas_test(SmartGroundCanvasEditing CanvasEditingTest.cpp)
+add_sg_canvas_test(SmartGroundSmartCanvas SmartCanvasTest.cpp)
 
 add_sg_ui_test(SmartGroundAppWidth AppWidthTest.cpp)
 add_sg_ui_test(SmartGroundAppCombo AppComboTest.cpp)

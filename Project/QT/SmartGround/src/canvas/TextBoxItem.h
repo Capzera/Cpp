@@ -3,6 +3,7 @@
 #include "AnnotationItem.h"
 #include <QTextDocument>
 #include <QTextCharFormat>
+#include <QTextCursor>
 
 class TextBoxItem : public AnnotationItem {
     Q_OBJECT
@@ -38,6 +39,7 @@ public:
     bool isInlineEditing() const override { return m_editing; }
     void commitInlineEdit() override;
     void cancelInlineEdit() override;
+    bool handleEditKey(QKeyEvent* event) override;
 
     QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override;
@@ -52,9 +54,13 @@ protected:
 
 private:
     void rebuildDocument();
+    void syncCursorToItem();
+    QRectF caretRect() const;
+    void drawCaret(QPainter* painter) const;
 
     QTextDocument m_document;
     QGraphicsTextItem* m_textItem = nullptr;
+    QTextCursor m_cursor;
     QString m_family = "Microsoft YaHei UI";
     int m_fontSize = 12;
     bool m_bold = false;

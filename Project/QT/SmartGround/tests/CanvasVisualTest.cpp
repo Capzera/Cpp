@@ -72,10 +72,10 @@ int main(int argc, char** argv) {
     view.show();
     pump(200);
 
+    controller.setTool(ToolController::Pen);
     controller.setPenColor(QColor(200, 40, 40));
     controller.setPenWidth(4.0);
 
-    controller.setTool(ToolController::Pen);
     drag(&view, QPointF(-420, -300), QPointF(-280, -240));
     check("pen: stroke drawn", overlay.annotationItems().size() == 1);
 

@@ -7,8 +7,8 @@
 
 LatexItem::LatexItem(QGraphicsItem* parent) : AnnotationItem(parent) {
     setZValue(10);
-    setAcceptedMouseButtons(Qt::NoButton);
-    setToolTip("双击可重新输入 LaTeX 源码");
+    setAcceptedMouseButtons(Qt::LeftButton);
+    setToolTip("双击可重新输入 LaTeX 源码，拖动可移动位置");
     connect(LatexService::instance(), &LatexService::rendered,
             this, &LatexItem::handleRendered);
 }
@@ -66,7 +66,7 @@ QRectF LatexItem::boundingRect() const {
 }
 
 void LatexItem::applyStyle() {
-    setAcceptedMouseButtons(Qt::NoButton);
+    setAcceptedMouseButtons(Qt::LeftButton);
 }
 
 void LatexItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) {

@@ -4,6 +4,7 @@
 #include <QJsonObject>
 #include <QCursor>
 #include <QUuid>
+#include <cmath>
 
 AnnotationItem::AnnotationItem(QGraphicsItem* parent) : QGraphicsObject(parent) {
     m_uid = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -75,16 +76,47 @@ void AnnotationItem::scaleBy(qreal factor, const QPointF& pivot) {
     scaleAbout(pivot, factor, factor);
 }
 
-void AnnotationItem::scaleAbout(const QPointF& scenePivot, qreal sx, qreal sy) {
-    if (sx <= 0.0001 || sy <= 0.0001) return;
+AnnotationItem::Frame AnnotationItem::captureFrame() const {
+    const QTransform t = transform();
+    Frame frame;
+    frame.origin = pos();
+    frame.basisX = t.map(QPointF(1, 0)) - t.map(QPointF(0, 0));
+    frame.basisY = t.map(QPointF(0, 1)) - t.map(QPointF(0, 0));
+    return frame;
+}
+
+void AnnotationItem::applyFrame(const Frame& frame) {
     prepareGeometryChange();
     setTransformOriginPoint(QPointF(0, 0));
-    const QPointF p = pos();
-    const QPointF np(scenePivot.x() + (p.x() - scenePivot.x()) * sx,
-                     scenePivot.y() + (p.y() - scenePivot.y()) * sy);
-    setScale(scale() * sx, scale() * sy);
-    setPos(np);
+    const qreal sx = std::hypot(frame.basisX.x(), frame.basisX.y());
+    const qreal sy = std::hypot(frame.basisY.x(), frame.basisY.y());
+    const qreal uniform = qMax(sx, sy);
+    if (uniform > 0.0001 && qFuzzyCompare(sx / uniform, sy / uniform)) {
+        setScale(uniform);
+    } else {
+        QTransform t;
+        t.setMatrix(frame.basisX.x(), frame.basisY.x(), 0.0,
+                    frame.basisX.y(), frame.basisY.y(), 0.0,
+                    0.0, 0.0, 1.0);
+        setTransform(t);
+    }
+    setPos(frame.origin);
+}
+
+void AnnotationItem::scaleFrameAbout(const Frame& start, const QPointF& scenePivot, qreal sx, qreal sy) {
+    if (sx <= 0.0001 || sy <= 0.0001) return;
+    Frame frame = start;
+    frame.basisX = frame.basisX * sx;
+    frame.basisY = frame.basisY * sy;
+    frame.origin = QPointF(scenePivot.x() + (start.origin.x() - scenePivot.x()) * sx,
+                           scenePivot.y() + (start.origin.y() - scenePivot.y()) * sy);
+    applyFrame(frame);
     notifyContentChanged();
+}
+
+void AnnotationItem::scaleAbout(const QPointF& scenePivot, qreal sx, qreal sy) {
+    if (sx <= 0.0001 || sy <= 0.0001) return;
+    scaleFrameAbout(captureFrame(), scenePivot, sx, sy);
 }
 
 void AnnotationItem::notifyContentChanged() {
@@ -98,7 +130,6 @@ bool AnnotationItem::hitTest(const QPointF& scenePos, qreal radius) const {
     const QRectF b = boundingRect();
     return b.adjusted(-radius, -radius, radius, radius).contains(local);
 }
-
 void AnnotationItem::drawSelectionFrame(QPainter* painter) const {
     if (!m_selected) return;
     painter->save();

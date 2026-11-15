@@ -4,6 +4,16 @@
 #include <QJsonObject>
 #include <QColor>
 #include <QString>
+#include <QPainterPath>
+#include <QPointF>
+
+class QKeyEvent;
+
+struct AnnotationFrame {
+    QPointF origin;
+    QPointF basisX;
+    QPointF basisY;
+};
 
 class AnnotationItem : public QGraphicsObject {
     Q_OBJECT
@@ -38,9 +48,15 @@ public:
     virtual bool isInlineEditing() const { return false; }
     virtual void commitInlineEdit() {}
     virtual void cancelInlineEdit() {}
+    virtual bool handleEditKey(QKeyEvent* event) { return false; }
+
+    using Frame = AnnotationFrame;
 
     void scaleBy(qreal factor, const QPointF& pivot);
     void scaleAbout(const QPointF& scenePivot, qreal sx, qreal sy);
+    Frame captureFrame() const;
+    void applyFrame(const Frame& frame);
+    void scaleFrameAbout(const Frame& start, const QPointF& scenePivot, qreal sx, qreal sy);
 
     void notifyContentChanged();
 

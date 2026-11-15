@@ -84,9 +84,9 @@ int main(int argc, char** argv) {
 
     check("realtime: annotation scene has a host view", overlay.hostView() == &view);
 
+    controller.setTool(ToolController::Pen);
     controller.setPenColor(QColor(200, 40, 40));
     controller.setPenWidth(5.0);
-    controller.setTool(ToolController::Pen);
 
     QVector<QPointF> pts;
     for (int i = 0; i <= 60; ++i) {
@@ -156,6 +156,7 @@ int main(int argc, char** argv) {
 
     controller.setTool(ToolController::Highlighter);
     controller.setPenColor(QColor(250, 220, 60));
+    controller.setPenWidth(12.0);
     sendMouse(&view, QEvent::MouseButtonPress, QPointF(-400, 200), Qt::LeftButton);
     for (int i = 1; i <= 20; ++i) {
         sendMouse(&view, QEvent::MouseMove, QPointF(-400 + i * 10.0, 200 + std::sin(i * 0.4) * 30.0), Qt::LeftButton);
@@ -175,6 +176,7 @@ int main(int argc, char** argv) {
 
     controller.setTool(ToolController::Pen);
     controller.setPenColor(QColor(30, 90, 200));
+    controller.setPenWidth(5.0);
     QVector<QPointF> jag;
     for (int i = 0; i <= 12; ++i) {
         jag.push_back(QPointF(-400 + i * 16.0, 320));

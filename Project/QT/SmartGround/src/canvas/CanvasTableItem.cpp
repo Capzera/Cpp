@@ -1,4 +1,4 @@
-#include "CanvasTableItem.h"
+﻿#include "CanvasTableItem.h"
 #include <QPainter>
 #include <QFontMetrics>
 #include <QGraphicsTextItem>
@@ -17,11 +17,14 @@ CanvasTableItem::CanvasTableItem(int rows, int cols, QGraphicsItem* parent) : An
 
 void CanvasTableItem::rebuildCells() {
     m_data.resize(m_rows);
+    m_aligns.resize(m_rows);
     for (int i = 0; i < m_rows; ++i) {
         const int oldSize = m_data[i].size();
         m_data[i].resize(m_cols);
+        m_aligns[i].resize(m_cols);
         for (int j = oldSize; j < m_cols; ++j) {
             m_data[i][j].clear();
+            m_aligns[i][j] = TableAlign::Unset;
         }
     }
     prepareGeometryChange();
@@ -122,6 +125,111 @@ void CanvasTableItem::cancelEditCell() {
     update();
 }
 
+void CanvasTableItem::setContentAlign(TableAlign align) {
+    if (m_align == align) return;
+    m_align = align;
+    update();
+}
+
+TableAlign CanvasTableItem::contentAlign() const {
+    return m_align;
+}
+
+void CanvasTableItem::setCellAlign(int r, int c, TableAlign align) {
+    if (r < 0 || r >= m_rows || c < 0 || c >= m_cols) return;
+    if (m_aligns[r][c] == align) return;
+    m_aligns[r][c] = align;
+    update();
+}
+
+TableAlign CanvasTableItem::cellAlign(int r, int c) const {
+    if (r < 0 || r >= m_rows || c < 0 || c >= m_cols) return TableAlign::Unset;
+    if (m_aligns[r][c] != TableAlign::Unset) return m_aligns[r][c];
+    return m_align;
+}
+
+void CanvasTableItem::selectCells(const QSet<int>& cells) {
+    m_selectedCells = cells;
+    m_selectedRow = -1;
+    m_selectedCol = -1;
+    update();
+}
+
+void CanvasTableItem::clearCellSelection() {
+    m_selectedCells.clear();
+    m_selectedRow = -1;
+    m_selectedCol = -1;
+    update();
+}
+
+void CanvasTableItem::setSelectedRow(int r) {
+    m_selectedRow = (r >= 0 && r < m_rows) ? r : -1;
+    m_selectedCol = -1;
+    update();
+}
+
+void CanvasTableItem::setSelectedCol(int c) {
+    m_selectedCol = (c >= 0 && c < m_cols) ? c : -1;
+    m_selectedRow = -1;
+    update();
+}
+
+bool CanvasTableItem::insertRows(int at, int count) {
+    if (count <= 0) return false;
+    at = qBound(0, at, m_rows);
+    for (int k = 0; k < count; ++k) {
+        QVector<QString> row(m_cols);
+        QVector<TableAlign> arow(m_cols, TableAlign::Unset);
+        m_data.insert(at + k, row);
+        m_aligns.insert(at + k, arow);
+    }
+    m_rows += count;
+    prepareGeometryChange();
+    update();
+    return true;
+}
+
+bool CanvasTableItem::insertColumns(int at, int count) {
+    if (count <= 0) return false;
+    at = qBound(0, at, m_cols);
+    for (int i = 0; i < m_rows; ++i) {
+        m_data[i].insert(at, QString());
+        m_aligns[i].insert(at, TableAlign::Unset);
+    }
+    m_cols += count;
+    prepareGeometryChange();
+    update();
+    return true;
+}
+
+bool CanvasTableItem::removeRows(int at, int count) {
+    if (count <= 0 || at < 0 || at >= m_rows) return false;
+    count = qMin(count, m_rows - at);
+    for (int k = 0; k < count; ++k) {
+        m_data.removeAt(at);
+        m_aligns.removeAt(at);
+    }
+    m_rows -= count;
+    prepareGeometryChange();
+    update();
+    return true;
+}
+
+bool CanvasTableItem::removeColumns(int at, int count) {
+    if (count <= 0 || at < 0 || at >= m_cols) return false;
+    count = qMin(count, m_cols - at);
+    for (int i = 0; i < m_rows; ++i) {
+        for (int k = 0; k < count; ++k) {
+            m_data[i].removeAt(at);
+            m_aligns[i].removeAt(at);
+        }
+    }
+    m_cols -= count;
+    prepareGeometryChange();
+    update();
+    return true;
+}
+
 void CanvasTableItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event) {
     if (!m_locked) {
         const QPointF local = event->pos();
@@ -148,6 +256,24 @@ void CanvasTableItem::applyStyle() {
     setAcceptedMouseButtons(Qt::NoButton);
 }
 
+void CanvasTableItem::drawCellText(QPainter* painter, const QRectF& r, const QString& text, TableAlign align) const {
+    painter->setFont(QFont("Consolas", 12, QFont::Bold));
+    painter->setPen(QColor(35, 45, 60));
+    if (align == TableAlign::Left) {
+        painter->drawText(r.adjusted(6, 0, -6, 0), Qt::AlignLeft | Qt::AlignVCenter, text);
+        return;
+    }
+    if (align == TableAlign::Right) {
+        painter->drawText(r.adjusted(6, 0, -6, 0), Qt::AlignRight | Qt::AlignVCenter, text);
+        return;
+    }
+    if (align == TableAlign::Top) {
+        painter->drawText(r.adjusted(4, 3, -4, 0), Qt::AlignLeft | Qt::AlignTop, text);
+        return;
+    }
+    painter->drawText(r, Qt::AlignCenter, text);
+}
+
 void CanvasTableItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) {
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing);
@@ -163,13 +289,25 @@ void CanvasTableItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, 
         for (int j = 0; j < m_cols; ++j) {
             const QRectF r(j * m_cell, h + i * m_cell, m_cell, m_cell);
             const bool editing = (m_editingCell && i == m_editRow && j == m_editCol);
-            painter->setBrush(editing ? QColor(238, 245, 255) : QColor(255, 255, 255));
-            painter->setPen(QPen(editing ? QColor(90, 145, 220) : QColor(150, 162, 180), editing ? 1.8 : 1.4));
+            const bool selected = m_selectedCells.contains(i * m_cols + j);
+            const bool rowSel = (m_selectedRow == i);
+            const bool colSel = (m_selectedCol == j);
+
+            QColor fill(255, 255, 255);
+            if (selected) fill = QColor(226, 238, 253);
+            else if (rowSel || colSel) fill = QColor(238, 244, 253);
+            if (editing) fill = QColor(238, 245, 255);
+
+            painter->setBrush(fill);
+            QColor edge(150, 162, 180);
+            qreal edgeWidth = 1.4;
+            if (selected) { edge = QColor(59, 125, 221); edgeWidth = 1.9; }
+            else if (rowSel || colSel) { edge = QColor(120, 160, 225); edgeWidth = 1.7; }
+            if (editing) { edge = QColor(90, 145, 220); edgeWidth = 1.8; }
+            painter->setPen(QPen(edge, edgeWidth));
             painter->drawRect(r);
             if (m_data[i][j].isEmpty()) continue;
-            painter->setFont(QFont("Consolas", 12, QFont::Bold));
-            painter->setPen(QColor(35, 45, 60));
-            painter->drawText(r, Qt::AlignCenter, m_data[i][j]);
+            drawCellText(painter, r, m_data[i][j], cellAlign(i, j));
         }
     }
     painter->restore();
@@ -179,6 +317,8 @@ void CanvasTableItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, 
 AnnotationItem* CanvasTableItem::cloneItem() const {
     auto* copy = new CanvasTableItem(m_rows, m_cols);
     copy->m_data = m_data;
+    copy->m_aligns = m_aligns;
+    copy->m_align = m_align;
     copy->setTitle(m_title);
     copy->setCellSize(m_cell);
     copy->setPenColor(m_penColor);
@@ -194,6 +334,7 @@ QJsonObject CanvasTableItem::toJson() const {
     obj["cols"] = m_cols;
     obj["cell"] = m_cell;
     obj["title"] = m_title;
+    obj["align"] = static_cast<int>(m_align);
     QJsonArray rows;
     for (int i = 0; i < m_rows; ++i) {
         QJsonArray cols;
@@ -203,6 +344,15 @@ QJsonObject CanvasTableItem::toJson() const {
         rows.push_back(cols);
     }
     obj["data"] = rows;
+    QJsonArray aligns;
+    for (int i = 0; i < m_rows; ++i) {
+        QJsonArray row;
+        for (int j = 0; j < m_cols; ++j) {
+            row.push_back(static_cast<int>(m_aligns[i][j]));
+        }
+        aligns.push_back(row);
+    }
+    obj["aligns"] = aligns;
     return obj;
 }
 
@@ -212,12 +362,21 @@ void CanvasTableItem::fromJson(const QJsonObject& obj) {
     m_cols = qMax(1, obj.value("cols").toInt(m_cols));
     m_cell = obj.value("cell").toDouble(m_cell);
     m_title = obj.value("title").toString(m_title);
+    m_align = static_cast<TableAlign>(obj.value("align").toInt(static_cast<int>(m_align)));
     m_data.assign(m_rows, QVector<QString>(m_cols));
+    m_aligns.assign(m_rows, QVector<TableAlign>(m_cols, TableAlign::Unset));
     const QJsonArray rows = obj.value("data").toArray();
     for (int i = 0; i < m_rows && i < rows.size(); ++i) {
         const QJsonArray cols = rows.at(i).toArray();
         for (int j = 0; j < m_cols && j < cols.size(); ++j) {
             m_data[i][j] = cols.at(j).toString();
+        }
+    }
+    const QJsonArray aligns = obj.value("aligns").toArray();
+    for (int i = 0; i < m_rows && i < aligns.size(); ++i) {
+        const QJsonArray row = aligns.at(i).toArray();
+        for (int j = 0; j < m_cols && j < row.size(); ++j) {
+            m_aligns[i][j] = static_cast<TableAlign>(row.at(j).toInt());
         }
     }
     prepareGeometryChange();

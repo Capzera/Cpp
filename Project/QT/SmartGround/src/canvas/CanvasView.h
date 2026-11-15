@@ -5,6 +5,7 @@
 
 class AnnotationScene;
 class ToolController;
+class SelectionOverlay;
 
 class CanvasView : public QGraphicsView {
     Q_OBJECT
@@ -19,12 +20,15 @@ public:
 
     void refreshOverlay();
 
+    QPointF mapToSceneF(const QPointF& viewportPos) const;
+
     QPixmap captureSceneRegion(const QRectF& region) const;
 
 protected:
     void drawForeground(QPainter* painter, const QRectF& rect) override;
     bool eventFilter(QObject* obj, QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void focusInEvent(QFocusEvent* event) override;
 
 private:
     void syncDragMode();

@@ -1,5 +1,7 @@
 ﻿#include "MainWindow.h"
 #include "UiTheme.h"
+#include "ui/widgets/TableToolBar.h"
+#include "canvas/CanvasTableItem.h"
 #include "modules/TarjanModule.h"
 #include "modules/BubbleSortModule.h"
 #include "modules/SelectionSortModule.h"
@@ -306,6 +308,11 @@ void MainWindow::setupUI() {
     m_canvasToolBar->setHostWidget(graphicsView);
     m_canvasToolBar->raise();
 
+    m_tableToolBar = new TableToolBar(graphicsView);
+    m_tableToolBar->setObjectName("tableToolBarHost");
+    m_tableToolBar->hide();
+    m_tableToolBar->raise();
+
     rightLayout->addWidget(graphicsView, 1);
     rightLayout->addWidget(statusBar);
 
@@ -340,6 +347,42 @@ void MainWindow::setupCanvasTools() {
 
     connect(m_canvasToolBar, &CanvasToolBar::exportRequested, this, &MainWindow::onExportPdf);
     connect(m_canvasToolBar, &CanvasToolBar::clearRequested, this, &MainWindow::onClearAnnotations);
+
+    connect(m_toolController, &ToolController::tableActivated, this, [this](CanvasTableItem* table) {
+        if (!m_tableToolBar) return;
+        m_tableToolBar->setTable(table);
+        positionTableToolBar();
+    });
+    connect(m_toolController, &ToolController::tableContextRequested, this,
+            [this](CanvasTableItem* table, int row, int col, const QPoint& globalPos) {
+        if (!m_tableToolBar) return;
+        m_tableToolBar->setTable(table);
+        positionTableToolBar();
+        m_tableToolBar->showContextMenu(globalPos, row, col);
+    });
+    connect(m_tableToolBar, &TableToolBar::tableChanged, this, [this]() {
+        positionTableToolBar();
+        graphicsView->refreshOverlay();
+    });
+}
+
+void MainWindow::positionTableToolBar() {
+    if (!m_tableToolBar || !m_tableToolBar->table()) return;
+    CanvasTableItem* table = m_tableToolBar->table();
+    const QRectF bounds = table->mapRectToScene(table->contentBounds());
+    const QPoint topLeft = graphicsView->mapFromScene(bounds.topLeft());
+    const QPoint bottomLeft = graphicsView->mapFromScene(bounds.bottomLeft());
+    m_tableToolBar->adjustSize();
+    const int w = m_tableToolBar->sizeHint().width();
+    const int h = m_tableToolBar->sizeHint().height();
+    int x = topLeft.x();
+    int y = topLeft.y() - h - 8;
+    if (y < 4) y = bottomLeft.y() + 8;
+    if (x + w > graphicsView->width() - 4) x = graphicsView->width() - w - 4;
+    if (x < 4) x = 4;
+    m_tableToolBar->setGeometry(x, y, w, h);
+    m_tableToolBar->show();
+    m_tableToolBar->raise();
 }
 
 void MainWindow::syncAnnotationToolButtons(int tool) {

@@ -7,6 +7,7 @@
 #include "MarkdownItem.h"
 #include "LatexItem.h"
 #include "CanvasTableItem.h"
+#include "SelectionOverlay.h"
 #include "CanvasView.h"
 #include "ui/widgets/AnnotationEditor.h"
 #include <QMouseEvent>
@@ -19,6 +20,23 @@
 
 ToolController::ToolController(AnnotationScene* scene, CanvasView* view, QObject* parent)
     : QObject(parent), m_scene(scene), m_view(view) {
+    m_selectionOverlay = new SelectionOverlay(this, this);
+    for (int t = Select; t <= Table; ++t) {
+        ToolStyle style;
+        if (t == Highlighter) {
+            style.color = QColor(240, 190, 40);
+            style.width = 9.0;
+            style.opacity = 1.0;
+        } else if (t == Eraser) {
+            style.color = QColor(31, 39, 51);
+            style.width = 3.0;
+        } else if (t == Mosaic) {
+            style.color = QColor(31, 39, 51);
+            style.width = 3.0;
+            style.mosaicCell = 14;
+        }
+        m_styles.insert(t, style);
+    }
     if (m_view) m_view->viewport()->installEventFilter(this);
 }
 
@@ -35,6 +53,7 @@ void ToolController::setTool(Tool tool) {
         else if (m_tool == Eraser) finishEraseDrag();
         else if (m_activeShape) finishShape();
     }
+    if (m_editingItem) endInlineEdit(true);
     m_tool = tool;
     m_eraserActive = (tool == Eraser);
     if (m_view && m_view->toolController() == this) {
@@ -44,9 +63,32 @@ void ToolController::setTool(Tool tool) {
     emit toolChanged(m_tool);
 }
 
+ToolController::ToolStyle ToolController::styleFor(Tool tool) const {
+    return m_styles.value(tool);
+}
+
+void ToolController::setStyleFor(Tool tool, const ToolStyle& style) {
+    m_styles.insert(tool, style);
+    emit styleChanged();
+}
+
 void ToolController::setEraserRadius(qreal r) {
-    m_eraserRadius = qMax(2.0, r);
+    ToolStyle style = m_styles.value(m_tool);
+    style.eraserRadius = qMax(2.0, r);
+    m_styles.insert(m_tool, style);
     if (m_view) m_view->refreshOverlay();
+}
+
+void ToolController::setMosaicCellSize(int px) {
+    ToolStyle style = m_styles.value(m_tool);
+    style.mosaicCell = qBound(4, px, 60);
+    m_styles.insert(m_tool, style);
+}
+
+void ToolController::setTextSize(int px) {
+    ToolStyle style = m_styles.value(m_tool);
+    style.textSize = qBound(7, px, 72);
+    m_styles.insert(m_tool, style);
 }
 
 bool ToolController::isDrawingTool() const {
@@ -72,30 +114,34 @@ bool ToolController::isDrawingTool() const {
 }
 
 void ToolController::setPenColor(const QColor& c) {
-    if (m_penColor == c) return;
-    m_penColor = c;
+    ToolStyle style = m_styles.value(m_tool);
+    if (style.color == c) return;
+    style.color = c;
+    m_styles.insert(m_tool, style);
     emit styleChanged();
 }
 
 void ToolController::setPenWidth(qreal w) {
-    if (qFuzzyCompare(m_penWidth, w)) return;
-    m_penWidth = w;
+    ToolStyle style = m_styles.value(m_tool);
+    if (qFuzzyCompare(style.width, w)) return;
+    style.width = w;
+    m_styles.insert(m_tool, style);
     emit styleChanged();
 }
 
 void ToolController::setOpacity(qreal v) {
-    if (qFuzzyCompare(m_opacity, v)) return;
-    m_opacity = v;
+    ToolStyle style = m_styles.value(m_tool);
+    if (qFuzzyCompare(style.opacity, v)) return;
+    style.opacity = v;
+    m_styles.insert(m_tool, style);
     emit styleChanged();
 }
 
 void ToolController::setTableSize(int rows, int cols) {
-    m_tableRows = qMax(1, rows);
-    m_tableCols = qMax(1, cols);
-}
-
-void ToolController::setMosaicCellSize(int px) {
-    m_mosaicCell = qBound(4, px, 60);
+    ToolStyle style = m_styles.value(m_tool);
+    style.tableRows = qMax(1, rows);
+    style.tableCols = qMax(1, cols);
+    m_styles.insert(m_tool, style);
 }
 
 void ToolController::setLatexSource(const QString& src) {
@@ -125,6 +171,7 @@ bool ToolController::cutSelection() {
         m_scene->removeItem(item, false);
     }
     m_selected.clear();
+    refreshSelectionOverlay();
     emit selectionChanged(0);
     pushCommand(cmd);
     emit statusMessage(QString("已剪切 %1 个批注元素").arg(cmd.items.size()));
@@ -159,6 +206,7 @@ bool ToolController::pasteAt(const QPointF& scenePos) {
         setSelectedFlag(item, true);
         m_selected.push_back(item);
     }
+    refreshSelectionOverlay();
     emit selectionChanged(m_selected.size());
     emit statusMessage(QString("已粘贴 %1 个批注元素").arg(created.size()));
     return true;
@@ -182,6 +230,7 @@ void ToolController::pushCommand(const Command& cmd) {
     m_redoStack.clear();
     emit historyChanged(canUndo(), canRedo());
 }
+
 bool ToolController::undo() {
     if (m_undoStack.isEmpty()) return false;
     const Command cmd = m_undoStack.takeLast();
@@ -197,6 +246,7 @@ bool ToolController::undo() {
         }
     }
     m_redoStack.push_back(cmd);
+    refreshSelectionOverlay();
     emit historyChanged(canUndo(), canRedo());
     return true;
 }
@@ -216,6 +266,7 @@ bool ToolController::redo() {
         }
     }
     m_undoStack.push_back(cmd);
+    refreshSelectionOverlay();
     emit historyChanged(canUndo(), canRedo());
     return true;
 }
@@ -229,6 +280,7 @@ void ToolController::clearAll() {
     for (AnnotationItem* item : all) {
         m_scene->removeItem(item, false);
     }
+    deselectAll();
     pushCommand(cmd);
     emit statusMessage("已清空批注层");
 }
@@ -250,8 +302,7 @@ bool ToolController::eventFilter(QObject* obj, QEvent* event) {
     switch (event->type()) {
     case QEvent::MouseButtonPress:
         onMousePress(static_cast<QMouseEvent*>(event));
-        return isDrawingTool();
-    case QEvent::MouseMove:
+        return isDrawingTool();    case QEvent::MouseMove:
         onMouseMove(static_cast<QMouseEvent*>(event));
         return isDrawingTool();
     case QEvent::MouseButtonRelease:
@@ -265,9 +316,9 @@ bool ToolController::eventFilter(QObject* obj, QEvent* event) {
             AnnotationItem* item = const_cast<AnnotationItem*>(hit);
             if (item->supportsInlineEdit()) {
                 if (item->isInlineEditing()) {
-                    item->commitInlineEdit();
+                    endInlineEdit(true);
                 } else {
-                    item->beginInlineEdit();
+                    beginInlineEdit(item);
                 }
                 if (m_view) m_view->refreshOverlay();
                 event->accept();
@@ -289,12 +340,12 @@ bool ToolController::eventFilter(QObject* obj, QEvent* event) {
         const int delta = wheel->angleDelta().y();
         if (delta == 0) return false;
         if (m_tool == Eraser) {
-            setEraserRadius(m_eraserRadius + (delta > 0 ? 2.0 : -2.0));
+            setEraserRadius(eraserRadius() + (delta > 0 ? 2.0 : -2.0));
             return true;
         }
         if (m_tool == Pen || m_tool == Highlighter) {
-            setPenWidth(qBound(1.0, m_penWidth + (delta > 0 ? 0.5 : -0.5), 40.0));
-            emit statusMessage(QString("画笔粗细 %1").arg(m_penWidth, 0, 'f', 1));
+            setPenWidth(qBound(1.0, penWidth() + (delta > 0 ? 0.5 : -0.5), 40.0));
+            emit statusMessage(QString("画笔粗细 %1").arg(penWidth(), 0, 'f', 1));
             return true;
         }
         return false;
@@ -307,18 +358,69 @@ bool ToolController::eventFilter(QObject* obj, QEvent* event) {
 
 void ToolController::onMousePress(QMouseEvent* event) {
     if (!m_scene) return;
-    const QPointF pos = m_view->mapToScene(event->position().toPoint());
+    const QPointF pos = m_view->mapToSceneF(event->position());
     m_modifiers = event->modifiers();
 
+    if (event->button() == Qt::RightButton) {
+        auto* table = dynamic_cast<CanvasTableItem*>(itemAt(pos));
+        if (table) {
+            const QPointF local = table->mapFromScene(pos);
+            const qreal cell = table->cellSize();
+            const int col = static_cast<int>(std::floor(local.x() / cell));
+            const int row = static_cast<int>(std::floor((local.y() - table->headerHeight()) / cell));
+            const bool valid = (row >= 0 && row < table->rows() && col >= 0 && col < table->cols());
+            if (m_activeTable != table) {
+                m_activeTable = table;
+                emit tableActivated(table);
+            }
+            emit tableContextRequested(table, valid ? row : -1, valid ? col : -1,
+                                       event->globalPosition().toPoint());
+            event->accept();
+            return;
+        }
+        if (m_activeTable) {
+            m_activeTable = nullptr;
+            emit tableActivated(nullptr);
+        }
+    }
+
+    if (m_editingItem) {
+        const AnnotationItem* hit = itemAt(pos);
+        if (!hit || hit != m_editingItem) {
+            endInlineEdit(true);
+        }
+    }
+
     if (m_tool == AnnotationSelect) {
+        const qreal tol = 9.0 / qMax(0.2, m_view->transform().m11());
+        if (!m_selected.isEmpty()) {
+            const SelectionOverlay::Handle handle = m_selectionOverlay->handleAt(pos, tol);
+            if (handle != SelectionOverlay::None) {
+                m_selectionOverlay->beginScale(pos, handle);
+                event->accept();
+                return;
+            }
+        }
+
+        auto* table = dynamic_cast<CanvasTableItem*>(const_cast<AnnotationItem*>(itemAt(pos)));
+        if (table) {
+            handleTableClick(pos);
+            event->accept();
+            return;
+        }
+
         const AnnotationItem* hit = itemAt(pos);
         if (hit) {
-            if (!m_selected.contains(const_cast<AnnotationItem*>(hit))) {
+            AnnotationItem* item = const_cast<AnnotationItem*>(hit);
+            if (!m_selected.contains(item)) {
                 if (!event->modifiers().testFlag(Qt::ShiftModifier)) deselectAll();
-                setSelectedFlag(const_cast<AnnotationItem*>(hit), true);
-                m_selected.push_back(const_cast<AnnotationItem*>(hit));
+                setSelectedFlag(item, true);
+                m_selected.push_back(item);
                 emit selectionChanged(m_selected.size());
+                refreshSelectionOverlay();
             }
+            beginMoveSelection(pos);
+        } else if (pointInsideSelection(pos)) {
             beginMoveSelection(pos);
         } else {
             if (!event->modifiers().testFlag(Qt::ShiftModifier)) deselectAll();
@@ -362,7 +464,7 @@ void ToolController::onMousePress(QMouseEvent* event) {
 
 void ToolController::onMouseMove(QMouseEvent* event) {
     if (m_tool == Eraser) {
-        const QPointF pos = m_view->mapToScene(event->position().toPoint());
+        const QPointF pos = m_view->mapToSceneF(event->position());
         m_eraserCursorPos = pos;
         if (m_eraseDragging) {
             updateEraseDrag(pos);
@@ -373,7 +475,13 @@ void ToolController::onMouseMove(QMouseEvent* event) {
         return;
     }
     if (m_tool == AnnotationSelect) {
-        const QPointF pos = m_view->mapToScene(event->position().toPoint());
+        const QPointF pos = m_view->mapToSceneF(event->position());
+        if (m_selectionOverlay->isScaling()) {
+            m_selectionOverlay->updateScale(pos);
+            if (m_view) m_view->refreshOverlay();
+            event->accept();
+            return;
+        }
         if (m_marqueeActive) {
             updateMarquee(pos);
         } else if (m_drawing && !m_selected.isEmpty()) {
@@ -384,7 +492,7 @@ void ToolController::onMouseMove(QMouseEvent* event) {
     }
     if (!m_drawing) return;
     m_modifiers = event->modifiers();
-    const QPointF pos = m_view->mapToScene(event->position().toPoint());
+    const QPointF pos = m_view->mapToSceneF(event->position());
     m_currentPos = pos;
     if (m_activeStroke) updateStroke(pos);
     if (m_activeShape && m_tool != Mosaic) updateShape(pos);
@@ -399,7 +507,10 @@ void ToolController::onMouseRelease(QMouseEvent* event) {
         return;
     }
     if (m_tool == AnnotationSelect) {
-        if (m_marqueeActive) {
+        if (m_selectionOverlay->isScaling()) {
+            m_selectionOverlay->finishScale();
+            if (m_view) m_view->refreshOverlay();
+        } else if (m_marqueeActive) {
             finishMarquee();
         } else if (m_drawing && !m_selected.isEmpty()) {
             finishMoveSelection();
@@ -416,6 +527,12 @@ void ToolController::onMouseRelease(QMouseEvent* event) {
 }
 
 void ToolController::onKeyPress(QKeyEvent* event) {
+    if (m_editingItem) {
+        m_editingItem->handleEditKey(event);
+        event->accept();
+        return;
+    }
+
     const bool ctrl = event->modifiers().testFlag(Qt::ControlModifier);
     if (ctrl) {
         if (event->key() == Qt::Key_Z) {
@@ -450,6 +567,14 @@ void ToolController::onKeyPress(QKeyEvent* event) {
             return;
         }
         return;
+    }
+
+    if (event->key() == Qt::Key_Backspace || event->key() == Qt::Key_Delete) {
+        if (!m_selected.isEmpty()) {
+            deleteSelected();
+            event->accept();
+            return;
+        }
     }
 
     if (event->modifiers().testFlag(Qt::ShiftModifier)) {
@@ -529,9 +654,9 @@ QPointF ToolController::constrainPoint(const QPointF& pos, const QPointF& origin
 void ToolController::beginStroke(const QPointF& pos, bool highlighter) {
     m_activeStroke = new StrokeItem();
     m_activeStroke->setMode(highlighter ? StrokeItem::Highlighter : StrokeItem::Ink);
-    m_activeStroke->setPenColor(m_penColor);
-    m_activeStroke->setPenWidth(m_penWidth);
-    m_activeStroke->setFillOpacity(m_opacity);
+    m_activeStroke->setPenColor(penColor());
+    m_activeStroke->setPenWidth(penWidth());
+    m_activeStroke->setFillOpacity(opacity());
     m_activeStroke->setPos(0, 0);
     m_activeStroke->addPoint(pos);
     m_scene->addItem(m_activeStroke);
@@ -568,9 +693,9 @@ void ToolController::beginShape(const QPointF& pos) {
     default: break;
     }
     m_activeShape = new ShapeItem(kind);
-    m_activeShape->setPenColor(m_penColor);
-    m_activeShape->setPenWidth(m_penWidth);
-    m_activeShape->setFillOpacity(m_opacity);
+    m_activeShape->setPenColor(penColor());
+    m_activeShape->setPenWidth(penWidth());
+    m_activeShape->setFillOpacity(opacity());
     m_activeShape->setPos(0, 0);
     m_activeShape->setGeometry(pos, pos);
     m_scene->addItem(m_activeShape);
@@ -599,8 +724,8 @@ void ToolController::finishShape() {
 
 void ToolController::beginMosaic(const QPointF& pos) {
     m_activeShape = new ShapeItem(ShapeItem::Mosaic);
-    m_activeShape->setPenColor(m_penColor);
-    m_activeShape->setPenWidth(m_penWidth);
+    m_activeShape->setPenColor(penColor());
+    m_activeShape->setPenWidth(penWidth());
     m_activeShape->setPos(0, 0);
     m_mosaicCells.clear();
     m_activeShape->setGeometry(pos, pos);
@@ -613,7 +738,7 @@ void ToolController::beginMosaic(const QPointF& pos) {
 
 void ToolController::updateMosaic(const QPointF& pos) {
     if (!m_activeShape) return;
-    const qreal cell = static_cast<qreal>(m_mosaicCell);
+    const qreal cell = static_cast<qreal>(mosaicCellSize());
     const int x0 = static_cast<int>(std::floor(m_pressPos.x() / cell));
     const int y0 = static_cast<int>(std::floor(m_pressPos.y() / cell));
     const int x1 = static_cast<int>(std::floor(pos.x() / cell));
@@ -641,7 +766,7 @@ void ToolController::captureMosaic(const QRectF& region) {
     QPixmap shot = m_view->captureSceneRegion(region);
     if (shot.isNull()) return;
 
-    const int cell = qMax(2, m_mosaicCell);
+    const int cell = qMax(2, mosaicCellSize());
     const int cols = qMax(1, shot.width() / cell);
     const int rows = qMax(1, shot.height() / cell);
     const int outW = cols * cell;
@@ -649,11 +774,12 @@ void ToolController::captureMosaic(const QRectF& region) {
 
     QImage small(cols, rows, QImage::Format_ARGB32);
     small.fill(Qt::transparent);
+    const QImage source = shot.toImage();
     for (int y = 0; y < rows; ++y) {
         for (int x = 0; x < cols; ++x) {
             const QPoint sample(cell * x + cell / 2, cell * y + cell / 2);
-            if (sample.x() >= shot.width() || sample.y() >= shot.height()) continue;
-            small.setPixelColor(x, y, shot.toImage().pixelColor(sample));
+            if (sample.x() >= source.width() || sample.y() >= source.height()) continue;
+            small.setPixelColor(x, y, source.pixelColor(sample));
         }
     }
 
@@ -686,7 +812,7 @@ void ToolController::finishMosaic() {
 }
 
 void ToolController::eraseAt(const QPointF& pos) {
-    const qreal radius = m_eraserRadius;
+    const qreal radius = eraserRadius();
     QVector<AnnotationItem*> hits;
     for (AnnotationItem* item : m_scene->annotationItems()) {
         if (item->isLocked()) continue;
@@ -699,6 +825,10 @@ void ToolController::eraseAt(const QPointF& pos) {
     for (AnnotationItem* item : hits) {
         m_scene->removeItem(item, false);
     }
+    for (AnnotationItem* item : hits) {
+        m_selected.removeAll(item);
+    }
+    refreshSelectionOverlay();
     pushCommand(cmd);
 }
 
@@ -717,7 +847,7 @@ void ToolController::updateEraseDrag(const QPointF& pos) {
     const QPointF from = m_eraseLastPos;
     const QPointF delta = pos - from;
     const qreal dist = std::hypot(delta.x(), delta.y());
-    const qreal step = qMax(2.0, m_eraserRadius * 0.4);
+    const qreal step = qMax(2.0, eraserRadius() * 0.4);
     if (dist >= step) {
         const int steps = static_cast<int>(dist / step);
         for (int i = 1; i <= steps; ++i) {
@@ -744,7 +874,22 @@ AnnotationItem* ToolController::itemAt(const QPointF& pos) {
         const QPointF local = item->mapFromScene(pos);
         if (item->shape().contains(local)) return item;
     }
+    for (AnnotationItem* item : all) {
+        if (item->isLocked()) continue;
+        if (item->hitTest(pos, 5.0)) return item;
+    }
     return nullptr;
+}
+
+bool ToolController::pointInsideSelection(const QPointF& pos) const {
+    if (m_selected.isEmpty()) return false;
+    QRectF bounds;
+    for (AnnotationItem* item : m_selected) {
+        if (!item) continue;
+        const QRectF r = item->mapRectToScene(item->contentBounds());
+        bounds = bounds.isNull() ? r : bounds.united(r);
+    }
+    return !bounds.isNull() && bounds.contains(pos);
 }
 
 void ToolController::setSelectedFlag(AnnotationItem* item, bool on) {
@@ -756,7 +901,14 @@ void ToolController::setSelectedFlag(AnnotationItem* item, bool on) {
 void ToolController::deselectAll() {
     for (AnnotationItem* item : m_selected) setSelectedFlag(item, false);
     m_selected.clear();
+    refreshSelectionOverlay();
     emit selectionChanged(0);
+}
+
+void ToolController::refreshSelectionOverlay() {
+    if (!m_selectionOverlay) return;
+    m_selectionOverlay->setItems(m_selected);
+    if (m_view) m_view->refreshOverlay();
 }
 
 bool ToolController::annotationsVisible() const {
@@ -787,6 +939,7 @@ void ToolController::selectAll() {
         setSelectedFlag(item, true);
         m_selected.push_back(item);
     }
+    refreshSelectionOverlay();
     emit selectionChanged(m_selected.size());
 }
 
@@ -799,6 +952,7 @@ void ToolController::deleteSelected() {
         m_scene->removeItem(item, false);
     }
     m_selected.clear();
+    refreshSelectionOverlay();
     emit selectionChanged(0);
     pushCommand(cmd);
     emit statusMessage(QString("已删除 %1 个批注元素").arg(cmd.items.size()));
@@ -811,19 +965,37 @@ void ToolController::scaleSelected(qreal factor) {
         const QRectF r = item->mapRectToScene(item->contentBounds());
         bounds = bounds.isNull() ? r : bounds.united(r);
     }
-    const QPointF pivot = bounds.center();
+    scaleSelectionAbout(bounds.center(), factor, factor);
+}
+
+void ToolController::scaleSelectionAbout(const QPointF& scenePivot, qreal sx, qreal sy) {
+    if (m_selected.isEmpty()) return;
     for (AnnotationItem* item : m_selected) {
-        item->scaleBy(factor, pivot);
+        item->scaleAbout(scenePivot, sx, sy);
     }
-    emit statusMessage(QString("已缩放选中的 %1 个批注元素").arg(m_selected.size()));
+    if (m_view) m_view->refreshOverlay();
+}
+
+void ToolController::scaleSelectionFramesAbout(const QHash<const AnnotationItem*, AnnotationFrame>& startFrames,
+                                                const QPointF& scenePivot, qreal sx, qreal sy) {
+    if (m_selected.isEmpty()) return;
+    for (AnnotationItem* item : m_selected) {
+        const auto it = startFrames.constFind(item);
+        if (it == startFrames.constEnd()) {
+            item->scaleAbout(scenePivot, sx, sy);
+        } else {
+            item->scaleFrameAbout(it.value(), scenePivot, sx, sy);
+        }
+    }
+    if (m_view) m_view->refreshOverlay();
 }
 
 void ToolController::applySelectionStyle() {
     if (m_selected.isEmpty()) return;
     for (AnnotationItem* item : m_selected) {
-        item->setPenColor(m_penColor);
-        item->setPenWidth(m_penWidth);
-        item->setFillOpacity(m_opacity);
+        item->setPenColor(penColor());
+        item->setPenWidth(penWidth());
+        item->setFillOpacity(opacity());
     }
     emit statusMessage(QString("已更新选中的 %1 个批注元素样式").arg(m_selected.size()));
 }
@@ -900,6 +1072,7 @@ void ToolController::finishMarquee() {
             setSelectedFlag(item, true);
             m_selected.push_back(item);
         }
+        refreshSelectionOverlay();
         emit selectionChanged(m_selected.size());
     }
     updateMarqueeVisual();
@@ -941,14 +1114,12 @@ void ToolController::finishMoveSelection() {
 void ToolController::openEditorFor(AnnotationItem* item) {
     if (!item || item->isLocked()) return;
     if (auto* box = dynamic_cast<TextBoxItem*>(item)) {
-        box->beginInlineEdit();
-        if (m_view) m_view->refreshOverlay();
+        beginInlineEdit(box);
         emit statusMessage("文本框已进入编辑状态，直接在画布上输入。");
         return;
     }
     if (auto* md = dynamic_cast<MarkdownItem*>(item)) {
-        md->beginInlineEdit();
-        if (m_view) m_view->refreshOverlay();
+        beginInlineEdit(md);
         emit statusMessage("笔记已进入编辑状态，直接在画布上输入 Markdown 源码。");
         return;
     }
@@ -956,6 +1127,23 @@ void ToolController::openEditorFor(AnnotationItem* item) {
         openLatexEditor(latex);
         return;
     }
+}
+
+void ToolController::beginInlineEdit(AnnotationItem* item) {
+    if (!item || !item->supportsInlineEdit()) return;
+    if (m_editingItem && m_editingItem != item) endInlineEdit(true);
+    m_editingItem = item;
+    item->beginInlineEdit();
+    if (m_view) m_view->refreshOverlay();
+}
+
+void ToolController::endInlineEdit(bool commit) {
+    if (!m_editingItem) return;
+    AnnotationItem* item = m_editingItem;
+    m_editingItem = nullptr;
+    if (commit) item->commitInlineEdit();
+    else item->cancelInlineEdit();
+    if (m_view) m_view->refreshOverlay();
 }
 
 void ToolController::openLatexEditor(LatexItem* item) {
@@ -972,31 +1160,57 @@ void ToolController::openLatexEditor(LatexItem* item) {
     editor->raise();
 }
 
+void ToolController::handleTableClick(const QPointF& scenePos) {
+    auto* table = dynamic_cast<CanvasTableItem*>(itemAt(scenePos));
+    if (!table) return;
+    if (m_activeTable != table) {
+        m_activeTable = table;
+        emit tableActivated(table);
+    }
+    const QPointF local = table->mapFromScene(scenePos);
+    const qreal cell = table->cellSize();
+    const int col = static_cast<int>(std::floor(local.x() / cell));
+    const int row = static_cast<int>(std::floor((local.y() - table->headerHeight()) / cell));
+
+    if (row < 0 || row >= table->rows() || col < 0 || col >= table->cols()) {
+        table->clearCellSelection();
+        if (m_view) m_view->refreshOverlay();
+        return;
+    }
+
+    const int idx = row * table->cols() + col;
+    QSet<int> cells = table->selectedCells();
+    if (!m_modifiers.testFlag(Qt::ShiftModifier)) cells.clear();
+    cells.insert(idx);
+    table->selectCells(cells);
+    if (m_view) m_view->refreshOverlay();
+}
+
 AnnotationItem* ToolController::createItemForTool(const QPointF& pos) {
     AnnotationItem* item = nullptr;
     bool openEditor = false;
     bool latexEditor = false;
     if (m_tool == TextBox) {
         auto* box = new TextBoxItem();
-        box->setPenColor(m_penColor);
+        box->setPenColor(penColor());
         box->setPlainText("");
         item = box;
         openEditor = true;
     } else if (m_tool == Markdown) {
         auto* md = new MarkdownItem();
-        md->setPenColor(m_penColor);
+        md->setPenColor(penColor());
         md->setMarkdown("");
         item = md;
         openEditor = true;
     } else if (m_tool == Latex) {
         auto* latex = new LatexItem();
-        latex->setPenColor(m_penColor);
+        latex->setPenColor(penColor());
         latex->setTex(m_latexSource.isEmpty() ? QString("E = mc^2") : m_latexSource);
         item = latex;
         latexEditor = true;
     } else if (m_tool == Table) {
-        auto* table = new CanvasTableItem(m_tableRows, m_tableCols);
-        table->setPenColor(m_penColor);
+        auto* table = new CanvasTableItem(tableRows(), tableCols());
+        table->setPenColor(penColor());
         item = table;
     }
     if (!item) return nullptr;
@@ -1007,11 +1221,15 @@ AnnotationItem* ToolController::createItemForTool(const QPointF& pos) {
     cmd.items.push_back(item);
     pushCommand(cmd);
 
+    const bool wasTable = (m_tool == Table);
     setTool(AnnotationSelect);
     if (latexEditor) {
         openLatexEditor(dynamic_cast<LatexItem*>(item));
     } else if (openEditor) {
-        openEditorFor(item);
+        beginInlineEdit(item);
+    } else if (wasTable) {
+        m_activeTable = dynamic_cast<CanvasTableItem*>(item);
+        emit tableActivated(m_activeTable);
     }
     return item;
 }

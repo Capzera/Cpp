@@ -1,6 +1,7 @@
 #include "CanvasView.h"
 #include "AnnotationScene.h"
 #include "ToolController.h"
+#include "SelectionOverlay.h"
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
@@ -16,7 +17,14 @@ CanvasView::CanvasView(QGraphicsScene* scene, QWidget* parent) : QGraphicsView(s
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setDragMode(QGraphicsView::ScrollHandDrag);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    setFocusPolicy(Qt::StrongFocus);
+    viewport()->setFocusPolicy(Qt::StrongFocus);
     viewport()->installEventFilter(this);
+}
+
+void CanvasView::focusInEvent(QFocusEvent* event) {
+    viewport()->setFocus();
+    QGraphicsView::focusInEvent(event);
 }
 
 void CanvasView::setAnnotationScene(AnnotationScene* scene) {
@@ -47,6 +55,13 @@ void CanvasView::syncDragMode() {
 
 void CanvasView::refreshOverlay() {
     if (m_annotationScene) viewport()->update();
+}
+
+QPointF CanvasView::mapToSceneF(const QPointF& viewportPos) const {
+    bool invertible = false;
+    const QTransform inverse = viewportTransform().inverted(&invertible);
+    if (!invertible) return mapToScene(viewportPos.toPoint());
+    return inverse.map(viewportPos);
 }
 
 QPixmap CanvasView::captureSceneRegion(const QRectF& region) const {
@@ -107,6 +122,14 @@ void CanvasView::drawForeground(QPainter* painter, const QRectF& rect) {
             painter->setBrush(QColor(229, 72, 77, 36));
             painter->drawEllipse(c, r, r);
             painter->restore();
+        }
+        if (m_toolController) {
+            SelectionOverlay* overlay = m_toolController->selectionOverlay();
+            if (overlay && overlay->isActive()) {
+                painter->save();
+                overlay->paint(painter);
+                painter->restore();
+            }
         }
     }
 }

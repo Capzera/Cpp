@@ -1,8 +1,9 @@
 #include "CanvasToolBar.h"
 #include "ToolIconButton.h"
 #include "MyButton.h"
-#include "MyColorSwatch.h"
+#include "MyColorPicker.h"
 #include "MySlider.h"
+#include "MyTextInput.h"
 #include "ui/UiTheme.h"
 #include "canvas/ToolController.h"
 #include <QHBoxLayout>
@@ -11,9 +12,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QEvent>
-#include <QScrollArea>
 #include <QStackedWidget>
-#include <QCursor>
 #include <functional>
 
 namespace {
@@ -87,6 +86,14 @@ int CanvasToolBar::mainBarWidth() const {
     return sizeHint().width();
 }
 
+ToolIconButton* CanvasToolBar::toolButtonFor(int tool) const {
+    for (ToolIconButton* button : m_toolButtons) {
+        if (!button) continue;
+        if (static_cast<int>(button->kind()) == tool) return button;
+    }
+    return nullptr;
+}
+
 void CanvasToolBar::paintEvent(QPaintEvent*) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
@@ -117,11 +124,12 @@ void CanvasToolBar::buildMainBar() {
         ToolController::Latex, ToolController::Table
     };
     static const QString tips[] = {
-        "指针 / 平移 (V)", "选择批注 (A)", "画笔 (B) — 点击可调颜色与粗细", "荧光笔 (H)",
-        "橡皮 (E) — 点击可调大小", "直线 (L, Shift 锁定 45°)", "矩形 (R, Shift 正方)",
+        "指针 / 平移 (V)", "选择批注 (A)", "画笔 (B) — 再次点击展开画笔设置",
+        "荧光笔 (H) — 再次点击展开荧光笔设置", "橡皮 (E) — 再次点击展开橡皮设置",
+        "直线 (L, Shift 锁定 45°)", "矩形 (R, Shift 正方)",
         "圆形 (O, Shift 正圆)", "箭头 (D)", "三角形 (T, Shift 等腰)", "马赛克 (M)",
-        "文本框 (N) — 点击可调字号", "Markdown 笔记 (G)", "LaTeX 公式 (X)",
-        "表格 (I) — 点击可调行列"
+        "文本框 (N) — 再次点击展开文本设置", "Markdown 笔记 (G) — 再次点击展开笔记设置",
+        "LaTeX 公式 (X)", "表格 (I) — 再次点击展开表格设置"
     };
 
     for (int i = 0; i < 15; ++i) {
@@ -131,13 +139,13 @@ void CanvasToolBar::buildMainBar() {
         button->setObjectName(QString("canvasTool_%1").arg(static_cast<int>(tool)));
         connect(button, &QAbstractButton::clicked, this, [this, button, tool]() {
             const bool alreadyActive = (m_controller->currentTool() == tool);
-            m_controller->setTool(tool);
-            button->setActive(true);
             if (alreadyActive) {
                 toggleToolPanel();
-            } else {
-                closeFlyouts();
+                return;
             }
+            m_controller->setTool(tool);
+            button->setActive(true);
+            closeFlyouts();
         });
         m_toolButtons.push_back(button);
         layout->addWidget(button);
@@ -145,122 +153,30 @@ void CanvasToolBar::buildMainBar() {
 
     layout->addWidget(new ToolDivider(this));
 
-    m_btnStyle = new ToolIconButton(ToolIconButton::Style, "全局样式 (颜色 / 粗细 / 不透明度)", this);
-    m_btnStyle->setObjectName("canvasStyleToggle");
-    connect(m_btnStyle, &QAbstractButton::clicked, this, [this]() { toggleStylePanel(); });
-    layout->addWidget(m_btnStyle);
-
-    m_btnMore = new ToolIconButton(ToolIconButton::More, "更多工具 (撤销 / 复制 / 导出等)", this);
+    m_btnMore = new ToolIconButton(ToolIconButton::More, "更多 (显隐 / 锁定 / 导出 / 清空)", this);
     m_btnMore->setObjectName("canvasMoreToggle");
     connect(m_btnMore, &QAbstractButton::clicked, this, [this]() { toggleMorePanel(); });
     layout->addWidget(m_btnMore);
 
     connect(m_controller, &ToolController::toolChanged, this, [this](ToolController::Tool tool) {
-        for (ToolIconButton* button : m_toolButtons) {
-            if (!button) continue;
-            button->setActive(static_cast<int>(tool) == static_cast<int>(button->kind()));
+        syncToolButtons();
+        if (m_toolPanelOpen) {
+            refreshToolPage(static_cast<int>(tool));
+            if (m_toolPanel) {
+                m_toolPanel->adjustSize();
+                m_toolPanel->layout()->activate();
+            }
+            placeToolPanelUnderButton();
         }
-        if (m_toolPanelOpen) showToolPage(static_cast<int>(tool));
     });
 }
 
-void CanvasToolBar::buildStylePanel() {
-    m_stylePanel = new ToolCard(m_host ? m_host : this);
-    m_stylePanel->setObjectName("canvasStylePanel");
-    m_stylePanel->setAttribute(Qt::WA_TranslucentBackground, true);
-
-    QVBoxLayout* layout = new QVBoxLayout(m_stylePanel);
-    layout->setContentsMargins(15, 13, 15, 13);
-    layout->setSpacing(8);
-
-    layout->addWidget(makePanelTitle("画笔样式", m_stylePanel));
-
-    QHBoxLayout* colorRow = new QHBoxLayout();
-    colorRow->setSpacing(8);
-    colorRow->addWidget(makePanelLabel("颜色", m_stylePanel));
-    colorRow->addStretch(1);
-    MyColorSwatch* swatch = new MyColorSwatch(m_stylePanel);
-    swatch->setObjectName("canvasStyleColor");
-    swatch->setColor(m_controller->penColor());
-    connect(swatch, &MyColorSwatch::colorPicked, this, [this](const QColor& c) {
-        m_controller->setPenColor(c);
-    });
-    colorRow->addWidget(swatch);
-    layout->addLayout(colorRow);
-
-    auto addSliderRow = [this, layout](const QString& label, int min, int max, int value,
-                                       const QString& objectName,
-                                       const std::function<void(int)>& sink) {
-        QHBoxLayout* row = new QHBoxLayout();
-        row->setSpacing(8);
-        QLabel* text = makePanelLabel(label, m_stylePanel);
-        text->setFixedWidth(46);
-        row->addWidget(text);
-        MySlider* slider = new MySlider(m_stylePanel);
-        slider->setObjectName(objectName);
-        slider->setRange(min, max);
-        slider->setValue(value);
-        slider->setFixedWidth(132);
-        connect(slider, &MySlider::valueChanged, this, [sink](int v) { sink(v); });
-        row->addWidget(slider, 1);
-        layout->addLayout(row);
-        return slider;
-    };
-
-    addSliderRow("粗细", 1, 16, static_cast<int>(m_controller->penWidth()),
-                 "canvasStyleWidth", [this](int v) { m_controller->setPenWidth(v); });
-    addSliderRow("不透明", 10, 100, static_cast<int>(m_controller->opacity() * 100),
-                 "canvasStyleOpacity", [this](int v) { m_controller->setOpacity(v / 100.0); });
-    addSliderRow("橡皮", 4, 60, static_cast<int>(m_controller->eraserRadius()),
-                 "canvasStyleEraser", [this](int v) { m_controller->setEraserRadius(v); });
-
-    layout->addWidget(new ToolDivider(m_stylePanel));
-    layout->addWidget(makePanelTitle("文字样式", m_stylePanel));
-
-    QHBoxLayout* textRow = new QHBoxLayout();
-    textRow->setSpacing(4);
-    MyButton* bold = new MyButton("B", m_stylePanel);
-    bold->setObjectName("canvasTextBold");
-    bold->setVariant(MyButton::Ghost);
-    bold->setCompact(true);
-    bold->setFixedWidth(36);
-    connect(bold, &MyButton::clicked, this, [this]() { m_controller->toggleSelectedTextBold(); });
-    textRow->addWidget(bold);
-
-    MyButton* italic = new MyButton("I", m_stylePanel);
-    italic->setObjectName("canvasTextItalic");
-    italic->setVariant(MyButton::Ghost);
-    italic->setCompact(true);
-    italic->setFixedWidth(36);
-    connect(italic, &MyButton::clicked, this, [this]() { m_controller->toggleSelectedTextItalic(); });
-    textRow->addWidget(italic);
-
-    MyButton* underline = new MyButton("U", m_stylePanel);
-    underline->setObjectName("canvasTextUnderline");
-    underline->setVariant(MyButton::Ghost);
-    underline->setCompact(true);
-    underline->setFixedWidth(36);
-    connect(underline, &MyButton::clicked, this, [this]() { m_controller->toggleSelectedTextUnderline(); });
-    textRow->addWidget(underline);
-
-    MySlider* textSize = new MySlider(m_stylePanel);
-    textSize->setObjectName("canvasTextSize");
-    textSize->setRange(8, 48);
-    textSize->setValue(12);
-    textSize->setFixedWidth(84);
-    connect(textSize, &MySlider::valueChanged, this, [this](int v) {
-        m_controller->setSelectedTextSize(v);
-    });
-    textRow->addWidget(textSize, 1);
-    layout->addLayout(textRow);
-
-    connect(m_controller, &ToolController::selectionChanged, this, [this, bold, italic, underline](int count) {
-        const bool hasText = m_controller->hasSelectedText();
-        bold->setEnabled(hasText);
-        italic->setEnabled(hasText);
-        underline->setEnabled(hasText);
-        Q_UNUSED(count);
-    });
+void CanvasToolBar::syncToolButtons() {
+    const int current = static_cast<int>(m_controller->currentTool());
+    for (ToolIconButton* button : m_toolButtons) {
+        if (!button) continue;
+        button->setActive(static_cast<int>(button->kind()) == current);
+    }
 }
 
 void CanvasToolBar::buildMorePanel() {
@@ -272,70 +188,7 @@ void CanvasToolBar::buildMorePanel() {
     layout->setContentsMargins(15, 13, 15, 13);
     layout->setSpacing(8);
 
-    layout->addWidget(makePanelTitle("编辑", m_morePanel));
-
-    QHBoxLayout* clipRow = new QHBoxLayout();
-    clipRow->setSpacing(4);
-
-    MyButton* copyBtn = new MyButton("复制", m_morePanel);
-    copyBtn->setObjectName("canvasCopyButton");
-    copyBtn->setVariant(MyButton::Ghost);
-    copyBtn->setCompact(true);
-    connect(copyBtn, &MyButton::clicked, this, [this]() { m_controller->copySelection(); });
-    clipRow->addWidget(copyBtn);
-
-    MyButton* cutBtn = new MyButton("剪切", m_morePanel);
-    cutBtn->setObjectName("canvasCutButton");
-    cutBtn->setVariant(MyButton::Ghost);
-    cutBtn->setCompact(true);
-    connect(cutBtn, &MyButton::clicked, this, [this]() { m_controller->cutSelection(); });
-    clipRow->addWidget(cutBtn);
-
-    MyButton* pasteBtn = new MyButton("粘贴", m_morePanel);
-    pasteBtn->setObjectName("canvasPasteButton");
-    pasteBtn->setVariant(MyButton::Ghost);
-    pasteBtn->setCompact(true);
-    connect(pasteBtn, &MyButton::clicked, this, [this]() {
-        m_controller->pasteAtCursor();
-    });
-    clipRow->addWidget(pasteBtn);
-
-    MyButton* del = new MyButton("删除", m_morePanel);
-    del->setObjectName("canvasDeleteButton");
-    del->setVariant(MyButton::Ghost);
-    del->setCompact(true);
-    connect(del, &MyButton::clicked, this, [this]() { m_controller->deleteSelected(); });
-    clipRow->addWidget(del);
-    layout->addLayout(clipRow);
-
-    layout->addWidget(new ToolDivider(m_morePanel));
-
-    QHBoxLayout* actionRow = new QHBoxLayout();
-    actionRow->setSpacing(4);
-
-    m_btnUndo = new MyButton("撤销", m_morePanel);
-    m_btnUndo->setObjectName("canvasUndoButton");
-    m_btnUndo->setVariant(MyButton::Ghost);
-    m_btnUndo->setCompact(true);
-    connect(m_btnUndo, &MyButton::clicked, this, [this]() { m_controller->undo(); });
-    actionRow->addWidget(m_btnUndo);
-
-    m_btnRedo = new MyButton("重做", m_morePanel);
-    m_btnRedo->setObjectName("canvasRedoButton");
-    m_btnRedo->setVariant(MyButton::Ghost);
-    m_btnRedo->setCompact(true);
-    connect(m_btnRedo, &MyButton::clicked, this, [this]() { m_controller->redo(); });
-    actionRow->addWidget(m_btnRedo);
-
-    MyButton* selectAll = new MyButton("全选", m_morePanel);
-    selectAll->setObjectName("canvasSelectAllButton");
-    selectAll->setVariant(MyButton::Ghost);
-    selectAll->setCompact(true);
-    connect(selectAll, &MyButton::clicked, this, [this]() { m_controller->selectAll(); });
-    actionRow->addWidget(selectAll);
-    layout->addLayout(actionRow);
-
-    layout->addWidget(new ToolDivider(m_morePanel));
+    layout->addWidget(makePanelTitle("图层与文件", m_morePanel));
 
     QHBoxLayout* layerRow = new QHBoxLayout();
     layerRow->setSpacing(4);
@@ -379,10 +232,9 @@ void CanvasToolBar::buildMorePanel() {
     fileRow->addWidget(clearBtn);
     layout->addLayout(fileRow);
 
-    connect(m_controller, &ToolController::historyChanged, this, [this](bool canUndo, bool canRedo) {
-        if (m_btnUndo) m_btnUndo->setEnabled(canUndo);
-        if (m_btnRedo) m_btnRedo->setEnabled(canRedo);
-    });
+    QLabel* hint = makePanelLabel("复制 / 粘贴 / 剪切 / 删除 / 全选 / 撤销 / 重做 均使用键盘快捷键", m_morePanel);
+    hint->setWordWrap(true);
+    layout->addWidget(hint);
 }
 
 void CanvasToolBar::buildToolPanel() {
@@ -422,13 +274,15 @@ QWidget* CanvasToolBar::createToolPage(int toolIndex) {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(8);
 
+    const ToolController::ToolStyle style = m_controller->styleFor(tool);
+
     auto addSliderRow = [this, layout, page](const QString& label, int min, int max, int value,
                                              const QString& objectName,
                                              const std::function<void(int)>& sink) {
         QHBoxLayout* row = new QHBoxLayout();
         row->setSpacing(8);
         QLabel* text = makePanelLabel(label, page);
-        text->setFixedWidth(52);
+        text->setFixedWidth(46);
         row->addWidget(text);
         MySlider* slider = new MySlider(page);
         slider->setObjectName(objectName);
@@ -438,80 +292,132 @@ QWidget* CanvasToolBar::createToolPage(int toolIndex) {
         connect(slider, &MySlider::valueChanged, this, [sink](int v) { sink(v); });
         row->addWidget(slider, 1);
         layout->addLayout(row);
+        return slider;
+    };
+
+    auto addColorRow = [this, layout, page, tool](const QColor& initial) {
+        MyColorPicker* picker = new MyColorPicker(page);
+        picker->setObjectName("canvasToolColorPicker");
+        picker->setColor(initial);
+        connect(picker, &MyColorPicker::colorPicked, this, [this, tool](const QColor& c) {
+            ToolController::ToolStyle s = m_controller->styleFor(tool);
+            s.color = c;
+            m_controller->setStyleFor(tool, s);
+            m_controller->setPenColor(c);
+        });
+        layout->addWidget(picker);
+        return picker;
     };
 
     switch (tool) {
     case ToolController::Pen:
-    case ToolController::Highlighter:
+    case ToolController::Highlighter: {
+        layout->addWidget(makePanelTitle(tool == ToolController::Highlighter
+                                             ? "荧光笔设置" : "画笔设置", page));
+        addColorRow(style.color);
+        addSliderRow("粗细", 1, 40, static_cast<int>(style.width),
+                     "canvasToolWidth", [this, tool](int v) {
+                         ToolController::ToolStyle s = m_controller->styleFor(tool);
+                         s.width = v;
+                         m_controller->setStyleFor(tool, s);
+                         m_controller->setPenWidth(v);
+                     });
+        addSliderRow("不透明", 10, 100, static_cast<int>(style.opacity * 100),
+                     "canvasToolOpacity", [this, tool](int v) {
+                         ToolController::ToolStyle s = m_controller->styleFor(tool);
+                         s.opacity = v / 100.0;
+                         m_controller->setStyleFor(tool, s);
+                         m_controller->setOpacity(v / 100.0);
+                     });
+        break;
+    }
     case ToolController::Line:
     case ToolController::Rect:
     case ToolController::Circle:
     case ToolController::Arrow:
     case ToolController::Triangle: {
-        layout->addWidget(makePanelTitle(tool == ToolController::Highlighter
-                                             ? "荧光笔样式" : "画笔样式", page));
-        QHBoxLayout* colorRow = new QHBoxLayout();
-        colorRow->setSpacing(8);
-        colorRow->addWidget(makePanelLabel("颜色", page));
-        colorRow->addStretch(1);
-        MyColorSwatch* swatch = new MyColorSwatch(page);
-        swatch->setObjectName("canvasToolColor");
-        swatch->setColor(m_controller->penColor());
-        connect(swatch, &MyColorSwatch::colorPicked, this, [this](const QColor& c) {
-            m_controller->setPenColor(c);
-        });
-        colorRow->addWidget(swatch);
-        layout->addLayout(colorRow);
-        addSliderRow("粗细", 1, 16, static_cast<int>(m_controller->penWidth()),
-                     "canvasToolWidth", [this](int v) { m_controller->setPenWidth(v); });
-        addSliderRow("不透明", 10, 100, static_cast<int>(m_controller->opacity() * 100),
-                     "canvasToolOpacity", [this](int v) { m_controller->setOpacity(v / 100.0); });
+        layout->addWidget(makePanelTitle("形状设置", page));
+        addColorRow(style.color);
+        addSliderRow("粗细", 1, 40, static_cast<int>(style.width),
+                     "canvasToolWidth", [this, tool](int v) {
+                         ToolController::ToolStyle s = m_controller->styleFor(tool);
+                         s.width = v;
+                         m_controller->setStyleFor(tool, s);
+                         m_controller->setPenWidth(v);
+                     });
+        addSliderRow("不透明", 10, 100, static_cast<int>(style.opacity * 100),
+                     "canvasToolOpacity", [this, tool](int v) {
+                         ToolController::ToolStyle s = m_controller->styleFor(tool);
+                         s.opacity = v / 100.0;
+                         m_controller->setStyleFor(tool, s);
+                         m_controller->setOpacity(v / 100.0);
+                     });
         break;
     }
     case ToolController::Eraser: {
         layout->addWidget(makePanelTitle("橡皮设置", page));
-        addSliderRow("大小", 4, 60, static_cast<int>(m_controller->eraserRadius()),
-                     "canvasToolEraser", [this](int v) { m_controller->setEraserRadius(v); });
+        addSliderRow("大小", 4, 60, static_cast<int>(style.eraserRadius),
+                     "canvasToolEraser", [this, tool](int v) {
+                         ToolController::ToolStyle s = m_controller->styleFor(tool);
+                         s.eraserRadius = v;
+                         m_controller->setStyleFor(tool, s);
+                         m_controller->setEraserRadius(v);
+                     });
         break;
     }
     case ToolController::Mosaic: {
         layout->addWidget(makePanelTitle("马赛克设置", page));
-        addSliderRow("格子", 4, 48, m_controller->mosaicCellSize(),
-                     "canvasToolMosaic", [this](int v) { m_controller->setMosaicCellSize(v); });
+        addSliderRow("格子", 4, 48, style.mosaicCell,
+                     "canvasToolMosaic", [this, tool](int v) {
+                         ToolController::ToolStyle s = m_controller->styleFor(tool);
+                         s.mosaicCell = v;
+                         m_controller->setStyleFor(tool, s);
+                         m_controller->setMosaicCellSize(v);
+                     });
         break;
     }
     case ToolController::Table: {
         layout->addWidget(makePanelTitle("表格设置", page));
-        addSliderRow("行数", 1, 12, m_tableRows,
-                     "canvasToolTableRows", [this](int v) {
-                         m_tableRows = v;
-                         m_controller->setTableSize(v, m_tableCols);
+        addSliderRow("行数", 1, 12, style.tableRows,
+                     "canvasToolTableRows", [this, tool](int v) {
+                         ToolController::ToolStyle s = m_controller->styleFor(tool);
+                         s.tableRows = v;
+                         m_controller->setStyleFor(tool, s);
+                         m_controller->setTableSize(v, s.tableCols);
                      });
-        addSliderRow("列数", 1, 12, m_tableCols,
-                     "canvasToolTableCols", [this](int v) {
-                         m_tableCols = v;
-                         m_controller->setTableSize(m_tableRows, v);
+        addSliderRow("列数", 1, 12, style.tableCols,
+                     "canvasToolTableCols", [this, tool](int v) {
+                         ToolController::ToolStyle s = m_controller->styleFor(tool);
+                         s.tableCols = v;
+                         m_controller->setStyleFor(tool, s);
+                         m_controller->setTableSize(s.tableRows, v);
                      });
         break;
     }
     case ToolController::TextBox: {
         layout->addWidget(makePanelTitle("文本框设置", page));
-        addSliderRow("字号", 8, 48, 12,
-                     "canvasToolTextSize", [this](int v) {
-                         m_controller->setSelectedTextSize(v);
+        addSliderRow("字号", 8, 48, style.textSize,
+                     "canvasToolTextSize", [this, tool](int v) {
+                         ToolController::ToolStyle s = m_controller->styleFor(tool);
+                         s.textSize = v;
+                         m_controller->setStyleFor(tool, s);
+                         m_controller->setTextSize(v);
                      });
+        QLabel* hint = makePanelLabel("插入后可直接在画布上键入，双击已有文本框可继续编辑", page);
+        hint->setWordWrap(true);
+        layout->addWidget(hint);
         break;
     }
     case ToolController::Latex: {
         layout->addWidget(makePanelTitle("LaTeX 公式", page));
-        QLabel* hint = makePanelLabel("点击画布插入公式后可直接编辑源码", page);
+        QLabel* hint = makePanelLabel("点击画布插入公式后可在弹窗中编写源码并实时预览，拖动公式卡片可移动位置", page);
         hint->setWordWrap(true);
         layout->addWidget(hint);
         break;
     }
     case ToolController::Markdown: {
         layout->addWidget(makePanelTitle("Markdown 笔记", page));
-        QLabel* hint = makePanelLabel("点击画布插入笔记后可直接编辑源码", page);
+        QLabel* hint = makePanelLabel("点击画布插入笔记后可直接键入 Markdown 源码，拖动笔记卡片可移动位置", page);
         hint->setWordWrap(true);
         layout->addWidget(hint);
         break;
@@ -535,33 +441,25 @@ void CanvasToolBar::showToolPage(int toolIndex) {
     }
 }
 
-void CanvasToolBar::toggleStylePanel() {
-    m_styleOpen = !m_styleOpen;
-    if (m_moreOpen) {
-        m_moreOpen = false;
-        if (m_morePanel) m_morePanel->hide();
+void CanvasToolBar::refreshToolPage(int toolIndex) {
+    if (!m_toolPages) return;
+    QWidget* page = m_toolPages->currentWidget();
+    if (!page) return;
+    if (page->objectName() != QString("canvasToolPage_%1").arg(toolIndex)) {
+        showToolPage(toolIndex);
+        return;
     }
-    if (m_toolPanelOpen) {
-        m_toolPanelOpen = false;
-        if (m_toolPanel) m_toolPanel->hide();
-    }
-    if (m_stylePanel) {
-        if (m_styleOpen) {
-            m_stylePanel->show();
-            m_stylePanel->raise();
-        } else {
-            m_stylePanel->hide();
-        }
-    }
-    reposition();
+    const int index = m_toolPages->indexOf(page);
+    if (index < 0) return;
+    QWidget* fresh = createToolPage(toolIndex);
+    m_toolPages->removeWidget(page);
+    page->deleteLater();
+    m_toolPages->insertWidget(index, fresh);
+    m_toolPages->setCurrentIndex(index);
 }
 
 void CanvasToolBar::toggleMorePanel() {
     m_moreOpen = !m_moreOpen;
-    if (m_styleOpen) {
-        m_styleOpen = false;
-        if (m_stylePanel) m_stylePanel->hide();
-    }
     if (m_toolPanelOpen) {
         m_toolPanelOpen = false;
         if (m_toolPanel) m_toolPanel->hide();
@@ -579,10 +477,6 @@ void CanvasToolBar::toggleMorePanel() {
 
 void CanvasToolBar::toggleToolPanel() {
     m_toolPanelOpen = !m_toolPanelOpen;
-    if (m_styleOpen) {
-        m_styleOpen = false;
-        if (m_stylePanel) m_stylePanel->hide();
-    }
     if (m_moreOpen) {
         m_moreOpen = false;
         if (m_morePanel) m_morePanel->hide();
@@ -602,10 +496,8 @@ void CanvasToolBar::toggleToolPanel() {
 }
 
 void CanvasToolBar::closeFlyouts() {
-    m_styleOpen = false;
     m_moreOpen = false;
     m_toolPanelOpen = false;
-    if (m_stylePanel) m_stylePanel->hide();
     if (m_morePanel) m_morePanel->hide();
     if (m_toolPanel) m_toolPanel->hide();
     reposition();
@@ -615,10 +507,8 @@ void CanvasToolBar::setHostWidget(QWidget* host) {
     m_host = host;
     if (m_host) {
         m_host->installEventFilter(this);
-        buildStylePanel();
         buildMorePanel();
         buildToolPanel();
-        if (m_stylePanel) m_stylePanel->hide();
         if (m_morePanel) m_morePanel->hide();
         if (m_toolPanel) m_toolPanel->hide();
     }
@@ -641,6 +531,34 @@ void CanvasToolBar::placePanel(QWidget* panel, int barX, int barW, int barY, int
     panel->setGeometry(px, py, panelW, panelH);
 }
 
+void CanvasToolBar::placeToolPanelUnderButton() {
+    if (!m_toolPanel || !m_host) return;
+    const int tool = static_cast<int>(m_controller->currentTool());
+    ToolIconButton* button = toolButtonFor(tool);
+    if (!button) {
+        placePanel(m_toolPanel, 0, 0, 0, 0);
+        return;
+    }
+    m_toolPanel->adjustSize();
+    const int panelW = m_toolPanel->sizeHint().width();
+    const int panelH = m_toolPanel->sizeHint().height();
+    const QPoint buttonGlobalCenter = button->mapToGlobal(QPoint(button->width() / 2, 0));
+    const QPoint buttonGlobalLeft = button->mapToGlobal(QPoint(0, 0));
+    const QPoint hostLocal = m_host->mapFromGlobal(buttonGlobalLeft);
+
+    int px = hostLocal.x() + (button->width() - panelW) / 2;
+    const int areaW = m_host->width();
+    if (px + panelW > areaW - 8) px = areaW - panelW - 8;
+    if (px < 8) px = 8;
+
+    int py = hostLocal.y() + button->height() + 8;
+    const int areaH = m_host->height();
+    if (py + panelH > areaH - 8) py = hostLocal.y() - panelH - 8;
+    if (py < 8) py = 8;
+
+    m_toolPanel->setGeometry(px, py, panelW, panelH);
+}
+
 void CanvasToolBar::reposition() {
     if (!m_host) return;
     const int areaW = m_host->width();
@@ -652,9 +570,8 @@ void CanvasToolBar::reposition() {
     const int y = 16;
     setGeometry(x, y, barW, barH);
 
-    if (m_styleOpen && m_stylePanel) placePanel(m_stylePanel, x, barW, y, barH);
     if (m_moreOpen && m_morePanel) placePanel(m_morePanel, x, barW, y, barH);
-    if (m_toolPanelOpen && m_toolPanel) placePanel(m_toolPanel, x, barW, y, barH);
+    if (m_toolPanelOpen && m_toolPanel) placeToolPanelUnderButton();
 }
 
 bool CanvasToolBar::eventFilter(QObject* obj, QEvent* event) {

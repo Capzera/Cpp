@@ -5,6 +5,7 @@
 
 class QSlider;
 class MyTextInput;
+class MySlider;
 
 class MyColorPicker : public QWidget {
     Q_OBJECT
@@ -31,9 +32,9 @@ private:
     void applyRgb(int r, int g, int b);
 
     QColor m_color = QColor(31, 39, 51);
-    QSlider* m_hue = nullptr;
-    QSlider* m_sat = nullptr;
-    QSlider* m_val = nullptr;
+    MySlider* m_hue = nullptr;
+    MySlider* m_sat = nullptr;
+    MySlider* m_val = nullptr;
     MyTextInput* m_hex = nullptr;
     MyTextInput* m_red = nullptr;
     MyTextInput* m_green = nullptr;

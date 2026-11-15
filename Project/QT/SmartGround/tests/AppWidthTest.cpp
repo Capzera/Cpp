@@ -42,15 +42,6 @@ int main(int argc, char** argv) {
     w.grab().save("app_window.png");
 
     if (suite) {
-        ToolIconButton* styleBtn = suite->findChild<ToolIconButton*>("canvasStyleToggle");
-        if (styleBtn) {
-            styleBtn->click();
-            pump(150);
-            printf("style panel open: %s\n", suite->isStylePanelOpen() ? "yes" : "no");
-            w.grab().save("app_style_open.png");
-            styleBtn->click();
-            pump(150);
-        }
         ToolIconButton* moreBtn = suite->findChild<ToolIconButton*>("canvasMoreToggle");
         if (moreBtn) {
             moreBtn->click();
@@ -59,6 +50,17 @@ int main(int argc, char** argv) {
             w.grab().save("app_more_open.png");
             moreBtn->click();
             pump(150);
+        }
+        ToolIconButton* penBtn = suite->findChild<ToolIconButton*>("canvasTool_2");
+        if (penBtn) {
+            penBtn->click();
+            pump(120);
+            penBtn->click();
+            pump(150);
+            printf("pen tool panel open: %s\n", suite->isToolPanelOpen() ? "yes" : "no");
+            w.grab().save("app_pen_settings.png");
+            penBtn->click();
+            pump(120);
         }
     }
 

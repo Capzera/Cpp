@@ -10,8 +10,38 @@
 #include <QVBoxLayout>
 #include <QLabel>
 #include <algorithm>
+#include <functional>
 
 namespace {
+
+class ColorChip : public QWidget {
+public:
+    explicit ColorChip(const QColor& color, QWidget* parent = nullptr) : QWidget(parent), m_color(color) {
+        setFixedSize(20, 20);
+        setCursor(Qt::PointingHandCursor);
+    }
+
+    void setPickedCallback(std::function<void()> callback) { m_callback = std::move(callback); }
+
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        QPainterPath path;
+        path.addRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 5, 5);
+        painter.setPen(QPen(QColor(0, 0, 0, 40), 1));
+        painter.setBrush(m_color);
+        painter.drawPath(path);
+    }
+
+    void mousePressEvent(QMouseEvent*) override {
+        if (m_callback) m_callback();
+    }
+
+private:
+    QColor m_color;
+    std::function<void()> m_callback;
+};
 
 const QColor& gradientAt(int index) {
     static const QColor palette[] = {
@@ -114,12 +144,8 @@ MyColorPicker::MyColorPicker(QWidget* parent) : QWidget(parent) {
     presetLayout->setSpacing(4);
     for (int i = 0; i < 9; ++i) {
         const QColor c = gradientAt(i);
-        QWidget* chip = new QWidget(presetRow);
-        chip->setFixedSize(20, 20);
-        chip->setCursor(Qt::PointingHandCursor);
-        chip->setProperty("chipColor", c);
-        chip->setStyleSheet("QWidget { border-radius:5px; background:" + c.name() + "; border:1px solid rgba(0,0,0,30); }");
-        connect(chip, &QWidget::mousePressEvent, this, [this, c]() {
+        ColorChip* chip = new ColorChip(c, presetRow);
+        chip->setPickedCallback([this, c]() {
             setColor(c);
             emitColor();
         });

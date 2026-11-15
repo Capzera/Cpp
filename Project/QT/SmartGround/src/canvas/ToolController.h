@@ -9,6 +9,8 @@
 #include <QGraphicsItem>
 #include <QMouseEvent>
 
+#include "AnnotationItem.h"
+
 class AnnotationScene;
 class AnnotationItem;
 class StrokeItem;
@@ -18,6 +20,7 @@ class MarkdownItem;
 class LatexItem;
 class CanvasTableItem;
 class CanvasView;
+class SelectionOverlay;
 
 class ToolController : public QObject {
     Q_OBJECT
@@ -41,6 +44,17 @@ public:
     };
     Q_ENUM(Tool)
 
+    struct ToolStyle {
+        QColor color = QColor(31, 39, 51);
+        qreal width = 3.0;
+        qreal opacity = 1.0;
+        qreal eraserRadius = 14.0;
+        int mosaicCell = 14;
+        int tableRows = 3;
+        int tableCols = 3;
+        int textSize = 12;
+    };
+
     ToolController(AnnotationScene* scene, CanvasView* view, QObject* parent = nullptr);
     ~ToolController() override;
 
@@ -48,12 +62,24 @@ public:
     void setTool(Tool tool);
     bool isDrawingTool() const;
 
-    QColor penColor() const { return m_penColor; }
+    QColor penColor() const { return m_styles.value(m_tool).color; }
     void setPenColor(const QColor& c);
-    qreal penWidth() const { return m_penWidth; }
+    qreal penWidth() const { return m_styles.value(m_tool).width; }
     void setPenWidth(qreal w);
-    qreal opacity() const { return m_opacity; }
+    qreal opacity() const { return m_styles.value(m_tool).opacity; }
     void setOpacity(qreal v);
+    qreal eraserRadius() const { return m_styles.value(m_tool).eraserRadius; }
+    void setEraserRadius(qreal r);
+    int mosaicCellSize() const { return m_styles.value(m_tool).mosaicCell; }
+    void setMosaicCellSize(int px);
+    int tableRows() const { return m_styles.value(m_tool).tableRows; }
+    int tableCols() const { return m_styles.value(m_tool).tableCols; }
+    void setTableSize(int rows, int cols);
+    int textSize() const { return m_styles.value(m_tool).textSize; }
+    void setTextSize(int px);
+
+    ToolStyle styleFor(Tool tool) const;
+    void setStyleFor(Tool tool, const ToolStyle& style);
 
     bool undo();
     bool redo();
@@ -63,12 +89,8 @@ public:
     void clearAll();
     bool exportToFile(const QString& path, QString* error);
 
-    void setTableSize(int rows, int cols);
     void setLatexSource(const QString& src);
     QString latexSource() const { return m_latexSource; }
-
-    int mosaicCellSize() const { return m_mosaicCell; }
-    void setMosaicCellSize(int px);
 
     bool hasClipboard() const { return !m_clipboardItems.isEmpty(); }
     bool copySelection();
@@ -85,8 +107,6 @@ public:
     bool annotationsLocked() const;
     void setAnnotationsLocked(bool on);
 
-    qreal eraserRadius() const { return m_eraserRadius; }
-    void setEraserRadius(qreal r);
     QPointF eraserCursorPos() const { return m_eraserCursorPos; }
     bool eraserCursorActive() const { return m_eraserActive; }
 
@@ -94,6 +114,13 @@ public:
     void deselectAll();
     void deleteSelected();
     void scaleSelected(qreal factor);
+    void scaleSelectionAbout(const QPointF& scenePivot, qreal sx, qreal sy);
+    void scaleSelectionFramesAbout(const QHash<const AnnotationItem*, AnnotationFrame>& startFrames,
+                                   const QPointF& scenePivot, qreal sx, qreal sy);
+
+    SelectionOverlay* selectionOverlay() const { return m_selectionOverlay; }
+    AnnotationItem* editingItem() const { return m_editingItem; }
+    CanvasTableItem* activeTable() const { return m_activeTable; }
 
     bool applyColorShortcut(QKeyEvent* event);
 
@@ -105,6 +132,8 @@ signals:
     void historyChanged(bool canUndo, bool canRedo);
     void statusMessage(const QString& text);
     void selectionChanged(int count);
+    void tableActivated(CanvasTableItem* table);
+    void tableContextRequested(CanvasTableItem* table, int row, int col, const QPoint& globalPos);
 
 private:
     struct Command {
@@ -143,9 +172,14 @@ private:
     void applySelectionStyle();
     void setSelectedFlag(AnnotationItem* item, bool on);
     AnnotationItem* itemAt(const QPointF& pos);
+    bool pointInsideSelection(const QPointF& pos) const;
     void captureMosaic(const QRectF& region);
     void openEditorFor(AnnotationItem* item);
     void openLatexEditor(LatexItem* item);
+    void beginInlineEdit(AnnotationItem* item);
+    void endInlineEdit(bool commit);
+    void refreshSelectionOverlay();
+    void handleTableClick(const QPointF& scenePos);
 
 public:
     void setSelectedTextFamily(const QString& family);
@@ -162,12 +196,7 @@ public:
     AnnotationScene* m_scene = nullptr;
     CanvasView* m_view = nullptr;
     Tool m_tool = Select;
-    QColor m_penColor = QColor(31, 39, 51);
-    qreal m_penWidth = 3.0;
-    qreal m_opacity = 1.0;
-    int m_tableRows = 3;
-    int m_tableCols = 3;
-    int m_mosaicCell = 14;
+    QHash<int, ToolStyle> m_styles;
     QString m_latexSource = "E = mc^2";
     Qt::KeyboardModifiers m_modifiers = Qt::NoModifier;
 
@@ -194,10 +223,13 @@ public:
     QVector<AnnotationItem*> m_eraseRemoved;
     QPointF m_eraserCursorPos;
     bool m_eraserActive = false;
-    qreal m_eraserRadius = 14.0;
 
     QVector<Command> m_undoStack;
     QVector<Command> m_redoStack;
+
+    SelectionOverlay* m_selectionOverlay = nullptr;
+    AnnotationItem* m_editingItem = nullptr;
+    CanvasTableItem* m_activeTable = nullptr;
 };
 
 #endif

@@ -31,6 +31,12 @@ add_executable(SmartGround
     src/ui/widgets/MySlider.cpp
     src/ui/widgets/MyColorSwatch.h
     src/ui/widgets/MyColorSwatch.cpp
+    src/ui/widgets/MyColorPicker.h
+    src/ui/widgets/MyColorPicker.cpp
+    src/ui/widgets/MyTextInput.h
+    src/ui/widgets/MyTextInput.cpp
+    src/ui/widgets/TableToolBar.h
+    src/ui/widgets/TableToolBar.cpp
     src/ui/widgets/FlowLayout.h
     src/ui/widgets/FlowLayout.cpp
     src/ui/widgets/CanvasToolBar.h
@@ -57,6 +63,10 @@ add_executable(SmartGround
     src/canvas/CanvasTableItem.cpp
     src/canvas/AnnotationScene.h
     src/canvas/AnnotationScene.cpp
+    src/canvas/InlineTextEdit.h
+    src/canvas/InlineTextEdit.cpp
+    src/canvas/SelectionOverlay.h
+    src/canvas/SelectionOverlay.cpp
     src/canvas/ToolController.h
     src/canvas/ToolController.cpp
     src/canvas/CanvasView.h

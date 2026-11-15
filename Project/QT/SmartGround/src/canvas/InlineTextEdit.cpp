@@ -35,12 +35,10 @@ Action handleKey(QTextCursor& cursor, QKeyEvent* event) {
     case Qt::Key_End:
     case Qt::Key_PageUp:
     case Qt::Key_PageDown:
-    case Qt::Key_ShiftLeft:
-    case Qt::Key_ShiftRight:
-    case Qt::Key_ControlLeft:
-    case Qt::Key_ControlRight:
-    case Qt::Key_AltLeft:
-    case Qt::Key_AltRight:
+    case Qt::Key_Shift:
+    case Qt::Key_Control:
+    case Qt::Key_Alt:
+    case Qt::Key_Meta:
         return NotHandled;
     default:
         break;

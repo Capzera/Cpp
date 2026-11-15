@@ -279,6 +279,53 @@
   - `MainWindow::archiveAnnotations()` / `restoreAnnotations()`：在 `onModuleChanged()` 中于切模块前归档当前模块批注，切模块后恢复目标模块批注。
 - **验证**：`SmartGroundCanvasEditing` 断言「归档后画布清空」、「恢复后元素数量一致」、「恢复不存在的模块为空操作」。
 
+## BUG-123 文本框 / Markdown 无法编辑、背景全白
+
+- **现象**：插入文本框后光标没有激活，键盘输入无效；双击已有文本框也无法改字；文本框与 Markdown 笔记都有一块不透明的白底卡片。
+- **根因**：`AnnotationScene` 是**游离场景**（detached scene），没有挂到 `QGraphicsView` 上，`QGraphicsTextItem` 拿不到原生窗口/场景焦点，因此键盘事件根本不会落到文档里；`TextBoxItem::paint()` / `MarkdownItem::paint()` 额外画了不透明底色。
+- **修复**：
+  - 键盘事件改为在 `ToolController::eventFilter` 中拦截 `CanvasView::viewport()` 的 `QEvent::KeyPress`，通过 `QTextCursor` 直接改文档并手动 `update()`，彻底绕开焦点问题。
+  - `TextBoxItem` / `MarkdownItem` 移除任何不透明底色绘制，改为只画虚线框；编辑态自绘光标（`QTextLayout::lineForTextPosition` + `cursorToX` 定位），不依赖原生文本光标。
+  - `ToolController::createItemForTool()` 修正顺序：先 `setTool(AnnotationSelect)` 再 `beginInlineEdit(item)`，避免 `setTool` 内部的 `endInlineEdit(true)` 把刚进入的编辑态关掉。
+  - `ToolController::onKeyPress()` 在行内编辑态下优先把按键交给 `m_editingItem->handleEditKey()`。
+- **验证**：`SmartGroundSmartCanvas` 断言「插入后立刻进入行内编辑」「输入的 `Hi` 落到文本框」「`paint()` 输出无白色不透明像素」「Markdown 输入落到笔记」。
+
+## BUG-124 画笔拐弯有棱角、鼠标跟随有延迟
+
+- **现象**：画笔 / 荧光笔急转弯时出现明显折角；快速划动时笔迹"追不上"鼠标。
+- **根因**：路径用**均匀** Catmull-Rom 样条，控制点间距不均或转角 > 90° 时会产生尖点（cusp）与过冲；同时鼠标坐标被 `event->position().toPoint()` 截断到整像素，丢掉了亚像素信息。
+- **修复**：
+  - `StrokeItem` 改用**向心 Catmull-Rom**（`alpha = 0.5`）三次贝塞尔转换，节点间距按 `‖P(i+1)-P(i)‖^0.5` 加权，急转弯不再产生尖点与自交。
+  - 采样间距由 3.0 收紧到 2.6，最小采样距离由 0.4 收紧到 0.35，曲率大的地方自动加密。
+  - 新增 `CanvasView::mapToSceneF()`：用 `viewportTransform().inverted()` 保留亚像素精度，`ToolController` 全部鼠标坐标改走该接口，消除整像素台阶造成的"顿挫感"。
+  - `StrokeItem` 改为增量重建（`m_resampled` 缓存 + `rebuildTail()`），落笔后每次只追加末段，避免整条路径反复重算。
+- **验证**：`SmartGroundSmartCanvas` 断言「笔迹路径元素数 > 5（确为三次样条而非折线）」。
+
+## BUG-125 框选后无法拖动 / 无法缩放
+
+- **现象**：矩形框选元素后按左键拖不动；选框上也没有缩放箭头，无法拉伸。
+- **根因**：`AnnotationItem::scaleAbout()` 依赖 `QGraphicsItem::setScale()`，该接口只接受**单个标量**，非等比缩放根本无法表达（源码里写成了 `setScale(sx, sy)`，直接编译不过）；缩放过程中每帧都以当前状态为基准再次累乘，导致拖拽越缩越飘。
+- **修复**：
+  - 新增 `AnnotationFrame`（origin + basisX + basisY）抽象，把位置与仿射基向量分开保存，`AnnotationItem::captureFrame()` / `applyFrame()` / `scaleFrameAbout()` 基于它做**以起始帧为基准**的绝对缩放，杜绝累乘漂移。
+  - 等比缩放时走 `setScale(uniform)`，保持 `QGraphicsItem::scale()` 语义正确（既有测试依赖该属性）。
+  - 新增 `SelectionOverlay`：8 个方向手柄（4 角 + 4 边中点），命中容差按视口缩放反向换算 `tol = 9.0 / max(0.2, zoom)`；拖动时按手柄类型计算相对起点的 `sx/sy` 与对角锚点。
+  - `ToolController::onMousePress()` 支持在**选框内部空白处**按下即整体拖动（`pointInsideSelection()`），不再要求必须点中元素本体。
+  - 手柄命中放宽到多选场景（原来仅 `m_selected.size() == 1` 才生效）。
+  - `TopLeft` / `BottomLeft` / `MiddleLeft` 的 `sx` 计算方向此前写反（导致向左拖动反而缩小），已修正为 `(b.right() - scenePos.x()) / b.width()`。
+- **验证**：`SmartGroundSmartCanvas` 断言「拖动后元素位置变化」「角手柄可命中」「拖动角手柄后选框宽度增大」；`SmartGroundCanvasTools` 断言「`scaleSelected()` 后 `item->scale()` 变大」。
+
+## BUG-126 表格缺少上下文工具栏与增删行列
+
+- **现象**：插入表格后没有悬浮工具栏，无法居中 / 左中 / 右中 / 顶端对齐，也无法选中单元格、行、列，更不能增删行列。
+- **根因**：表格只实现了数据模型，没有任何 UI 入口；`ToolController::handleTableClick()` 又依赖 `m_activeTable` 预先赋值，导致点击其它表格时无响应。
+- **修复**：
+  - 新增 `TableToolBar`（自绘 `TableCard`，非原生控件）：居中 / 左中 / 右中 / 顶端对齐、选中单元格 / 行 / 列、增行 / 列、删行 / 列。
+  - `MainWindow::positionTableToolBar()` 把工具栏浮动定位在表格上方，表格移动 / 改尺寸后自动重定位。
+  - `ToolController::handleTableClick()` 改为按点击位置动态解析目标表格并 `emit tableActivated()`；单元格命中改用 `headerHeight()` 偏移，标题行不再误判为第 0 行。
+  - 右键表格弹出 `tableContextRequested` → `TableToolBar::showContextMenu()`，提供上 / 下 / 左 / 右插入行 / 列、删除当前行 / 列。
+  - 「插入 k 行 / k 列」使用 `MyTextInput` 输入数量（自绘控件，未引入原生 `QTextEdit`）。
+- **验证**：`SmartGroundSmartCanvas` 断言「单元格对齐被记录」「插入行 / 列后行列数增长」「删除行 / 列生效」「尺寸回落正确」。
+
 ## 测试运行方式
 
 ```powershell
