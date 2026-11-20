@@ -1,4 +1,4 @@
-﻿#include "PrefixSumModule.h"
+#include "PrefixSumModule.h"
 #include <QRegularExpression>
 #include <QFont>
 
@@ -24,7 +24,7 @@ void PrefixSumModule::buildLayout(QGraphicsScene* scene, const QString& inputDat
     QString error;
     parseTwoRowInput(inputData, m_n, m_m, m_dataA, error);
     if (!error.isEmpty()) {
-        m_mathText = scene->addText("输入错误：" + error);
+        m_mathText = createScriptText(scene, "输入错误：" + error);
         m_mathText->setFont(QFont("Microsoft YaHei UI", 13, QFont::Bold));
         m_mathText->setDefaultTextColor(QColor(180, 50, 50));
         m_mathText->setPos(50, 30);
@@ -43,7 +43,7 @@ void PrefixSumModule::buildLayout(QGraphicsScene* scene, const QString& inputDat
         m_queries.push_back({l, r});
     }
 
-    m_mathText = scene->addText("");
+    m_mathText = createScriptText(scene, "");
     m_mathText->setFont(QFont("Consolas", 18, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(180, 50, 50));
     m_mathText->setPos(300, 50);

@@ -29,7 +29,7 @@ void LISModule::buildLayout(QGraphicsScene* scene, const QString& inputData) {
             }
         }
     }
-    m_mathText = scene->addText(m_valid ? "LIS：先比较 O(N²) 动态规划，再观察 O(N log N) 的 g 数组" : "输入格式：n，随后输入 n 个整数；限制 n≤12");
+    m_mathText = createScriptText(scene, m_valid ? "LIS：先比较 O(N²) 动态规划，再观察 O(N log N) 的 g 数组" : "输入格式：n，随后输入 n 个整数；限制 n≤12");
     m_mathText->setFont(QFont("Consolas", 14, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
     m_mathText->setPos(75, 18);
@@ -113,7 +113,7 @@ std::vector<AnimFrame> LISModule::runAlgorithm() {
 
 void LISModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     if (frame.type == ActionType::LIS_RESET) {
         for (int i = 0; i < static_cast<int>(m_data.size()); ++i) {
             m_arrBlocks[i]->color = Qt::white;
@@ -136,6 +136,7 @@ void LISModule::renderFrame(const AnimFrame& frame) {
         target->showValue = true;
         target->color = QColor(185, 225, 245);
         target->update();
+        playCellLanding(target, QColor(185, 225, 245), 420);
         m_ptrI->setOpacity(1);
         playPointerArrange({m_ptrI}, {m_arrBlocks[frame.u]});
         m_ptrJ->setOpacity(0);
@@ -145,13 +146,16 @@ void LISModule::renderFrame(const AnimFrame& frame) {
         m_arrBlocks[frame.v]->color = QColor(155, 210, 245);
         m_arrBlocks[frame.u]->update();
         m_arrBlocks[frame.v]->update();
+        playNodePop(m_arrBlocks[frame.u], 1.14, 240);
+        playNodePop(m_arrBlocks[frame.v], 1.14, 240);
         m_ptrI->setOpacity(1);
         m_ptrJ->setOpacity(1);
         m_ptrJ->setLabel("j");
         m_ptrJ->update();
         playPointerArrange({m_ptrI, m_ptrJ}, {m_arrBlocks[frame.u], m_arrBlocks[frame.v]});
     } else if (frame.type == ActionType::LIS_UPDATE) {
-        playValueFlight(m_dpBlocks[frame.v]->pos(), m_dpBlocks[frame.u], frame.val1, QColor(155, 220, 175), true);
+        playValueFlight(m_dpBlocks[frame.v]->centerPos(), m_dpBlocks[frame.u], frame.val1, QColor(155, 220, 175), true);
+        playCellLanding(m_dpBlocks[frame.u], QColor(155, 220, 175), 400);
     } else if (frame.type == ActionType::LIS_TAIL_CHECK) {
         for (auto& pair : m_arrBlocks) { pair.second->color = Qt::white; pair.second->update(); }
         m_ptrI->setOpacity(1);
@@ -163,10 +167,13 @@ void LISModule::renderFrame(const AnimFrame& frame) {
         m_tailBlocks[frame.v]->color = QColor(155, 210, 245);
         m_arrBlocks[frame.u]->update();
         m_tailBlocks[frame.v]->update();
+        playNodePop(m_arrBlocks[frame.u], 1.14, 240);
+        playNodePop(m_tailBlocks[frame.v], 1.14, 240);
     } else if (frame.type == ActionType::LIS_TAIL_SET) {
         ArrayBlock* target = m_tailBlocks[frame.v];
         QColor color = frame.v < frame.val2 ? QColor(255, 210, 135) : QColor(155, 220, 175);
-        playValueFlight(m_arrBlocks[frame.u]->pos(), target, frame.val1, color, true);
+        playValueFlight(m_arrBlocks[frame.u]->centerPos(), target, frame.val1, color, true);
+        playCellLanding(target, color, 400);
         m_arrBlocks[frame.u]->color = QColor(255, 220, 160);
         m_arrBlocks[frame.u]->update();
         m_ptrI->setOpacity(1);
@@ -174,6 +181,7 @@ void LISModule::renderFrame(const AnimFrame& frame) {
     } else if (frame.type == ActionType::LIS_DONE) {
         for (auto& pair : m_dpBlocks) { pair.second->color = QColor(175, 220, 185); pair.second->update(); }
         for (auto& pair : m_tailBlocks) if (pair.second->showValue) { pair.second->color = QColor(175, 220, 185); pair.second->update(); }
+        for (auto& pair : m_dpBlocks) playNodePop(pair.second, 1.10, 240);
         m_ptrI->setOpacity(0);
         m_ptrJ->setOpacity(0);
     }

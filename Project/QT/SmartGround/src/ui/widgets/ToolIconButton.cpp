@@ -51,55 +51,118 @@ void drawFrame(QPainter& painter, const QRectF& box, const QColor& color) {
 void drawPencil(QPainter& painter, const QRectF& box, const QColor& color) {
     const QPointF c = box.center();
     const double s = qMin(box.width(), box.height()) * 0.5;
+    const double ux = 0.66;
+    const double uy = -0.75;
+
+    auto P = [c, s, ux, uy](double x, double y) {
+        return QPointF(c.x() + s * (x * ux + y * uy), c.y() + s * (x * uy - y * ux));
+    };
+
+    const double halfW = 0.30;
+    const double top = -0.72;
+    const double ferruleY = -0.30;
+    const double bodyEnd = 0.30;
+    const double tipEnd = 0.80;
 
     QPainterPath body;
-    body.moveTo(c.x() - s * 0.30, c.y() + s * 0.34);
-    body.lineTo(c.x() + s * 0.26, c.y() - s * 0.44);
-    body.lineTo(c.x() + s * 0.50, c.y() - s * 0.20);
-    body.lineTo(c.x() - s * 0.06, c.y() + s * 0.58);
+    body.moveTo(P(-halfW, top));
+    body.lineTo(P(halfW, top));
+    body.lineTo(P(halfW, ferruleY));
+    body.lineTo(P(-halfW, ferruleY));
     body.closeSubpath();
     iconPen(painter, color, 1.5);
     painter.drawPath(body);
 
+    QPainterPath ferrule;
+    ferrule.moveTo(P(-halfW, ferruleY));
+    ferrule.lineTo(P(halfW, ferruleY));
+    ferrule.lineTo(P(halfW, bodyEnd));
+    ferrule.lineTo(P(-halfW, bodyEnd));
+    ferrule.closeSubpath();
+    painter.setPen(QPen(color, 1.5));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawPath(ferrule);
+
     QPainterPath tip;
-    tip.moveTo(c.x() - s * 0.30, c.y() + s * 0.34);
-    tip.lineTo(c.x() - s * 0.06, c.y() + s * 0.58);
-    tip.lineTo(c.x() - s * 0.42, c.y() + s * 0.72);
+    tip.moveTo(P(-halfW, bodyEnd));
+    tip.lineTo(P(halfW, bodyEnd));
+    tip.lineTo(P(0.0, tipEnd));
     tip.closeSubpath();
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(color);
+    painter.setPen(QPen(color, 1.5));
+    painter.setBrush(Qt::NoBrush);
     painter.drawPath(tip);
 
-    painter.setPen(QPen(color, 1.3));
-    painter.drawLine(QPointF(c.x() + s * 0.12, c.y() - s * 0.60),
-                     QPointF(c.x() + s * 0.38, c.y() - s * 0.34));
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(color);
+    QPainterPath lead;
+    lead.moveTo(P(-0.10, bodyEnd + 0.22));
+    lead.lineTo(P(0.10, bodyEnd + 0.22));
+    lead.lineTo(P(0.0, tipEnd));
+    lead.closeSubpath();
+    painter.drawPath(lead);
+
+    painter.setPen(QPen(color, 1.1));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawLine(P(-halfW, top + 0.17), P(halfW, top + 0.17));
+    painter.drawLine(P(-halfW, ferruleY + 0.20), P(halfW, ferruleY + 0.20));
 }
 
 void drawHighlighter(QPainter& painter, const QRectF& box, const QColor& color) {
     const QPointF c = box.center();
     const double s = qMin(box.width(), box.height()) * 0.5;
+    const double ux = 0.60;
+    const double uy = -0.80;
+
+    auto P = [c, s, ux, uy](double x, double y) {
+        return QPointF(c.x() + s * (x * ux + y * uy), c.y() + s * (x * uy - y * ux));
+    };
+
+    const double halfW = 0.36;
+    const double top = -0.70;
+    const double capEnd = -0.10;
+    const double bodyEnd = 0.30;
+
+    QPainterPath cap;
+    cap.moveTo(P(-halfW, top));
+    cap.lineTo(P(halfW, top));
+    cap.lineTo(P(halfW, capEnd));
+    cap.lineTo(P(-halfW, capEnd));
+    cap.closeSubpath();
+    iconPen(painter, color, 1.5);
+    painter.drawPath(cap);
+
     QPainterPath body;
-    body.moveTo(c.x() - s * 0.40, c.y() + s * 0.52);
-    body.lineTo(c.x() - s * 0.40, c.y() - s * 0.10);
-    body.lineTo(c.x() - s * 0.02, c.y() - s * 0.52);
-    body.lineTo(c.x() + s * 0.40, c.y() - s * 0.06);
-    body.lineTo(c.x() + s * 0.02, c.y() + s * 0.38);
+    body.moveTo(P(-halfW, capEnd));
+    body.lineTo(P(halfW, capEnd));
+    body.lineTo(P(halfW, bodyEnd));
+    body.lineTo(P(-halfW, bodyEnd));
     body.closeSubpath();
-    iconPen(painter, color, 1.4);
+    painter.setPen(QPen(color, 1.5));
+    painter.setBrush(Qt::NoBrush);
     painter.drawPath(body);
 
-    QPainterPath tip;
-    tip.moveTo(c.x() - s * 0.40, c.y() + s * 0.52);
-    tip.lineTo(c.x() - s * 0.24, c.y() + s * 0.74);
-    tip.lineTo(c.x() - s * 0.06, c.y() + s * 0.44);
-    tip.closeSubpath();
+    QPainterPath nib;
+    nib.moveTo(P(-halfW, bodyEnd));
+    nib.lineTo(P(halfW, bodyEnd));
+    nib.lineTo(P(0.0, 0.82));
+    nib.closeSubpath();
+    painter.setPen(QPen(color, 1.5));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawPath(nib);
+
+    QPainterPath band;
+    band.moveTo(P(-halfW, capEnd - 0.22));
+    band.lineTo(P(halfW, capEnd - 0.22));
+    band.lineTo(P(halfW, capEnd - 0.04));
+    band.lineTo(P(-halfW, capEnd - 0.04));
+    band.closeSubpath();
     painter.setPen(Qt::NoPen);
     painter.setBrush(color);
-    painter.drawPath(tip);
+    painter.drawPath(band);
 
     painter.setPen(QPen(color, 1.6, Qt::SolidLine, Qt::RoundCap));
-    painter.drawLine(QPointF(c.x() - s * 0.58, c.y() + s * 0.70),
-                     QPointF(c.x() + s * 0.58, c.y() + s * 0.70));
+    painter.drawLine(QPointF(c.x() - s * 0.62, c.y() + s * 0.66),
+                     QPointF(c.x() + s * 0.62, c.y() + s * 0.66));
 }
 
 void drawEraser(QPainter& painter, const QRectF& box, const QColor& color) {
@@ -107,19 +170,35 @@ void drawEraser(QPainter& painter, const QRectF& box, const QColor& color) {
     const double s = qMin(box.width(), box.height()) * 0.5;
 
     QPainterPath body;
-    body.moveTo(c.x() - s * 0.62, c.y() + s * 0.38);
-    body.lineTo(c.x() - s * 0.02, c.y() - s * 0.40);
-    body.lineTo(c.x() + s * 0.62, c.y() - s * 0.12);
-    body.lineTo(c.x() + s * 0.34, c.y() + s * 0.46);
+    body.moveTo(c.x() - s * 0.74, c.y() + s * 0.30);
+    body.lineTo(c.x() - s * 0.34, c.y() - s * 0.28);
+    body.lineTo(c.x() + s * 0.20, c.y() - s * 0.62);
+    body.lineTo(c.x() + s * 0.74, c.y() + s * 0.00);
+    body.lineTo(c.x() + s * 0.40, c.y() + s * 0.42);
     body.closeSubpath();
-    iconPen(painter, color, 1.5);
+    iconPen(painter, color, 1.6);
     painter.drawPath(body);
 
+    QPainterPath top;
+    top.moveTo(c.x() - s * 0.74, c.y() + s * 0.30);
+    top.lineTo(c.x() - s * 0.34, c.y() - s * 0.28);
+    top.lineTo(c.x() + s * 0.20, c.y() - s * 0.62);
+    top.lineTo(c.x() + s * 0.04, c.y() - s * 0.32);
+    top.lineTo(c.x() - s * 0.50, c.y() + s * 0.02);
+    top.closeSubpath();
+    painter.setPen(QPen(color, 1.6));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawPath(top);
+
     painter.setPen(QPen(color, 1.4));
-    painter.drawLine(QPointF(c.x() - s * 0.28, c.y() + s * 0.06),
-                     QPointF(c.x() + s * 0.34, c.y() + s * 0.22));
-    painter.drawLine(QPointF(c.x() - s * 0.44, c.y() + s * 0.30),
-                     QPointF(c.x() + s * 0.18, c.y() + s * 0.46));
+    painter.drawLine(QPointF(c.x() - s * 0.50, c.y() + s * 0.02),
+                     QPointF(c.x() + s * 0.04, c.y() - s * 0.32));
+    painter.drawLine(QPointF(c.x() - s * 0.50, c.y() + s * 0.02),
+                     QPointF(c.x() - s * 0.22, c.y() + s * 0.18));
+
+    painter.setPen(QPen(color, 2.0, Qt::SolidLine, Qt::RoundCap));
+    painter.drawLine(QPointF(c.x() - s * 0.80, c.y() + s * 0.62),
+                     QPointF(c.x() + s * 0.64, c.y() + s * 0.62));
 }
 
 void drawLine(QPainter& painter, const QRectF& box, const QColor& color) {

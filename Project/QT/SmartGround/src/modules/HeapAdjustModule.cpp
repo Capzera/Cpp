@@ -12,7 +12,7 @@ static const QColor kHgDown = QColor(250, 200, 150);
 
 HeapAdjustModule::HeapAdjustModule() {}
 
-QString HeapAdjustModule::getModuleName() const { return "堆调整 up/down"; }
+QString HeapAdjustModule::getModuleName() const { return "堆调整 up / down"; }
 QString HeapAdjustModule::getDefaultInput() const { return "5\n10 5 8 2 9"; }
 
 QString HeapAdjustModule::getInputHint() const {
@@ -34,7 +34,7 @@ void HeapAdjustModule::buildLayout(QGraphicsScene* scene, const QString& inputDa
     if (n > static_cast<int>(tokens.size()) - 1) n = tokens.size() - 1;
     m_valid = n > 0;
 
-    m_mathText = scene->addText(m_valid ? "堆调整：up() 向上冒泡，down() 向下沉降"
+    m_mathText = createScriptText(scene, m_valid ? "堆调整：up() 向上冒泡，down() 向下沉降"
                                          : "输入格式：n，随后 n 个整数；限制 n≤16");
     m_mathText->setFont(QFont("Consolas", 14, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
@@ -138,7 +138,7 @@ std::vector<AnimFrame> HeapAdjustModule::runAlgorithm() {
 
 void HeapAdjustModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     if (frame.type == ActionType::HG_RESET) {
         for (auto& kv : m_arrayBlocks) { kv.second->color = kHgPale; kv.second->update(); }
         for (auto& kv : m_treeNodes) {
@@ -147,6 +147,7 @@ void HeapAdjustModule::renderFrame(const AnimFrame& frame) {
             kv.second->update();
         }
         for (auto& kv : m_treeEdges) { kv.second->color = QColor(170, 180, 195); kv.second->update(); }
+        clearDescentTrail();
     } else if (frame.type == ActionType::HG_COMPARE) {
         auto paint = [&](int index, QColor c) {
             auto it = m_arrayBlocks.find(index);
@@ -161,10 +162,16 @@ void HeapAdjustModule::renderFrame(const AnimFrame& frame) {
         };
         paint(frame.u, kHgCompare);
         if (frame.v > 0) paint(frame.v, kHgUp);
+        if (frame.u > 0) {
+            GraphNode* wakeNode = m_treeNodes.count(frame.u) ? m_treeNodes[frame.u] : nullptr;
+            if (wakeNode) playNodeWake(wakeNode, kHgCompare, 30.0, 460);
+        }
+        if (frame.u > 0) appendDescent(frame.u, kHgCompare);
         auto edge = m_treeEdges.find({frame.v, frame.u});
         if (edge != m_treeEdges.end() && frame.v > 0) {
             edge->second->color = kHgUp;
             edge->second->update();
+            playEdgeTravel(edge->second, kHgUp, 400);
         }
         int current = frame.u;
         int partner = frame.v;
@@ -184,6 +191,8 @@ void HeapAdjustModule::renderFrame(const AnimFrame& frame) {
         int b = frame.v;
         ArrayBlock* ba = m_arrayBlocks.count(a) ? m_arrayBlocks[a] : nullptr;
         ArrayBlock* bb = m_arrayBlocks.count(b) ? m_arrayBlocks[b] : nullptr;
+        GraphNode* na = m_treeNodes.count(a) ? m_treeNodes[a] : nullptr;
+        GraphNode* nb = m_treeNodes.count(b) ? m_treeNodes[b] : nullptr;
         if (ba && bb) {
             playSwapAnim(ba, bb, frame.val1, frame.val2);
             ba->color = kHgSwap;
@@ -191,9 +200,12 @@ void HeapAdjustModule::renderFrame(const AnimFrame& frame) {
             ba->update();
             bb->update();
         }
+        if (na && nb) {
+            playNodeSwapAnim(na, nb, frame.val1, frame.val2);
+            auto swapEdge = m_treeEdges.find({std::min(a, b), std::max(a, b)});
+            if (swapEdge != m_treeEdges.end()) playEdgeTravel(swapEdge->second, kHgSwap, 440);
+        }
         swapHeapValues(a, b, frame.val1, frame.val2);
-        GraphNode* na = m_treeNodes.count(a) ? m_treeNodes[a] : nullptr;
-        GraphNode* nb = m_treeNodes.count(b) ? m_treeNodes[b] : nullptr;
         if (na) { na->color = kHgSwap; na->setHighlightColor(kHgSwap); na->update(); }
         if (nb) { nb->color = kHgSwap; nb->setHighlightColor(kHgSwap); nb->update(); }
         auto edge = m_treeEdges.find({b, a});
@@ -203,7 +215,7 @@ void HeapAdjustModule::renderFrame(const AnimFrame& frame) {
             edge->second->update();
         }
         if (m_relationText) {
-            m_relationText->setPlainText(QString("swap(heap[%1], heap[%2])：值真正互换").arg(b).arg(a));
+            setScriptText(m_relationText, QString("swap(heap[%1], heap[%2])：值真正互换").arg(b).arg(a));
             m_relationText->setDefaultTextColor(kHgSwap.darker(120));
         }
     } else if (frame.type == ActionType::HG_DONE) {
@@ -216,6 +228,7 @@ void HeapAdjustModule::renderFrame(const AnimFrame& frame) {
             if (kv.second->color != kHgSwap) kv.second->color = kHgDone;
             kv.second->update();
         }
+        freezeDescentTrail(kHgDone);
     }
 }
 
@@ -229,6 +242,8 @@ void HeapAdjustModule::reset() {
     m_arrayBlocks.clear();
     m_treeNodes.clear();
     m_treeEdges.clear();
+    m_descentTrail = nullptr;
+    m_descentPoints.clear();
     m_mathText = nullptr;
     m_n = 0;
     m_valid = false;
@@ -238,5 +253,7 @@ void HeapAdjustModule::releaseSceneItems() {
     m_arrayBlocks.clear();
     m_treeNodes.clear();
     m_treeEdges.clear();
+    m_descentTrail = nullptr;
+    m_descentPoints.clear();
     m_mathText = nullptr;
 }

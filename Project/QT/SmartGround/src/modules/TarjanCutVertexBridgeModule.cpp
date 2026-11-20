@@ -73,7 +73,7 @@ void TarjanCutVertexBridgeModule::buildLayout(QGraphicsScene* scene, const QStri
     m_frames.clear();
     initGraph();
 
-    m_mathText = scene->addText("");
+    m_mathText = createScriptText(scene, "");
     m_mathText->setFont(QFont("Consolas", 14, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
     m_mathText->setPos(50, 22);
@@ -83,21 +83,22 @@ void TarjanCutVertexBridgeModule::buildLayout(QGraphicsScene* scene, const QStri
     options.directed = false;
     m_valid = GraphModuleUtils::parse(inputData, false, options, input);
     if (!m_valid) {
-        m_mathText->setPlainText("输入格式错误：第一行 n m，接下来 m 行 u v");
+        setScriptText(m_mathText, "输入格式错误：第一行 n m，接下来 m 行 u v");
         return;
     }
     m_n = input.n;
     m_m = input.m;
     for (const auto& edge : input.edges) { addEdge(edge.u, edge.v); addEdge(edge.v, edge.u); }
 
-    GraphRenderHelper::buildNodes(scene, m_nodes, m_n, QPointF(380, 300), 165.0);
+    GraphRenderHelper::buildNodes(scene, m_nodes, m_n, QPointF(400, 268), 148.0);
     GraphRenderHelper::buildEdges(scene, m_nodes, m_edges, input.edges, options, input.weighted);
 
     const int cellW = 62;
-    const int dfnX = 120;
-    const int dfnY = 500;
-    GraphRenderHelper::addLabel(scene, "dfn[]", QPointF(dfnX - 6, dfnY - 26));
-    GraphRenderHelper::addLabel(scene, "low[]", QPointF(dfnX - 6, dfnY + 30));
+    const int dfnX = 170;
+    const int dfnY = 545;
+    const int rowGap = 100;
+    GraphRenderHelper::addLabel(scene, "dfn[]", QPointF(48, dfnY + 8));
+    GraphRenderHelper::addLabel(scene, "low[]", QPointF(48, dfnY + rowGap + 8));
     for (int i = 1; i <= m_n; ++i) {
         ArrayBlock* dfn = new ArrayBlock(i, 0, QString::number(i));
         dfn->setCellSize(cellW, 40.0);
@@ -108,12 +109,12 @@ void TarjanCutVertexBridgeModule::buildLayout(QGraphicsScene* scene, const QStri
 
         ArrayBlock* low = new ArrayBlock(1000 + i, 0, QString::number(i));
         low->setCellSize(cellW, 40.0);
-        low->setPos(dfnX + (i - 1) * cellW, dfnY + 56);
+        low->setPos(dfnX + (i - 1) * cellW, dfnY + rowGap);
         low->color = kTcPale;
         scene->addItem(low);
         m_lowBlocks[i] = low;
     }
-    m_mathText->setPlainText("Tarjan 求割点与桥：dfn[] 记录访问次序，low[] 记录子树能回溯到的最小 dfn");
+    setScriptText(m_mathText, "Tarjan 求割点与桥：dfn[] 记录访问次序，low[] 记录子树能回溯到的最小 dfn");
 }
 
 ArrayBlock* TarjanCutVertexBridgeModule::dfnBlock(int u) const {
@@ -194,7 +195,7 @@ std::vector<AnimFrame> TarjanCutVertexBridgeModule::runAlgorithm() {
 
 void TarjanCutVertexBridgeModule::renderFrame(const AnimFrame& frame) {
     if (m_mathText) {
-        m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+        setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     }
     if (frame.type == ActionType::TC_RESET) {
         for (auto& kv : m_nodes) {
@@ -217,6 +218,7 @@ void TarjanCutVertexBridgeModule::renderFrame(const AnimFrame& frame) {
             node->updateData(frame.val1, frame.val2);
             node->setHighlightColor(kTcVisit);
             playScalePulse(node, 1.25, 260);
+            playNodeRipple(node, kTcVisit, 40.0, 560);
         }
         if (ArrayBlock* dfn = dfnBlock(frame.u)) {
             dfn->value = frame.val1;
@@ -233,6 +235,7 @@ void TarjanCutVertexBridgeModule::renderFrame(const AnimFrame& frame) {
         if (edge) {
             edge->color = QColor(90, 140, 200);
             edge->update();
+            playEdgeTravel(edge, QColor(90, 140, 200), 460);
         }
         GraphNode* node = m_nodes[frame.u];
         if (node) { node->setHighlightColor(QColor(90, 140, 200)); node->update(); }
@@ -259,6 +262,7 @@ void TarjanCutVertexBridgeModule::renderFrame(const AnimFrame& frame) {
             node->setHighlightColor(kTcCut);
             node->update();
             playScalePulse(node, 1.4, 320);
+            playNodeRipple(node, kTcCut, 54.0, 720);
         }
     } else if (frame.type == ActionType::TC_BRIDGE) {
         GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v, false);
@@ -267,11 +271,13 @@ void TarjanCutVertexBridgeModule::renderFrame(const AnimFrame& frame) {
             edge->setPenWidth(4.0);
             edge->update();
             playScalePulse(edge, 1.12, 280);
+            playEdgeTravel(edge, kTcBridge, 540);
         }
     } else if (frame.type == ActionType::TC_DONE) {
         for (auto& kv : m_nodes) {
             kv.second->setHighlightColor(Qt::transparent);
             kv.second->update();
+            playNodePop(kv.second, 1.10, 260);
         }
         for (auto& kv : m_edges) {
             if (kv.second->color != kTcBridge) { kv.second->color = Qt::black; kv.second->update(); }

@@ -37,7 +37,7 @@ void MonotonicStackModule::buildLayout(QGraphicsScene* scene, const QString& inp
         m_arrayBlocks[i] = block;
         registerArraySlot(block, "a", i);
     }
-    m_mathText = m_scene->addText("单调栈：存储未找到下一个更大元素的索引");
+    m_mathText = createScriptText(m_scene, "单调栈：存储未找到下一个更大元素的索引");
     m_mathText->setPos(100, 50);
     m_mathText->setFont(QFont("Consolas", 11, QFont::Bold));
 }
@@ -73,7 +73,7 @@ std::vector<AnimFrame> MonotonicStackModule::runAlgorithm() {
 
 void MonotonicStackModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.explanation);
+    setScriptText(m_mathText, frame.explanation);
     if (frame.type == ActionType::SQ_POINTER_MOVE) {
         if (m_arrayBlocks.count(frame.u)) {
             m_arrayBlocks[frame.u]->color = QColor(255, 200, 100);
@@ -81,21 +81,26 @@ void MonotonicStackModule::renderFrame(const AnimFrame& frame) {
             m_arrayBlocks[frame.u]->update();
             if (m_animated) {
                 playScalePulse(m_arrayBlocks[frame.u], 1.15, 200);
+                playCellRipple(m_arrayBlocks[frame.u], QColor(255, 190, 90), 0.9, 480);
             }
         }
     } else if (frame.type == ActionType::SQ_UPDATE_VAL) {
         if (frame.u >= 0 && m_arrayBlocks.count(frame.u)) {
             m_arrayBlocks[frame.u]->color = QColor(150, 255, 150);
             m_arrayBlocks[frame.u]->update();
+            playCellLanding(m_arrayBlocks[frame.u], QColor(150, 255, 150), 400);
         }
         if (frame.v >= 0 && m_arrayBlocks.count(frame.v)) {
             m_arrayBlocks[frame.v]->color = QColor(100, 200, 255);
             m_arrayBlocks[frame.v]->update();
+            playNodePop(m_arrayBlocks[frame.v], 1.16, 260);
+            playCellRipple(m_arrayBlocks[frame.v], QColor(100, 190, 250), 0.9, 480);
         }
     } else if (frame.type == ActionType::SQ_CLEAR_VAL) {
         if (m_arrayBlocks.count(frame.u)) {
             m_arrayBlocks[frame.u]->color = QColor(200, 200, 200);
             m_arrayBlocks[frame.u]->update();
+            playNodePop(m_arrayBlocks[frame.u], 0.93, 240);
         }
     }
 }

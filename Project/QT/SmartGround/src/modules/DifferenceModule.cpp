@@ -1,4 +1,4 @@
-﻿#include "DifferenceModule.h"
+#include "DifferenceModule.h"
 #include <QRegularExpression>
 #include <QFont>
 
@@ -24,7 +24,7 @@ void DifferenceModule::buildLayout(QGraphicsScene* scene, const QString& inputDa
     QString error;
     parseTwoRowInput(inputData, m_n, m_m, m_dataA, error);
     if (!error.isEmpty()) {
-        m_mathText = scene->addText("输入错误：" + error);
+        m_mathText = createScriptText(scene, "输入错误：" + error);
         m_mathText->setFont(QFont("Microsoft YaHei UI", 13, QFont::Bold));
         m_mathText->setDefaultTextColor(QColor(180, 50, 50));
         m_mathText->setPos(50, 30);
@@ -43,7 +43,7 @@ void DifferenceModule::buildLayout(QGraphicsScene* scene, const QString& inputDa
         m_queries.push_back({l, r, q[2].toInt()});
     }
 
-    m_mathText = scene->addText("");
+    m_mathText = createScriptText(scene, "");
     m_mathText->setFont(QFont("Consolas", 18, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(180, 50, 50));
     m_mathText->setPos(300, 50);

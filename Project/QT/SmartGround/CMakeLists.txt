@@ -33,14 +33,20 @@ add_executable(SmartGround
     src/ui/widgets/MyColorSwatch.cpp
     src/ui/widgets/MyColorPicker.h
     src/ui/widgets/MyColorPicker.cpp
+    src/ui/widgets/MySegmentedControl.h
+    src/ui/widgets/MySegmentedControl.cpp
     src/ui/widgets/MyTextInput.h
     src/ui/widgets/MyTextInput.cpp
     src/ui/widgets/TableToolBar.h
     src/ui/widgets/TableToolBar.cpp
+    src/ui/widgets/TableIconButton.h
+    src/ui/widgets/TableIconButton.cpp
     src/ui/widgets/FlowLayout.h
     src/ui/widgets/FlowLayout.cpp
     src/ui/widgets/CanvasToolBar.h
     src/ui/widgets/CanvasToolBar.cpp
+    src/ui/widgets/CanvasBrushSlider.h
+    src/ui/widgets/CanvasBrushSlider.cpp
     src/ui/widgets/ToolIconButton.h
     src/ui/widgets/ToolIconButton.cpp
     src/ui/widgets/AnnotationEditor.h
@@ -104,6 +110,8 @@ add_executable(SmartGround
     src/render/LatexBlock.h
     src/render/LatexBlock.cpp
     src/modules/IModule.cpp
+    src/modules/ModuleFields.h
+    src/modules/ModuleFields.cpp
     src/modules/TarjanModule.cpp
     src/modules/BubbleSortModule.cpp
     src/modules/SelectionSortModule.cpp
@@ -150,11 +158,98 @@ add_executable(SmartGround
     src/modules/SandboxGraphModule.cpp
     src/modules/SandboxBlankModule.h
     src/modules/SandboxBlankModule.cpp
+    src/modules/ShellSortModule.h
+    src/modules/ShellSortModule.cpp
+    src/modules/FastPowModule.h
+    src/modules/FastPowModule.cpp
+    src/modules/SieveOfEratosthenesModule.h
+    src/modules/SieveOfEratosthenesModule.cpp
+    src/modules/ForwardStarModule.h
+    src/modules/ForwardStarModule.cpp
+    src/modules/DSUPathCompressionModule.h
+    src/modules/DSUPathCompressionModule.cpp
+    src/modules/TreeDpBase.h
+    src/modules/TreeSubtreeSizeModule.h
+    src/modules/TreeSubtreeSizeModule.cpp
+    src/modules/TreeDiameterModule.h
+    src/modules/TreeDiameterModule.cpp
+    src/modules/DijkstraHeapModule.h
+    src/modules/DijkstraHeapModule.cpp
+    src/modules/GcdModule.h
+    src/modules/GcdModule.cpp
+    src/modules/DfsModule.h
+    src/modules/DfsModule.cpp
+    src/modules/PrimModule.h
+    src/modules/PrimModule.cpp
+    src/modules/CountingSortModule.h
+    src/modules/CountingSortModule.cpp
+    src/modules/BipartiteModule.h
+    src/modules/BipartiteModule.cpp
+    src/modules/EulerModule.h
+    src/modules/EulerModule.cpp
+    src/modules/IntervalSchedModule.h
+    src/modules/IntervalSchedModule.cpp
+    src/modules/TrieModule.h
+    src/modules/TrieModule.cpp
+    src/modules/HashTableModule.h
+    src/modules/HashTableModule.cpp
+    src/modules/BucketSortModule.h
+    src/modules/BucketSortModule.cpp
+    src/modules/RadixSortModule.h
+    src/modules/RadixSortModule.cpp
+    src/modules/CircularQueueModule.h
+    src/modules/CircularQueueModule.cpp
+    src/modules/MonotonicQueueModule.h
+    src/modules/MonotonicQueueModule.cpp
+    src/modules/ExgcdModule.h
+    src/modules/ExgcdModule.cpp
+    src/modules/HuffmanTreeModule.h
+    src/modules/HuffmanTreeModule.cpp
+    src/modules/StringHashModule.h
+    src/modules/StringHashModule.cpp
+    src/modules/LCSModule.h
+    src/modules/LCSModule.cpp
+    src/render/ValueBar.h
+    src/render/ValueBar.cpp
+    src/render/SegmentBar.h
+    src/render/SegmentBar.cpp
     src/resources.qrc
 )
 target_link_libraries(SmartGround Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Svg)
 target_include_directories(SmartGround PRIVATE src)
 set_target_properties(SmartGround PROPERTIES WIN32_EXECUTABLE TRUE)
+
+set(SMARTGROUND_VERSION_FILE ${CMAKE_CURRENT_BINARY_DIR}/generated/AppVersionGenerated.h)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)
+set(SMARTGROUND_BUILD_STAMP "0")
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/.versionstamp)
+    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/.versionstamp SMARTGROUND_BUILD_STAMP)
+    string(STRIP "${SMARTGROUND_BUILD_STAMP}" SMARTGROUND_BUILD_STAMP)
+else()
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+        execute_process(COMMAND ${GIT_EXECUTABLE} rev-list --count HEAD -- .
+                        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                        OUTPUT_VARIABLE SMARTGROUND_GIT_COUNT
+                        OUTPUT_STRIP_TRAILING_WHITESPACE
+                        ERROR_QUIET)
+        execute_process(COMMAND ${GIT_EXECUTABLE} status --porcelain -- .
+                        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                        OUTPUT_VARIABLE SMARTGROUND_GIT_STATUS
+                        OUTPUT_STRIP_TRAILING_WHITESPACE
+                        ERROR_QUIET)
+        if(SMARTGROUND_GIT_COUNT)
+            set(SMARTGROUND_BUILD_STAMP "${SMARTGROUND_GIT_COUNT}")
+        endif()
+        if(SMARTGROUND_GIT_STATUS)
+            math(EXPR SMARTGROUND_BUILD_STAMP "${SMARTGROUND_BUILD_STAMP} + 1")
+        endif()
+    endif()
+endif()
+file(WRITE ${SMARTGROUND_VERSION_FILE}
+"#ifndef APPVERSIONGENERATED_H\n#define APPVERSIONGENERATED_H\nnamespace AppVersionBuild {\ninline const char* kStamp = \"${SMARTGROUND_BUILD_STAMP}\";\n}\n#endif\n")
+target_include_directories(SmartGround PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+
 
 
 

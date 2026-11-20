@@ -35,7 +35,7 @@ void DijkstraNaiveModule::buildLayout(QGraphicsScene* scene, const QString& inpu
     GraphModuleUtils::GraphInput input;
     m_valid = GraphModuleUtils::parse(inputData, true, m_options, input);
     if (m_valid && input.weighted) for (const auto& edge : input.edges) if (edge.w < 0) m_valid = false;
-    m_mathText = scene->addText(m_valid ? "朴素 Dijkstra：每轮扫描全体未确定点，选择 dist 最小者" : "输入格式：n m src，随后输入 m 条非负权边 u v w");
+    m_mathText = createScriptText(scene, m_valid ? "朴素 Dijkstra：每轮扫描全体未确定点，选择 dist 最小者" : "输入格式：n m src，随后输入 m 条非负权边 u v w");
     m_mathText->setFont(QFont("Consolas", 14, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
     m_mathText->setPos(110, 18);
@@ -153,7 +153,7 @@ std::vector<AnimFrame> DijkstraNaiveModule::runAlgorithm() {
 
 void DijkstraNaiveModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     if (frame.type == ActionType::DJ_RESET) {
         for (auto& pair : m_edges) pair.second->setColor(Qt::black);
         for (int i = 1; i <= m_n; ++i) {
@@ -181,7 +181,10 @@ void DijkstraNaiveModule::renderFrame(const AnimFrame& frame) {
         if (frame.group.size() > 0 && frame.group[0] == 1) {
             GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v);
             if (frame.group.size() > 1 && frame.group[1]) {
-                if (edge && edge->color != QColor(70, 175, 125)) edge->setColor(QColor(195, 200, 208));
+                if (edge && edge->color != QColor(70, 175, 125)) {
+                    edge->setColor(QColor(195, 200, 208));
+                    playEdgeSweep(edge, QColor(195, 200, 208), 300);
+                }
             } else {
                 for (auto& pair : m_edges) if (pair.second->color == QColor(235, 155, 55)) pair.second->setColor(Qt::black);
                 for (int i = 1; i <= m_n; ++i) {
@@ -190,12 +193,15 @@ void DijkstraNaiveModule::renderFrame(const AnimFrame& frame) {
                         m_nodes[i]->update();
                     }
                 }
-                if (edge && edge->color != QColor(70, 175, 125)) edge->setColor(QColor(235, 155, 55));
+                if (edge && edge->color != QColor(70, 175, 125)) {
+                    edge->setColor(QColor(235, 155, 55));
+                    playEdgeTravel(edge, QColor(235, 155, 55), 460);
+                }
                 m_nodes[frame.v]->color = QColor(255, 220, 165);
                 m_nodes[frame.v]->update();
+                playNodeWake(m_nodes[frame.v], QColor(255, 200, 110), 32.0, 460);
                 m_relaxPointer->setOpacity(1);
-                m_relaxPointer->setAnchorNode(m_nodes[frame.v]);
-                m_relaxPointer->syncToAnchor();
+                retargetPointerToNode(m_relaxPointer, m_nodes[frame.v]);
             }
         } else {
             for (int i = 1; i <= m_n; ++i) {
@@ -206,10 +212,10 @@ void DijkstraNaiveModule::renderFrame(const AnimFrame& frame) {
             }
             m_nodes[frame.v]->color = QColor(255, 220, 165);
             m_nodes[frame.v]->update();
+            playNodeWake(m_nodes[frame.v], QColor(255, 200, 110), 28.0, 420);
             if (frame.group.size() > 1 && frame.group[1]) {
                 m_pickPointer->setOpacity(1);
-                m_pickPointer->setAnchorNode(m_nodes[frame.v]);
-                m_pickPointer->syncToAnchor();
+                retargetPointerToNode(m_pickPointer, m_nodes[frame.v]);
             }
         }
     } else if (frame.type == ActionType::DJ_SELECT) {
@@ -218,9 +224,9 @@ void DijkstraNaiveModule::renderFrame(const AnimFrame& frame) {
         m_doneBlocks[frame.u]->setCustomValue("1");
         m_doneBlocks[frame.u]->color = QColor(150, 220, 190);
         m_doneBlocks[frame.u]->update();
+        playDiscover(m_nodes[frame.u], QColor(120, 220, 175), 52.0, 700);
         m_pickPointer->setOpacity(1);
-        m_pickPointer->setAnchorNode(m_nodes[frame.u]);
-        m_pickPointer->syncToAnchor();
+        retargetPointerToNode(m_pickPointer, m_nodes[frame.u]);
     } else if (frame.type == ActionType::DJ_RELAX) {
         m_distBlocks[frame.v]->setCustomValue(QString::number(frame.val1));
         m_distBlocks[frame.v]->color = QColor(155, 220, 245);
@@ -231,14 +237,20 @@ void DijkstraNaiveModule::renderFrame(const AnimFrame& frame) {
         m_nodes[frame.v]->color = QColor(155, 220, 245);
         m_nodes[frame.v]->update();
         GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v);
-        if (edge) edge->setColor(QColor(70, 175, 125));
+        if (edge) {
+            edge->setColor(QColor(70, 175, 125));
+            playEdgeDiscover(edge, m_nodes[frame.v], QColor(70, 175, 125), 520);
+        }
+        playValueFlight(m_nodes[frame.u]->pos(), m_distBlocks[frame.v], frame.val1, QColor(155, 220, 245), true);
     } else if (frame.type == ActionType::DJ_UNREACHABLE) {
         m_nodes[frame.u]->color = QColor(205, 210, 218);
         m_nodes[frame.u]->update();
         m_distBlocks[frame.u]->color = QColor(220, 222, 226);
         m_distBlocks[frame.u]->update();
+        playNodePop(m_nodes[frame.u], 0.94, 260);
     } else if (frame.type == ActionType::DJ_FINISH) {
         m_relaxPointer->setOpacity(0);
+        for (auto& kv : m_nodes) playNodePop(kv.second, 1.10, 260);
     }
 }
 

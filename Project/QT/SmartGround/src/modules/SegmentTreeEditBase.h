@@ -4,6 +4,8 @@
 #include "SegmentTreeCommon.h"
 #include <QObject>
 #include <QGraphicsTextItem>
+#include <QPointer>
+#include <QVector>
 #include <map>
 #include <vector>
 
@@ -36,14 +38,21 @@ protected:
     GraphNode* nodeItem(int node) const;
     void movePointerTo(int node);
     void setFormula(const QString& text);
+    void ensureDescentTrail(QColor color);
+    void clearDescentTrail();
+    void appendDescent(int node, QColor color);
+    void freezeDescentTrail(QColor color);
 
     std::vector<SegmentTreeCommon::NodeInfo> m_nodes;
     std::map<int, GraphNode*> m_treeNodes;
+    std::map<std::pair<int, int>, GraphEdge*> m_treeEdges;
+    QPointer<PathTrail> m_descentTrail;
+    QVector<QPointF> m_descentPoints;
     std::map<QString, std::map<int, ArrayBlock*>> m_arrays;
     std::map<int, int> m_nodeIntervalL;
     std::map<int, int> m_nodeIntervalR;
-    QGraphicsTextItem* m_mathText = nullptr;
-    PointerBlock* m_ptrNode = nullptr;
+    QPointer<QGraphicsTextItem> m_mathText;
+    QPointer<PointerBlock> m_ptrNode;
     std::vector<int> m_arr;
     std::vector<long long> m_tr;
     std::vector<long long> m_add;

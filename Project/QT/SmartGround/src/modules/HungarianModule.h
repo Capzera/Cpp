@@ -6,6 +6,8 @@
 #include <vector>
 #include <QObject>
 #include <QGraphicsTextItem>
+#include <QPointer>
+#include <QVector>
 
 class HungarianModule : public QObject, public IModule {
     Q_OBJECT
@@ -33,8 +35,12 @@ private:
     std::map<std::pair<int, int>, GraphEdge*> m_edges;
     std::map<int, int> m_matchLeft;
     std::map<int, int> m_matchRight;
+    std::vector<std::pair<int, int>> m_matchedEdges;
     QGraphicsTextItem* m_mathText = nullptr;
     QGraphicsTextItem* m_resultText = nullptr;
+    QGraphicsTextItem* m_relationText = nullptr;
+    QPointer<PathTrail> m_augmentTrail;
+    QVector<QPointF> m_augmentPoints;
     GraphModuleUtils::GraphOptions m_options;
     int m_leftCount = 0;
     int m_rightCount = 0;

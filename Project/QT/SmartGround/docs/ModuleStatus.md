@@ -1,8 +1,367 @@
 # SmartGround 模块开发状态跟踪
 
-> **更新时间**: 2026-11-15 - 画板十项需求轮（笔刷独立记忆 / 平滑笔迹 / 无极取色 / 快捷键化 / 框选拖拽缩放 / 透明行内编辑 / 表格上下文工具栏）
-> **当前进度**: 37 个唯一可运行模块（38 个下拉条目） | 0 个头文件骨架
-> **核心变化**：画板十项需求一次性落地——①**笔刷设置跟随每个工具**并具备跨模块记忆（`ToolController::m_styles` 按工具索引存 `ToolStyle`，画笔与荧光笔颜色 / 宽度 / 透明度完全独立）；②**向心 Catmull-Rom 三次贝塞尔**替代均匀样条，笔迹急转弯无棱角，鼠标坐标改走 `CanvasView::mapToSceneF()` 保留亚像素精度实现 0 延迟跟随；③**无极取色器**（连续色相条 + 饱和 / 明度滑块 + 9 枚渐变预设 + Hex / RGB 输入）；④**移除复制粘贴剪切删除撤销重做全选按钮**，纯快捷键；⑤`Backspace` / `Delete` 双绑定删除选区元素；⑥**框选后可直接拖动**（选框内空白处按下即整体移动）；⑦**文本框 / 笔记完全透明 + 原地即时编辑**（游离场景焦点缺失，改由视口事件过滤器驱动 `QTextCursor`）；⑧**LaTeX 公式与 Markdown 笔记均可移动可编辑**；⑨**选框 8 向缩放手柄**（基于 `AnnotationFrame` 仿射基向量，消除累乘漂移）；⑩**表格上下文浮动工具栏**（对齐 / 选单元格行列 / 增删行列 / k 行 k 列输入 / 右键菜单）。全量 48 个测试套件串行全绿
+> **更新时间**: 2026-11-20 - 第 28 批（数组下标归位 + 指针轴向对齐 + 图形空心实心语义修正）
+> **当前进度**: 62 个唯一可运行模块（62 个下拉条目） | 0 个头文件骨架
+> **核心变化**：**① 数组下标归位**：上一轮为规避重叠告警把下标从单元格**上方**挪进了**格子内部左上角**，且把值区改成扣除下标高度后的剩余区，导致值偏离格心 —— 这是一次擅自决断。本批 `ArrayBlock::paint()` 恢复为下标绘制在 `QRectF(0, -kIndexGap - kIndexHeight, m_cellW, kIndexHeight)`（`AlignHCenter | AlignBottom`，与顶边框保持 6px 净距），值恢复在整个窗格内 `Qt::AlignCenter` 双向居中；新增 `kIndexGap`/`kIndexHeight` 常量与 `indexRect()`，`boundingRect()` 上边界相应上移。**② 指针轴向对齐**：`layoutPointerSlots()` 原先 `tips[idx] += QPointF(offset, 0)` 会**横向平移箭头尖端**（偏离格心），`resolveVisualCollisions()` 原先以横向平移标签为主（标签脱离自身轴线，`i`/`j`/`L`/`R` 与指针对不上号）。现改为**轴向优先**：垂直指针沿轴线由近及远堆叠（`m_labelRow`），水平指针沿轴向让位，横向平移仅作水平指针兜底；`separatePointerLabels()` 垂直指针改纵向分离。**③ 水平箭头方向修正**：`Right` 的箭头尖此前与 `Left` 同朝左，语义错误，现 `Right` 朝右、`Left` 朝左，标签偏移同步。**④ 图形空心/实心语义修正**：`ShapeItem::paint()` 原先把「空心」画成**虚线边框 + `#EEF0F4` 灰填充**（把图标语言误用到画布结果上），现改为笔一律实线、空心 `Qt::NoBrush`（内部全透明）、实心 `QBrush(m_penColor)`（边框色即填充色）；`MySegmentedControl` 新增 `ShapeIcon` 与 `setShapeIcon()`，**图标**语义为「空心=虚线边框无填充、实心=实线边框同色实心」，绘制逻辑抽为公共静态 `buildIconPath()` / `paintShapeIcon()` 供 UI 与测试共用。**⑤ 链式前向星**：手工文本下标改为 `ArrayBlock` 内建下标，`k` 指针标签改 `setLabelAtTail()` 落轴线，行距 96 → 116。
+
+## 2026-11-20 第 28 批：数组下标归位 + 指针轴向对齐 + 图形空心实心语义修正
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 数组下标归位 | `src/render/GraphElements.{h,cpp}` | `ArrayBlock::paint()` 下标改绘制于 `QRectF(0, -kIndexGap - kIndexHeight, m_cellW, kIndexHeight)`（`Qt::AlignHCenter \| Qt::AlignBottom`），与顶边框保持 6px 净距；值改在整格 `QRectF(0, 0, m_cellW, m_cellH)` 内 `Qt::AlignCenter`；新增 `kIndexGap = 6.0` / `kIndexHeight = 16.0` 与 `indexRect()`；`boundingRect()` 上边界上移至 `-(kIndexGap + kIndexHeight)` |
+| 指针尖端不偏移 | `src/modules/IModule.cpp`（`layoutPointerSlots`） | 删除同格多指针时的 `tips[idx] += QPointF(offset, 0.0)`，改为沿轴线分行（`setLabelRow`），箭头尖端恒落在单元格宽度中心 / 竖直中点 |
+| 指针标签轴向优先 | `src/modules/IModule.cpp`（`resolveVisualCollisions` / `separatePointerLabels`） | 重写为轴向求解：垂直指针（Up/Down）沿轴线由近及远堆叠最多 8 行（步长 22px），水平指针（Left/Right）沿轴向左右让位；横向平移仅作水平指针兜底，垂直指针标签恒在自身轴线上；`separatePointerLabels()` 垂直指针改纵向分离 22px |
+| 水平箭头方向修正 | `src/render/GraphElements.cpp`（`PointerBlock::paint`） | `Right` 箭头尖由朝左改为朝右（`drawLine(0, 0, 9 * sign, ±7)`），`Left` 朝左；`defaultLabelOffset()` / `tailLabelOffset()` / `setLabelToRight()` 同步 —— `Left` 标签在杆右外侧、`Right` 在杆左外侧 |
+| 画布空心 / 实心绘制 | `src/canvas/ShapeItem.cpp`（`paint`） | 笔一律 `Qt::SolidLine`；空心 `setBrush(Qt::NoBrush)`（内部完全透明）；实心 `setBrush(QBrush(m_penColor))`（边框色即填充色），填充透明度沿用 `m_fillOpacity` |
+| 分段控件形状图标 | `src/ui/widgets/MySegmentedControl.{h,cpp}` | 新增 `ShapeIcon` 枚举（`RectIcon`/`CircleIcon`/`TriangleIcon`）、`setShapeIcon()` / `setShapeIcons()`；图标与文字并排居中；**空心段画虚线边框无填充、实心段画实线边框同色实心**；绘制逻辑抽为公共静态 `buildIconPath()` / `paintShapeIcon()`，UI 与测试共用同一份代码 |
+| 工具栏接入图标 | `src/ui/widgets/CanvasToolBar.cpp` | 按当前工具（矩形 / 圆 / 三角形）给 `canvasToolShapeFill` 设置对应形状图标 |
+| 链式前向星下标 | `src/modules/ForwardStarModule.cpp` | 手工 `QGraphicsTextItem` 下标（`rowY - 32`，包围盒高 26）改为直接使用 `ArrayBlock` 内建下标；`k` 指针标签由 `setLabelOffset(-38, 0)` 改为 `setLabelAtTail(8.0)` 落轴线；`kFsRowGap` 96 → 116 让开相邻行下标 |
+| 审计增强 | `tests/StrictAudit.cpp` | 新增 `[AXIS-FAIL]` 断言：标签中心必须与指针轴线对齐、尖端必须落在格心 / 节点圆心延长线上；`ArrayBlock` 下标包围盒改用 `indexRect()` |
+| 审计包围盒同步 | `tests/OverlapAuditTest.cpp` | 下标包围盒由写死的 `QRectF(0, -25, w, 20)` 改为 `b->indexRect()`，与实际绘制一致 |
+| 画板断言扩展 | `tests/CanvasFeaturesTest.cpp` | 新增 feature 4（画布空心内部像素全透明 / 实心内部完全填充）与 feature 5（图标：空心有边框且内部透明、实心内部填充且墨量更大），共 9 项新断言 |
+| 全量回归 | `build/tests/` | **97 个测试可执行文件全部零失败**；`SmartGroundStrictAudit` 报 `TOTAL OVERLAP CONFLICTS = 0` / `TOTAL TIP FAILURES = 0` / `TOTAL AXIS FAILURES = 0`；`SmartGroundOverlapAudit` / `SmartGroundLayoutFit` 均 `ALL PASS`；`SmartGround.exe` Release 构建成功 |
+
+## 2026-11-20 第 27 批：激光光束贴合曲线 + 编辑器析构崩溃根治 + Tarjan 数组重排版
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 光束沿曲线绘制 | `src/render/GraphElements.{h,cpp}` | 新增 `GraphEdge::splitQuad()`（de Casteljau 二次曲线二分）与 `GraphEdge::quadSubPath()`（按 `from..to` 抽取子曲线生成 `QPainterPath`）；`paint()` 的光束段由 `drawLine` 弦线改为 `drawPath` 子曲线，辉光 9.0px + 内核 3.4px 两层均用沿路径首尾的 `QLinearGradient`，端点亮点取 `beamPath.pointAtPercent(1.0)` |
+| 光束几何回归测试 | `tests/BeamCurveTest.cpp`（新增） | 光束端点与原贝塞尔曲线偏差 **0.00000000 px** |
+| 光束渲染回归测试 | `tests/BeamRenderTest.cpp`（新增） | 19 个进度档位 × 61 采样点：弧线上 **1159 采样点零断裂**，超出光束头部 **351 采样点零残留** |
+| 编辑器析构安全 | `src/render/GraphElements.{h,cpp}` | 新增 `EditorTextItem`（`QGraphicsTextItem` 子类，析构时置位共享 `EditorGuard::tearingDown`）；`EditorWatcher::eventFilter()` 收到 `FocusOut` 时若标志已置位则直接吞掉，绝不回调 `commitEdit()`；`GraphNode` / `GraphEdge` / `ArrayBlock` 析构函数均先置位标志再 `setParentItem(nullptr)` + `delete` 编辑器子项 |
+| Tarjan 数组排版 | `src/modules/TarjanCutVertexBridgeModule.cpp` | `buildLayout()` 中 `dfnY` 500 → 545、新增 `rowGap = 100`、`dfnX` 120 → 170；`dfn[]` / `low[]` 标签由 `(114, 500)` / `(114, 530)` 移到 `(48, 553)` / `(48, 653)`，与首列窗格保持 49px 净距 |
+| 全量回归 | `build/tests/` | 全部测试可执行文件零失败；`SmartGroundStrictAudit` 58 模块 × 2 轮逐帧审计 `TOTAL OVERLAP CONFLICTS = 0` / `TOTAL TIP FAILURES = 0`；`SmartGroundGraphInteraction` 连跑 30 次零失败；`SmartGround.exe` Release 构建成功 |
+
+> **核心变化**：**① 全局零重叠三道防线**（PM 要求「不再出现文字/控件/数组窗格重叠、指针未指向结点或数组中心、指针瞬移、平移结构拖影、动画落点偏移」）：`IModule` 新增 `resolveScriptTextOverlaps()`（讲课脚本文字与 `ArrayBlock`/`GraphNode`/矩形实体求交后沿候选偏移避让）、`resolveVisualCollisions()`（指针标签按 `m_labelRow` 堆叠错位）、`syncPointerTips()`（每帧末按 `pointerTipFor()` 复算并强制归位），三者由 `finalizeFrame()` 统一串联，播放/单步/撤销/拖进度条四条路径全部接入。**② 激光拖影根治**（PM 反馈「所有图论算法边像激光射过去时路径上都有碎片残留波纹」）：`GraphEdge::paint()` 的 26 段短线叠加改为 `QLinearGradient` 沿路径一次性连续绘制；`IModule::playEdgeTravel()` 改走新增的 `startBeam()`，用 `m_beamAnims` 注册表按边去重，`purgeTransientItems()` 与析构时统一 `stop()` + `clearBeam()`。**③ 指针精确锚定 + 不瞬移**：新增 `GraphNode::kRadius = 20.0`（尖端精确落圆周）、`retargetPointerAcrossCells()`（同侧换格走行外弧线不穿格）、`retargetPointerWithDirection()`（方向翻转延后到位生效，先绕行再切向），`CircularQueueModule` 已接入。**④ 数组高亮改矩形涟漪**：`RectRipple` 取代圆形涟漪用于数组结构。**⑤ 生命周期安全**：`GraphEdge` / `GraphNode` / `PathTrail` 全线 `QPointer` 化，场景重建期 use-after-free 消除。**⑥ 画板三项新功能**：左侧竖向笔刷滑块 `CanvasBrushSlider`（笔/荧光笔/橡皮可见，与飞出面板、滚轮双向同步）、画笔/荧光笔「左写右擦」（橡皮面板 `MyToggleSwitch` 可关且 `QSettings` 记忆，默认开启）、矩形/圆形/三角形「空心 / 实心」分段切换（虚线框 vs `#EEF0F4` 实心填充）。**⑦ 修掉一个真缺陷**：偏好读写原用无参 `QSettings`，因 `main.cpp` 未设 org/app 名被判 `InvalidScope` 而**根本没落盘**；现补 `setOrganizationName/setApplicationName` 且改用显式 `IniFormat + UserScope` 作用域 + `sync()`。全量测试**零失败**，`SmartGroundStrictAudit` 报告 **0 处重叠冲突 / 0 处指针失锚**（58 模块 × 2 轮全帧审计）。
+
+## 2026-11-20 第 26 批：全局零重叠审计 + 激光拖影根治 + 画板三项新功能
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 三道防线入口 | `src/modules/IModule.{h,cpp}` | `finalizeFrame()` = `resolveVisualCollisions()` → `resolveScriptTextOverlaps()` → `syncPointerTips()`；`resolveScriptTextOverlaps()` 收集带 `kScriptTextMarker` 的文本项，与 `ArrayBlock` 单元框、`GraphNode` 圆框 + `subLabel`/`valueText`、`QGraphicsRectItem` 求交，冲突时沿 $(\pm 34k)$ 候选偏移逐档移动至无冲突 |
+| 指针尖端锁定 | `src/modules/IModule.{h,cpp}` | `syncPointerTips()` 每帧末按 `pointerTipFor(ptr, anchor)` 复算尖端，`stopAnimFor(ptr)` 后 `setPos(tip)` + `setTipTarget(anchor, tip)`，杜绝动画结束后尖端残留偏移 |
+| 激光光束连续绘制 | `src/render/GraphElements.cpp` | `GraphEdge::paint()` 光束段由 26 段短线叠加改为 `QLinearGradient` 沿路径一次绘制（外层 9px 渐变 + 内层 3.4px 亮芯 + 端点亮点），消除「串珠 / 波纹」接缝 |
+| 光束动画去重 | `src/modules/IModule.{h,cpp}` | 新增 `startBeam(edge, color, duration)` + `std::map<GraphEdge*, QPointer<QVariantAnimation>> m_beamAnims`；`purgeTransientItems()` 与析构统一 `stop()` + `clearBeam()`，杜绝同边多动画互相打断留下的残段 |
+| 指针锚点精确 | `src/render/GraphElements.{h,cpp}` | `GraphNode::kRadius = 20.0`；`IModule::pointerTipFor()` 与 `PointerBlock::anchoredPos()` 统一用 `kRadius`，结点指针尖端精确落圆周（`PointerAlignTest` 校验 dy == 20.0） |
+| 指针不瞬移 / 不穿格 | `src/modules/IModule.{h,cpp}` | 新增 `retargetPointerAcrossCells()`（同侧换格走行外弧线）与 `retargetPointerWithDirection()`（方向翻转延后到位生效：先按原方向绕行 → 到位后切向并锁定终点）；`pointerTipFor()` 新增显式方向重载 |
+| 循环队列指针 | `src/modules/CircularQueueModule.cpp` | `aimQueuePointers()` 改用 `retargetPointerWithDirection()`；head==tail 时 head 停格上边缘、tail 停格下边缘，不再方向瞬翻或杆体穿格 |
+| 数组矩形涟漪 | `src/render/GraphElements.{h,cpp}` + `src/modules/IModule.cpp` | 新增 `RectRipple`（矩形双层描边随 `setGrow()` 外扩）；`playCellRipple()` / `playCellRippleAt()` 改用它，`playNodeRipple()` 检测到 `ArrayBlock` 锚点自动走矩形波纹，结点仍保留圆形涟漪 |
+| 生命周期安全 | `src/render/GraphElements.{h,cpp}` + `src/modules/*` | `GraphEdge::source/dest`、`GraphNode::edgeList/pointerList`、`PathTrail` 指针全线改 `QPointer`；`PointerBlock::setAnchorNode/setAnchorItem` 监听 `destroyed` 自动置空；`playEdgeTrace()` 的 `edge` 捕获改 `QPointer` 守卫 |
+| 画板：笔刷滑块 | `src/ui/widgets/CanvasBrushSlider.{h,cpp}`（新增） | 贴靠画布左缘的圆角竖向滑块；仅笔 / 荧光笔 / 橡皮显示；与工具飞出面板、滚轮双向同步（`ToolController::styleChanged` 驱动）；笔调粗细、橡皮调半径 |
+| 画板：左写右擦 | `src/canvas/ToolController.{h,cpp}` + `src/ui/widgets/CanvasToolBar.cpp` | 新增 `m_rightClickErase` 与 `beginRightErase/updateRightErase/finishRightErase`；橡皮面板新增 `MyToggleSwitch`（objectName = `canvasToolRightClickErase`），默认开启，关闭后右键回归与左键一致的绘制行为 |
+| 画板：空心 / 实心 | `src/ui/widgets/CanvasToolBar.cpp` + `src/canvas/ShapeItem.cpp` | 矩形 / 圆形 / 三角形面板顶部新增 `MySegmentedControl`（objectName = `canvasToolShapeFill`，选项「空心 / 实心」）；**第 28 批已修正语义** —— 空心 = 只有完整边框、内部无填充（`Qt::NoBrush`），实心 = 边框与填充同色（`QBrush(m_penColor)`）；「虚线 / 实线」仅作为分段控件**图标**语言 |
+| 偏好持久化修复 | `src/main.cpp` + `src/canvas/ToolController.cpp` | 补 `QCoreApplication::setOrganizationName/setApplicationName`；偏好读写改用 `QSettings(QSettings::IniFormat, QSettings::UserScope, "SmartGround", "SmartGround")` + `sync()`，修复原「无 org/app 名 → `InvalidScope` → 根本没落盘」 |
+| 全局审计工具 | `tests/StrictAudit.cpp` + `tests/StrictAuditModules.h`（新增） | 58 个算法模块 × 2 轮（讲课脚本开 / 关）逐帧采集全部 `ArrayBlock`/`GraphNode`/`PointerBlock`/`QGraphicsTextItem` 包围盒两两求交，并独立校验指针尖端是否仍锚在目标边界；结论 `TOTAL OVERLAP CONFLICTS = 0` / `TOTAL TIP FAILURES = 0` |
+| 画板功能测试 | `tests/CanvasFeaturesTest.cpp`（新增） | 21 项断言覆盖：滑块工具可见性、滚轮双向同步、右键擦除默认值与跨实例记忆、toggle 与控制器联动、空心/实心分段控件在矩形/圆形/三角形三页均存在且写入工具样式 |
+| 全量回归 | `build/tests/` | 全部测试可执行文件零失败，含 `SmartGroundStrictAudit` / `SmartGroundCanvasFeatures` / `SmartGroundPointerAlign` / `SmartGroundBatch9Visual` / `SmartGroundPointerMotion`；主程序 `SmartGround.exe` Release 构建成功 |
+
+## 2026-11-20 第 25 批：三个模块深度重构（LCS 连续回溯路径 / 匈牙利分栏与增广路 / 树堆下沉轨迹）
+> **核心变化**：**① 三个模块深度重构**（PM 抉择后落地）：`src/render/GraphElements` 新增 `PathTrail`（可渐进绘制的多段折线轨迹 + 行进头），`IModule` 新增 `playPathTrail` / `playPathTrailAppend` 两个编排助手。**LCS** 回溯改为一条沿对角线持续延伸、头亮点跟随回溯位置的**连续路径**（`LC_TRACE` 帧携带完整走位点序列）；**匈牙利算法** 新增左右两条虚线分栏带（明确二分图两部）+ `PathTrail` 作**增广路主角**（起笔 / 追加右部点 / 占用转红 / 配对转绿 / 终帧冻结）；**树与堆** 新增逐层**下沉轨迹**（`HeapTreeBase` 与 `SegmentTreeEditBase` 各提供共享实现，下降帧同时播放边行进与轨迹延伸）。**② 全场动画美学升级**（以哈夫曼树为基准）：`src/render/GraphElements` 新增 `TracerDot`（光晕+内核移动光点），`IModule` 新增 8 个共享编排助手 `playEdgeTravel` / `playDiscover` / `playEdgeDiscover` / `playNodeWake` / `playFocusRing` / `playValueArcFlight` / `playCellSweep` / `playCellLanding`，按族批量落地到 **69 个模块文件**：图算法（BFS / DFS / Dijkstra×2 / 拓扑 / Prim / Kruskal / Tarjan×2 / 二分图 / 欧拉 / 匈牙利）、树堆（堆排序 / 堆调整 / Trie / 哈希表 / 前向星 / 线段树×3）、排序（快排 / 希尔 / 冒泡 / 选择 / 插入 / 归并 / 计数 / 基数 / 桶）、查与算（二分×2 / 快速幂 / 树状数组 / LIS / 区间调度 / GCD / 单调队列 / 单调栈 / 并查集×2 / 树直径 / 树子树 / 背包×2 / 字符串哈希 / 筛法）、矩阵数论（LCS / 扩欧）、数据结构（栈 / 队列 / 循环队列 / KMP pi）。语义统一为 idle / scanning / active / matched / terminal 五态色。**③ 画笔变色与菜单自关闭**：画笔换色即时应用到当前笔迹与选中对象；画笔飞出菜单在点击画布等非菜单区域时自动收起。**④ 三角形去背景**：三角形绘图项的半透明填充底色彻底移除，改为纯描边。**⑤ 进度条同步自检**：修复 `MainWindow::m_seeking` 被鼠标滚轮误置为 true 后永久锁死的问题（仅在 `sliderPressed` 置位、`sliderReleased` 清零），`tests/TmpSliderAudit.cpp` 审计全部 70 个模块的滑块值与帧号逐帧一致，`ALL PASS fail=0`。全量 **79 个测试可执行文件零失败**。
+
+## 2026-11-20 第 25 批：三个模块深度重构（LCS 连续回溯路径 / 匈牙利分栏与增广路 / 树堆下沉轨迹）
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 路径轨迹图形元素 | `src/render/GraphElements.{h,cpp}` | 新增 `PathTrail`（`UserType + 11`）：持有 `QVector<QPointF>` 折线点集；`setProgress(t)` 按**总段数 × t** 逐段插值绘制已走过部分；`paint()` 叠三层 —— 低透明度加粗辉光（`width × 2.4`）+ 实色主线（`width`）+ 末端光晕 / 内核 / 白环「行进头」；`setPoints` / `appendPoint` / `clearPoints` / `setTrailWidth` / `setHeadRadius` 均可直接调用 |
+| 轨迹编排助手 | `src/modules/IModule.{h,cpp}` | 新增 `playPathTrail(trail, points, color, duration)`：`setPoints` 后以 `InOutCubic` 从 0 补间到 1，`m_animated == false` 时直接置 1.0；新增 `playPathTrailAppend(trail, point, color, duration)`：追加一点并从 `(n-2)/(n-1)` 续画到 1.0，实现「一条路径持续生长」 |
+| LCS 连续回溯路径 | `src/modules/LCSModule.{h,cpp}` | `runAlgorithm()` 回溯段新增 `walk` 记录**每一步退让的落点**（含非匹配步）；`LC_TRACE` 帧的 `group` 携带已走过的路径点序列；`renderFrame` 取出各点对应的 dp 格中心连成折线交给 `PathTrail`，形成一条沿对角线持续延伸、行进头跟随回溯位置的连续路径；匹配格另走 `playCellLanding` + 涟漪，退让步只延伸路径 |
+| 匈牙利分栏与增广路 | `src/modules/HungarianModule.{h,cpp}` | `buildLayout()` 新增左右两条虚线分栏带（左浅蓝 / 右浅橙，半透明填充，`Z = -2`）明确二分图左右两部；新增 `PathTrail` 作增广路主角：`HN_START` 起笔、`HN_TRY` 追加右部顶点、`HN_OCCUPIED` 追加持有者并转红、`HN_ASSIGN` 追加配对点并转绿、`HN_DONE` 冻结为绿并对全部匹配顶点收束缩放；`m_matchedEdges` 记录最终匹配边供终帧回放 |
+| 树堆下沉轨迹 | `src/modules/HeapTreeBase.h` + `HeapSortModule` / `HeapAdjustModule` | `HeapTreeBase` 新增 `ensureDescentTrail` / `clearDescentTrail` / `appendDescent` / `freezeDescentTrail` 四个助手与 `m_descentTrail` / `m_descentPoints` 成员；比较与交换帧把当前结点位置追加进轨迹，形成逐层下沉的可见路径，终帧冻结为有序色 |
+| 线段树下沉轨迹 | `src/modules/SegmentTreeEditBase.{h,cpp}` + `SegmentTreeBuildModule` / `SegmentTreeQueryModule` / `SegmentTreeTagModule` | `SegmentTreeEditBase` 提供同款共享实现（`SegmentTreeBuildModule` 不继承该基类，自带一份等价实现）；下降帧同时播放 `playEdgeTravel` 边行进与轨迹延伸，形成「树往下走」的连贯主线；`m_treeEdges` 索引新增于 `SegmentTreeEditBase` 与 `SegmentTreeBuildModule` |
+| 全量回归 | `build/tests/` | 79 个测试可执行文件全部零失败，含 `SmartGroundTmpSliderAudit`（进度条同步）/ `SmartGroundTmpBrushDiag`（画笔换色 + 菜单自关闭 + 三角形无背景）/ `SmartGroundBatch9Visual` / `SmartGroundOverlapAudit` / `SmartGroundLayoutFit` |
+
+## 2026-11-20 第 24 批：全场动画美学对齐哈夫曼树 + 画笔/三角形/进度条三项修复
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 边行进光点 | `src/render/GraphElements.{h,cpp}` | 新增 `TracerDot`：`QGraphicsObject`，`setZValue(28)`、`acceptedMouseButtons = NoButton`；`paint()` 画两层——外圈低透明度光晕（`radius * 2.1`）与内核高亮圆点（`radius`），内核再叠一圈白色细环，构成「光点沿边滑行」的观感 |
+| 共享编排助手 | `src/modules/IModule.{h,cpp}` | 新增 8 个助手：`playEdgeTravel(edge, color, duration)`（沿边 `scenePointAt(t)` 行进的光点，半径与透明度按 `sin(t·π)` 起伏，`InOutCubic` 缓动，结束后自动移除）、`playDiscover(node, color, maxRadius, duration)`（结点发现涟漪）、`playEdgeDiscover(edge, node, color, duration)`（边先到、结点后醒）、`playNodeWake(node, color, maxRadius, duration)`（结点苏醒脉冲）、`playFocusRing(node, color, duration)`、`playValueArcFlight(start, end, value, color, duration)`（数值弧线飞行）、`playCellSweep(cells, color, stagger, duration)`（逐格错峰扫描）、`playCellLanding(cell, color, duration)`（落位脉冲）。全部遵守 `m_animated == false` 时瞬时生效、不创建 Qt 动画的约束 |
+| 图算法族 | `BFSModule` / `DfsModule` / `DijkstraNaiveModule` / `DijkstraHeapModule` / `TopologicalSortModule` / `PrimModule` / `KruskalModule` / `TarjanModule` / `TarjanCutVertexBridgeModule` / `BipartiteModule` / `EulerModule` / `HungarianModule` | 扫描与松弛时播放 `playEdgeTravel` 边行进；首次访问结点播放 `playDiscover` / `playNodeWake`；松弛成功 / 匹配成功播放结点涟漪与缩放；割点与桥加冲突脉冲；匈牙利匹配加占用冲突脉冲 |
+| 树堆族 | `HeapSortModule` / `HeapAdjustModule` / `HeapBasicsModule` / `TrieModule` / `HashTableModule` / `ForwardStarModule` / `SegmentTreeBuildModule` / `SegmentTreeQueryModule` / `SegmentTreeTagModule` | 堆的比较 / 交换播放树边行进（`m_treeEdges` 索引 `min/max` 对齐）；线段树下降播放 `playEdgeTravel` + 子结点涟漪；前向星建边播放结点发现涟漪与落位 |
+| 排序族 | `BubbleSortModule` / `SelectionSortModule` / `InsertionSortModule` / `MergeSortModule` / `QuickSortModule` / `ShellSortModule` / `CountingSortModule` / `RadixSortModule` / `BucketSortModule` | 交换与归位播放涟漪 / 落位脉冲；快排递归区间播放 `playCellSweep` 错峰扫描；希尔分组播放组色涟漪；计数排序计数格播放脉冲 + 涟漪 |
+| 查与算族 | `BinarySearchClosedModule` / `BinarySearchHalfOpenModule` / `FastPowModule` / `FenwickTreeModule` / `LISModule` / `IntervalSchedModule` / `GcdModule` / `MonotonicQueueModule` / `MonotonicStackModule` / `DSUBasicModule` / `DSUPathCompressionModule` / `TreeDiameterModule` / `TreeSubtreeSizeModule` / `Knapsack01Module` / `KnapsackCompleteModule` / `StringHashModule` / `SieveOfEratosthenesModule` | 二分命中与丢弃播放涟漪；快速幂 / 树状数组播放数值弧线飞行；区间调度选中与冲突分别播放绿 / 红双层涟漪；筛法合数与质数分别播放红 / 绿涟漪 |
+| 矩阵数论族 | `LCSModule` / `ExgcdModule` | LCS 候选比较播放 `playValueArcFlight`（上方 / 左方候选值弧线飞入目标格）+ 目标格涟漪；确定值播放 `playCellLanding`；回溯路径播放落位脉冲；扩欧每轮整除式飞入时播放行首涟漪 |
+| 数据结构族 | `StackModule` / `QueueModule` / `CircularQueueModule` / `KMPNextModule` | 入栈 / 入队播放 `playCellLanding`，出栈 / 出队播放收缩脉冲 + 涟漪；循环队列入队 / 出队 / 绕回分别播放落位 / 涟漪 / 落位；KMP pi 比较播放双格涟漪、失配播放蓝涟漪、确定 pi 播放落位脉冲 + 涟漪 |
+| 画笔换色与菜单自关闭 | `src/ui/` 画板相关 | 画笔颜色变更即时写入当前笔迹与已选中对象的渲染色；应用级 `eventFilter` 挂在 `qApp` 上，画笔飞出菜单打开时，点击菜单以外的区域（画布等）自动收起菜单 |
+| 三角形去背景 | `src/render/` 图形项绘制 | 三角形绘图项移除半透明填充底色，仅保留描边，背景完全透明 |
+| 进度条同步自检 | `src/ui/MainWindow.cpp` + `tests/TmpSliderAudit.cpp` | `m_seeking` 只在 `MySlider::sliderPressed` 置为 true、在 `sliderReleased` 清零；此前鼠标滚轮划过滑块会把它永久置真，导致帧号继续递增而滑块冻结。新增审计工具遍历全部 70 个模块，逐帧比对滑块值与 `probeFrameIndex()`，结果 `ALL PASS fail=0` |
+| 全量回归 | `build/tests/` | 79 个测试可执行文件全部零失败，含 `SmartGroundTmpSliderAudit`（进度条同步）/ `SmartGroundBatch9Visual` / `SmartGroundOverlapAudit` / `SmartGroundLayoutFit` / `SmartGroundHuffmanLayoutDump` |
+
+## 2026-11-19 第 23 批：哈夫曼树飞入落点/父结点来源/根结点残留修正 + 边渐进生长动画
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 哈夫曼树飞入落点 | `src/modules/HuffmanTreeModule.cpp`（`HF_PROMOTE`） | 目标坐标由 `treePosOf(id, step.before)` 改为 `treePosOf(id, step.afterLift)`：用**上移对齐后**的森林行号计算落点，结点 16 / 20 一次飞入即到达与合并伙伴同排的行，不再出现「先落错行、下一帧跳位」（BUG-220）。同时本帧只处理原始叶子的队列筹码，内部结点的树内位移交由 `HF_LIFT` 帧，避免重影 |
+| 哈夫曼父结点来源 | 同上（`HF_MERGE`） | 新建父结点队列筹码时先 `chip->setPos(treePosOf(parentId, step.after))`，父结点从树中的真实坐标「落」回候选队列，不再从 (0,0) 飞下（BUG-219） |
+| 哈夫曼根结点清理 | 同上（`HF_MERGE` / `HF_FINAL`） | `HF_MERGE` 增加 `isRoot` 判定：最后一次合并为根结点**创建但立刻隐藏**队列筹码（保持「每结点一份队列副本」的节点计数），不再把它排入候选队列；`HF_FINAL` 再次兜底隐藏根结点的队列筹码（BUG-218） |
+| 边渐进生长 | `src/render/GraphElements.{h,cpp}` | `GraphEdge` 新增 `Q_PROPERTY(qreal drawProgress READ drawProgress WRITE setDrawProgress)`，默认 `1.0`；`paint()` 按 `drawProgress` 对二次贝塞尔曲线做 de Casteljau 分割求值，只绘制 `[0, t]` 段，形成「从孩子端生长到父亲端」的展开效果；`progress < 1.0` 时不绘制箭头端点，避免箭头先于曲线出现（BUG-217） |
+| 共享动画助手 | `src/modules/IModule.{h,cpp}` | 新增 `playEdgeGrow(GraphEdge* edge, int duration = 200)`：`acquireAnim(edge, "drawProgress", duration, OutCubic)`，`m_animated == false` 时直接置 1.0（不创建任何 Qt 动画） |
+| 哈夫曼边生长编排 | `src/modules/HuffmanTreeModule.{h,cpp}` | `HF_JELLY` 帧在父结点果冻出现的同时把两条子边的 `drawProgress` 置 0 并在 200ms 内生长到 1.0；新增 `completeEdgeGrowth()`，在 `HF_PICK` / `HF_JELLY` / `HF_MERGE` 三帧入口调用，保证快速播放时边不会停在半画状态 |
+| 测试辅助 | `tests/HuffmanFrameDump.cpp` + `tests/CMakeLists.txt` | 新增 `SmartGroundHuffmanFrameDump` 逐帧诊断工具：可按帧号打印所有可见结点的坐标、并在 `HF_JELLY` 帧采样各边的 `drawProgress`，用于定位落点与残影问题 |
+| 全量回归 | `build/tests/` | 79 个测试可执行文件全部零失败，含 `SmartGroundBatch9Visual`（哈夫曼树 11 结点 / 队列 11 副本 / 10 条边断言全绿）/ `SmartGroundBatch9Modules` / `SmartGroundOverlapAudit` / `SmartGroundLayoutFit` / `SmartGroundHuffmanLayoutDump` |
+
+## 2026-11-19 第 22 批：哈夫曼树行列/无向边/频率数组修正 + 扩展欧几里得文字去重叠与飞入对齐
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 哈夫曼树行高修正 | `src/modules/HuffmanTreeModule.cpp`（`simulateStates`） | 子树上移的行差由「结点 id 之差」改为「行号之差」：`const int delta = higherRow - lowerRow;`（原误用 `higher - lower` 两个 id）。行高不再随 id 膨胀（delta 由 9/11 回到 1~2），树恢复「根在最上、叶子在最下」的规范层次（BUG-216） |
+| 哈夫曼树无向边 | 同上（`buildLayout`） | 两条子边改用 `new GraphEdge(child, parent, false)`，`is_directed = false`，`GraphEdge::paint()` 不再绘制箭头端点；0/1 路径标签仍由 `pathLabel` 徽标单独绘制（BUG-215） |
+| 哈夫曼频率数组 | 同上（`buildLayout` / `renderFrame` / `runAlgorithm`） | 数组格子数由 `m_nodes.size()`（2n-1，含内部结点）改为 `m_leafCount`（n）；初始态即 `setCustomValue(原始权值)` 且 `showValue = true`、`kHfLeaf` 底色，`HF_RESET` 同样恢复原始权值；排序帧改为 `HF_SORT_LIFT`（该格清空并飞出数值）/ `HF_SORT_DROP`（数值流星般落回）成对推进，帧内携带当前置换数组以保证回放与拖动进度条可复现（BUG-214） |
+| 扩欧版面重排 | `src/modules/ExgcdModule.cpp`（`buildLayoutBlocks`） | 新增版面常量：等式段 `kExEqY = 80`（步距 34）、辗转相除段标题 `kExGcdTitleY = 190` / 栏头 `kExHeadY = 222` / 行首 `kExRowY = 252`（步距 32）、左右两栏分置 `kExLeftX = 100` 与 `kExRightX = 500` 互不侵占、回代段步距 `kExBackStep = 32`；回代片段前缀宽度改用 `QFontMetrics::horizontalAdvance` 实测（末行 425px，原硬编码估算约 170px）（BUG-213 / BUG-217） |
+| 共享飞行助手 | `src/modules/IModule.{h,cpp}` | 新增 `playTextFlightAligned(text, start, endLeft, fontSize, color, duration, onArrive)`：起点终点均为**左对齐**语义（`playTextFlight` 为居中语义），供扩欧四处飞行使用；新增 `playValueFlyOut(start, value, color, duration)`：数值自格子中心向上飞出，供哈夫曼排序阶段使用 |
+| 回代项渲染修正 | `src/modules/ExgcdModule.cpp`（`renderTerms`） | 改为单遍拼接，同时记录片段的真实起始偏移 `fragStart`（含符号与系数前缀），供飞行落点计算 |
+| 测试同步 | `tests/Batch9ModulesTest.cpp` | 新增断言：哈夫曼频率数组恰好 n 格且每格有值、根结点位于最上行、每个父结点严格高于其孩子、树边无箭头；扩欧文本框两两无相交 |
+| 全量回归 | `build/tests/` | 78 个测试可执行文件全部零失败，含 `SmartGroundBatch9Modules`（新增断言全绿）/ `SmartGroundBatch9Visual` / `SmartGroundOverlapAudit` / `SmartGroundLayoutFit` / `SmartGroundHuffmanLayoutDump`（中点违例 0、最小结点间距 56.08px） |
+
+## 2026-11-19 第 21 批：指针首现飞入修正 + 三模块排版去重叠 + 全量回归
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 指针首现瞬移 | `src/modules/IModule.cpp`（`playPointerMove`） | 指针在 `buildLayout()` 中创建后从未定位，其 `pos()` 为默认 (0,0)。首次调用 `playPointerMove()` 时若 `from.isNull()` 则直接 `setPos(targetPos)`，不启动动画；其余情况照旧补间（BUG-162） |
+| 树状数组指针落点 | `src/modules/FenwickTreeModule.cpp`（`movePointerTo`） | 落点由 `t->pos() + QPointF(t->cellWidth()/2, t->pos().y()+t->cellHeight())`（纵坐标被当相对偏移再加一次绝对值）改为 `t->pos() + QPointF(cellX, t->cellHeight())`；水平中心按所属 level 区间换算 `cellX = (index - slot.left) * m_cellW + m_cellW/2`；指针方向统一 `Up`、标签偏移 `(-30, 0)`；`a[]` 标题左移到 `m_startX - 66`（BUG-163） |
+| 链式前向星排版 | `src/modules/ForwardStarModule.cpp`（`layoutArrays` / `buildLayout`） | 行标题 `titleX` 由 `m_arraysX - 104` 改为 `m_arraysX - 178`；下标行由 `rowY - 22` 改为 `rowY - 32`，并对四类方块统一 `setShowLabel(false)` 消除重复下标；图区中心 x 由 1010 改为 1120；`k` 指针箭杆长度 26 → 22、标签改用 `setLabelOffset(-38, 0)`（BUG-164） |
+| 堆模块排版 | `src/modules/HeapTreeBase.h`（`layoutHeap`） | `heap[]（数组存储）` 由数组左侧改放到数组行下方 `arrY + 48`；关系文本下移到 `arrY + 92`；树结构标题由 `treeTop - 54` 上移到 `treeTop - 96`（BUG-165） |
+| 测试同步 | `tests/LayoutFitTest.cpp` + `tests/GroupAUiTest.cpp` | `LayoutFitTest` 中写死的 to 行 y=248 改为按行序动态定位（不再随布局常量漂移）；`GroupAUiTest` 断言同步新模块名「完全背包 DP」「二分图匹配 - 匈牙利算法」「堆调整 up / down」（BUG-166） |
+| 全量回归 | `build/tests/` | 75 个测试可执行文件全部零失败，含 `SmartGroundBatch9Visual` / `SmartGroundBatch9Modules` / `SmartGroundOverlapAudit` / `SmartGroundLayoutFit` / `SmartGroundHuffmanLayoutDump`（中点违例 0、最小结点间距 56.08px） |
+
+## 2026-11-18 第 20 批：哈夫曼树坐标/对称布局修正 + 扩展欧几里得飞入对齐 + 全局讲课脚本文字门控
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 全局讲课脚本文字门控 | `src/modules/IModule.{h,cpp}` + 59 个算法模块 `.cpp` | `IModule` 新增静态开关 `s_scriptTextVisible` 与一组 API：`setScriptTextVisible(bool)` / `scriptTextVisible()` / `createScriptText(scene, text)` / `setScriptText(item, text[, color])` / `clearScriptText(item)` / `createStatusText(scene, text)` / `setStatusText(item, text)`。`createScriptText` 在关闭状态下创建**空且不可见**的文本项；`setScriptText` 在关闭状态下清空内容并隐藏。所有讲课脚本类文字成员统一改用这两个 API，共改造 **263 处**（`m_noteText` 51 处 / `m_mathText` 59 处 / `m_resultText` 14 处 / `m_scanText` 9 处 / `m_heapText` 6 处 / `m_windowText` 3 处 / `m_probeText` 4 处 / `m_stateText` 5 处 / `m_relationText` 5 处 / `m_depthText` 5 处 / `m_verdictText` 5 处 / `m_accText` 3 处 / `m_stepText` 3 处 / `m_wordText` 2 处 / `m_gapText` 2 处）。**结构性标注未受影响**：`频率数组 a[]`、`a[] 原数组`、下标行、`桶 0`、树名、`第一步：…` / `阶段一：…` 章节标题、`a[i] / 编码 / 码长` 表头等仍由 `scene->addText()` 直接创建并常驻（BUG-212） |
+| 讲课脚本文字开关 | `src/ui/MainWindow.{h,cpp}` | 界面新增 `MyCheckBox` 开关「显示讲课脚本文字」，`objectName = "scriptTextToggle"`，**默认未勾选**；勾选/取消时调用 `IModule::setScriptTextVisible(on)` 并 `rebuildCurrentLayout()` 重绘当前画布，状态栏同步提示「已显示 / 已隐藏讲课脚本文字：画布只保留数组名、下标、树名等结构性标注」 |
+| 扩展欧几里得飞入对齐 | `src/modules/IModule.cpp`（`playTextFlightTo` / `playTextFlightFragment`） | 飞行副本的目标点直接取 `target->pos()`，落位后 `safeTarget->setPos(dst)` 保证与静止位置**完全重合**（像素差 0）；内联回代片段额外按 `QFontMetrics(target->font()).horizontalAdvance(prefix)` 计算前缀宽度，片段落在前缀右端而非整行左端（BUG-211） |
+| 哈夫曼树排序落位居中 | `src/modules/HuffmanTreeModule.cpp`（`HF_SORT_DROP`） | 阶段一数字飞入频率数组格子时，落点由「格子上边缘」改为**格子中心**（水平按格子宽度居中、垂直按格子高度居中），不再偏下（BUG-206） |
+| 哈夫曼树原地生成父结点 | `src/modules/HuffmanTreeModule.cpp`（`HF_JELLY`） | 新父结点由 `HF_PICK` 帧起就在两子结点中点处 `setOpacity(0)` 预置，`HF_JELLY` 帧只做 `playNodeAppear` 果冻生长 + `playRipple` 涟漪，**不再从屏幕上方 (0,0) 飞入**，杜绝超长边线（BUG-207） |
+| 哈夫曼树候选结点上飞 | `src/modules/HuffmanTreeModule.cpp`（`HF_PICK` / `HF_PROMOTE`） | 被选中的两个候选结点从底部队列**向上飞入树区域框内**后再合并（`playMoveTo`），不再是原地闪现（BUG-208） |
+| 哈夫曼树对称布局与中点规则 | `src/modules/HuffmanTreeModule.cpp`（`subtreeLayout` / `layoutComponentSym`） | 布局改用对称递归：子结点强制对称于父结点（$x_L=x_P-d$、$x_R=x_P+d$），保证 $x_P=(x_L+x_R)/2$；子树**不左右互换**（左右顺序按合并时的子结点次序固定）；森林中多棵组件树按 `m_compRank` 稳定排序并统一居中排布，间距按子树宽度分配，**不再出现结点重叠**（BUG-209） |
+| 测试同步 | `tests/` 全量 | `SmartGround.exe` 与 `tests/` 下全部测试目标重新编译通过；`SmartGroundAnimStress` / `SmartGroundMatrixShape` / `SmartGroundMatrixRebuild` / `SmartGroundNewModuleBatch` 等逐帧与形态测试全部通过 |
+
+## 2026-11-18 第 19 批：哈夫曼树六阶段重写 + WPL 修复
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 哈夫曼六阶段建树 choreography | `src/modules/HuffmanTreeModule.{h,cpp}`（整模块重写） | 默认数据 `45 13 20 16 9 12 5`（初始顺序即乱序，展示排序过程）。**阶段一**：`HF_SORT_LIFT` 逐个点亮悬停数字（悬停行 `kHoldY = 86`），`HF_SORT_DROP` 按升序一个一个飞入正确格子（`playValueDropInto`），`HF_SORT_DONE` 收尾。**阶段二**：`HF_QUEUE_DROP` 把全部数字从数组飞到底部候选队列圆形结点（`kQueueY = 664`），按升序排好。**阶段三**：每个合并四帧 —— `HF_PICK`（两个最小值染成挑选色并缩放脉冲）→ `HF_PROMOTE`（若两者树高不同，矮的那棵子树**整体上移**对齐）→ `HF_JELLY`（中点长出新结点，`playNodeAppear` 果冻生长 + `playRipple` 涟漪 + 橙色新边）→ `HF_MERGE`（父结点副本飞下落到候选队列，被取走的两队列成员淡出，其余**左右分开让位**）。**阶段四**：`HF_FINAL` 根结点专用根色 + 缩放。**阶段五**：`HF_CODE` 沿路径贴 0/1 徽标并填表。**阶段六**：`HF_WPL` 逐项高亮并累加（BUG-203） |
+| 哈夫曼队列同权值取数规则 | 同上 | 排序比较器改为 `(weight, isOriginal ? 0 : 1, id)`：先比权值，同权值时**优先取叶子**，与课堂约定一致（BUG-204） |
+| 哈夫曼树布局引擎 | 同上 | 新增 `subtreeWidth()` / `layoutComponent()` / `componentRoots()`：递归计算子树占宽，父结点严格位于两子结点中点；森林中多棵子树按宽度依次排布并统一居中，新结点插入后子树自动左右分开保持间距均匀 |
+| 哈夫曼 WPL 总数修复 | 同上 | `runAlgorithm()` 的 WPL 段先累加到 `running`，循环结束后再 `m_wplTotal = running;` 才构造 `HF_WPL_DONE` 帧；修正后默认数据 WPL = 45×2 + 13×3 + 20×2 + 16×3 + 9×4 + 12×3 + 5×4 = **309**（等于全部内部结点权值之和 14+25+30+45+75+120，符合哈夫曼最优性）（BUG-202） |
+| 哈夫曼编码回填 | 同上 | `computeCodes()` 求出 `m_codeMap` 后立即回填 `m_codeRows` 的 `code` / `codeLength`；`buildLayout()` 调用顺序改为 `computeTree() → simulateStates() → buildCodeTable() → computeCodes()`，修复 `HF_CODE` / `HF_WPL` 帧文案中编码与码长恒为空的问题（BUG-205） |
+| 图形元素扩展 | `src/render/GraphElements.{h,cpp}` | `GraphNode` 新增 `Q_PROPERTY(qreal scale READ scale WRITE setScale)` 与 `m_scale`，`paint()` 内 `painter->scale(m_scale, m_scale)`，使 `playNodeAppear` / `playScalePulse` 的果冻缩放效果生效 |
+| 动作码扩展 | `src/engine/AnimFrame.h` | 新增 `HF_SORT_LIFT` / `HF_SORT_DROP` / `HF_SORT_DONE` / `HF_QUEUE_DROP` / `HF_JELLY` / `HF_PROMOTE` / `HF_FINAL` |
+| 测试同步 | `tests/HuffmanShot.cpp` + `tests/CMakeLists.txt` | 新增 `SmartGroundHuffmanShot` 逐帧截图生成器，覆盖排序悬停 / 落位 / 候选队列 / 逐次合并 / 最终树 / 编码表 / WPL 六阶段共 41 帧 |
+
+## 2026-11-17 第 18 批：扩展欧几里得推导链重写 + 哈夫曼编码表/WPL + LCS 坐标修正
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 扩展欧几里得三阶段推导链 | `src/modules/ExgcdModule.{h,cpp}`（整模块重写） | 默认数据改为 `11914 146415`（求 11914 在模 146415 下的乘法逆元）。**第一步**画布上方三行同余式变形：`11914·x ≡ 1 (mod 146415)` → `11914·x = 146415·y + 1` → `11914·x - 146415·y = 1`，`EX_EQUATION` 逐行高亮。**第二步**双栏对照表：左栏取余 `146415 % 11914 = 3447`、右栏整除式 `146415 = 12 × 11914 + 3447`，共 9 轮；「行」指针（`Direction::Left` + 锚点偏移 -26px）锚定当前行并左右两式同时高亮。**第三步**递归回代：`buildBackSteps()` 用「项表（index, coef）」递推，从 `1 × gcd` 起每轮把最高次项按 `r_k = r_{k-2} - q·r_{k-1}` 展开并合并同类项，回代式由右侧整除式行飞入并展开为 `1 = 10 × 1 - 1 × 9` → `1 = 10 - (29 - 2 × 10) = 3 × 10 - 29 × 1` → … → `1 = 15079 × 11914 - 1227 × 146415`；终帧绿色结论「11914 在模 146415 意义下的乘法逆元是 15079」（BUG-199） |
+| 扩展欧几里得取值上限 | 同上 | 输入上限由 `100000` 放宽到 `1000000`，`getInputHint()` 同步说明（BUG-200） |
+| 哈夫曼编码表 + WPL | `src/modules/HuffmanTreeModule.{h,cpp}` | 树右侧新增 `n × 3` 编码表：第 1 列 `a[i]`（**初始输入顺序**，非排序后顺序）、第 2 列哈夫曼编码（左 0 右 1）、第 3 列码长；`HF_CODE` 帧沿根到叶逐条揭示路径上的 0/1 标签并写入表格。底部新增 WPL 行：`n` 个格子逐项显示 `a[i]×码长`，右侧 `WPL` 累加格逐项刷新并脉冲高亮，`HF_WPL_DONE` 给出总 WPL |
+| 哈夫曼建树向上生长 | 同上 | 树自上而下：根在顶部、叶子在底部；每次合并后兄弟子树先旋转/上移对齐到同一行再合并，`computeXPositions()` 让每行居中、`levelMin/levelMax` 逐行整体平移使各行对称，最终根节点居于树内正中 |
+| 哈夫曼路径标注与编码 | 同上 + `src/render/GraphElements.{h,cpp}` | `GraphEdge` 新增 `pathLabel` / `pathLabelColor` / `setPathLabel()` / `pathLabelAnchor()`，在边中点绘制圆角徽标显示左 0 右 1 |
+| LCS 坐标修正 | `src/modules/LCSModule.cpp` | `kLcStrY` 62 → 92、`kLcGridY` 206 → 236；「串 a[]」/「串 b[]」标签上移到 `kLcStrY - 26`，矩阵列下标移到 `m_gridY - 22`，行下标移到 `m_gridX - 34`，标签与下标各占独立行彻底消除压字（BUG-201） |
+| 共享动画助手 | `src/modules/IModule.{h,cpp}` | 新增 `playValueDropInto(start, target, value, color, duration)`：数值从空中落入数组格中心（`OutCubic`）并在动画结束时提交值；新增 `playTextFlight(text, start, end, fontSize, color, duration)`：任意文本飞行（哈夫曼路径标注与扩欧回代式飞入共用） |
+| 图形元素扩展 | `src/render/GraphElements.{h,cpp}` | `ArrayBlock` 新增 `centerPos()`（格子中心坐标）；`FloatingText` 新增 `fontSize` / `textColor`；`GraphEdge` 新增路径标签徽标 |
+| 动作码扩展 | `src/engine/AnimFrame.h` | 新增 `EX_EQUATION`、`HF_CODE`、`HF_WPL`、`HF_WPL_DONE` |
+| 测试同步 | `tests/Batch9ModulesTest.cpp` | 扩展欧几里得用例改用 `11914 146415`，新增断言：逆元 `x == 15079`、`11914×15079 - 146415×1227 == 1`、最终回代式同时含 `15079` 与 `1227`、`EX_EQUATION` 帧数为 3 |
+
+## 2026-11-17 第 17 批：哈夫曼树动画重构 + 多模块排版修复
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 哈夫曼树动画重构 | `src/modules/HuffmanTreeModule.{h,cpp}`（整模块重写） | 输入 `n` + `n` 个权值。**阶段一**（排序）：不在应有位置的元素先飞出数组并高亮（`HF_SORT_LIFT`），再逐个像流星一样飞回排序后的位置（`HF_SORT_DROP`，帧内携带完整置换数组保证可重放）；`HF_SORT_DONE` 宣布排序完成。**阶段二**（建树）：每次取森林中两个最小权值，`HF_PICK`（取最小并高亮）→ `HF_LIFT`（飞到一起 / 带子树的一方上移到同一行）→ `HF_MERGE`（连线生成父节点）；三种情况分别对应「都是原始数据 → 作叶子」「一个带子树 → 另一个飞过去相连」「两个都带子树 → 先对齐树高再相连」。树与边初始 `opacity = 0`，随合并逐个 `playNodeAppear()` 生长淡入（BUG-188 / BUG-198） |
+| 哈夫曼树位姿补间 | 同上 | `simulateLayout()` 预先模拟每次合并后的森林形态，记录每步的 `rows` / `cols` 快照；`computePositions()` 采用「叶子等距铺开 + 内部结点取左右孩子中点」的对称布局；每次合并先补间到「上移对齐」位姿（300ms），再补间到「合并完成」位姿（460ms），树高与树宽变化均有过渡（BUG-189） |
+| 共享动画助手 | `src/modules/IModule.{h,cpp}` | 新增 `playMoveTo(std::vector<QGraphicsItem*> items, std::vector<QPointF> targets, int duration = 440)`：逐项独立目标点的位置补间，`m_animated == false` 时瞬时落位，供哈夫曼树等需要「每个元素各自去往不同目标」的场景复用（BUG-189） |
+| 桶排序排版 | `src/modules/BucketSortModule.{h,cpp}` | 桶内竖直数组改为 `cellHeight == spacing`（40px）无缝排布，相邻单元格之间只保留 1 条横线；章节说明文字上移到 `(40, 180)`、桶头单元格下移到 `y = 250`，Bucket 0 标题不再被压住（BUG-191 / BUG-192） |
+| 基数排序排版 | `src/modules/RadixSortModule.{h,cpp}` | 10 个数字桶同样改为 `cellHeight == spacing`（38px）无缝排布；「按当前位分的 10 个桶」上移到 `(40, 154)`，数字标题整合进桶头单元格（BUG-191 / BUG-192） |
+| 循环队列清理 | `src/modules/CircularQueueModule.{h,cpp}` | `head` / `tail` 改 `Direction::Up` + `PointerGeometry::belowCell()`，从数组下方指上去且箭头尖端停在单元格外（`head == tail` 时额外偏移避免箭头重叠）；删除 `q[N], N = 6` 标题、右下角「队尾走到末尾后回到队头」提示、以及整套「操作日志」方框与标题（BUG-193） |
+| 循环队列归类 | `src/ui/MainWindow.cpp` | `CircularQueueModule` 由「数据结构 · 进阶」移入「基础数据结构」（BUG-194） |
+| 字符串哈希对标模板 | `src/modules/StringHashModule.{h,cpp}` | `p1 = 131`、`m1 = 998244353`；`p[i] = p[i-1]*p1 % mod`；`h1[i] = (h1[i-1]*p1 + s1[i-1]) % mod`；`h2[i]` 同理；从 `len = min(n1,n2)` 递减枚举，判断 `getHash(h1,1,len) == getHash(h2,n2-len+1,n2)` 或 `getHash(h2,1,len) == getHash(h1,n1-len+1,n1)`，首个匹配即答案；画布重排为 s1 / h1 / s2 / h2 / p 五行（BUG-195） |
+| 字符串哈希指针与动作码 | 同上 + `src/engine/AnimFrame.h` | 新增 `STH_POW` 动作类型专门记录幂表计算（原与 `STH_PREP` 混用）；新增字符游标指针 `i`（s1 行）与 `j`（s2 行），均 `Up` 方向 + `PointerGeometry::belowCell()`（BUG-196） |
+| 最长公共子序列布局 | `src/modules/LCSModule.{h,cpp}` | 删除左上角 `s = "abcbdab"`；矩阵上方横排两个无缝字符串数组（a 串 / b 串，中间留 40px 间隙）；指针 `i` 自上而下指向 a 串元素、指针 `j` 自下而上指向 b 串元素；底部轨迹区重排为 追踪标签(624) / 追踪格(650) / 说明(712) / 结论(746)（BUG-197） |
+| 动作码扩展 | `src/engine/AnimFrame.h` | 新增 `HF_SORT_DONE`；`STH_POW` 与 `STH_PREP` 拆分（BUG-196） |
+| 测试同步 | `tests/Batch9ModulesTest.cpp` + `tests/Batch9VisualTest.cpp` | 字符串哈希测试输入由 `abcdefg / cde`（无公共前后缀，答案 0）改为 `abcdefg / cdefg`（答案 5），并新增答案断言；`Batch9VisualTest` 新增哈夫曼树专项用例：断言排序阶段的抬升 / 落位帧、排序先于建树、6 个叶子合并 5 次、终态 11 结点 10 边 |
+
+## 2026-11-17 第 16 批：8 个新算法模块 + 矩阵方括号外扩 + 指针外置化
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 矩阵方括号包裹矩阵 | `src/render/MatrixBlock.{h,cpp}` | `PlainMatrix` 分支的折线括号改为上下各外扩 `over = 9.0`、左右各外扩 `3.0`，`arm = 14.0` / `lip = 7.0`；`sideMargin()` 20 → 26 以容纳括号臂；`boundingRect()` 按形态引入 `vPad`（矩阵 13.0，其余 4.0），保证外扩部分不被裁剪（BUG-184） |
+| Trie 游标 `i` 外置 | `src/modules/TrieModule.cpp` | `i` 指针锚点偏移由 `(cellW/2, 19)` 改为 `PointerGeometry::aboveCell(54.0, 38.0)`，尖端落在格子上边缘上方 2px，杆体与标签全部位于单元格外部（BUG-185） |
+| 哈希表探针 `k` 外置 | `src/modules/HashTableModule.{h,cpp}` | `k` 指针同样改用 `PointerGeometry::aboveCell()`；补齐缺失的 `cellHeight()` 访问器（此前 `renderFrame` 编译不过）（BUG-186） |
+| 桶排序 | 新增 `src/modules/BucketSortModule.{h,cpp}` | 输入 `n` + `n` 个 0~99 整数；5 个桶（每桶容量 4），`b = v / 20` 分桶 → 桶内插入排序 → 按桶序回填 `out[]`；数值以飞行轨迹落入输出格；动作码 `BK_RESET / BK_BUCKET / BK_SORT / BK_COLLECT / BK_DONE` |
+| 基数排序 | 新增 `src/modules/RadixSortModule.{h,cpp}` | 输入 `n` + `n` 个三位数；LSD 三趟（个 / 十 / 百位），每趟 10 个数字桶，桶内顺序收集后回写源数组；动作码 `RD_RESET / RD_DIGIT / RD_BUCKET / RD_COLLECT / RD_DONE` |
+| 循环队列 | 新增 `src/modules/CircularQueueModule.{h,cpp}` | 输入容量 `N` + `PUSH x` / `POP` 指令流；`head = (head + 1) % N`、`tail = (tail + 1) % N`，队尾走到末尾绕回下标 0 并高亮提示；`head` / `tail` 指针恒在单元格外部；动作码 `CQ_RESET / CQ_ENQUEUE / CQ_DEQUEUE / CQ_WRAP / CQ_FULL / CQ_EMPTY / CQ_DONE` |
+| 单调队列 | 新增 `src/modules/MonotonicQueueModule.{h,cpp}` | 输入 `n` + `n` 个整数 + 窗口大小 `k`；`q[]` 存下标且对应数值单调递减，队头即窗口最大值；`MQ_EXPIRE` 淘汰滑出窗口者、`MQ_POP_BACK` 踢出队尾较小者；动作码 `MQ_RESET / MQ_PUSH / MQ_POP_BACK / MQ_EXPIRE / MQ_MAX / MQ_DONE` |
+| 扩展欧几里得 | 新增 `src/modules/ExgcdModule.{h,cpp}` | 输入 `a b`；递归调用栈逐层可视化（`EX_RECURSE` / `EX_BASE`），回溯时逐层写回 `x = y'`、`y = x' - ⌊a/b⌋ y'`；动作码 `EX_RESET / EX_RECURSE / EX_BASE / EX_BACKTRACE / EX_DONE` |
+| 哈夫曼树 | 新增 `src/modules/HuffmanTreeModule.{h,cpp}` | 输入 `n` + `n` 个权值；每次取权值最小的两个结点合并，新父结点动态创建并重新布局树深度；动作码 `HF_RESET / HF_PICK / HF_MERGE / HF_DONE` |
+| 字符串哈希 | 新增 `src/modules/StringHashModule.{h,cpp}` | 输入 `s` + 待查询子串；前缀哈希 `h[i] = (h[i-1] · p + code) mod M` 与幂表 `p^k` 预计算，子串哈希 `h[r] - h[l-1] · p^(r-l+1) mod M` 做到 O(1) 查询；动作码 `STH_RESET / STH_PREP / STH_POW / STH_QUERY / STH_MATCH / STH_DONE` |
+| 最长公共子序列 | 新增 `src/modules/LCSModule.{h,cpp}` | 输入两行字符串 `s` / `t`；`dp[i][j]` 二维网格，字符相同取左上角 +1，不同取左 / 上两者最大值并高亮候选来源；最后沿对角线回溯出 LCS 并填入回溯路径条；动作码 `LC_RESET / LC_CANDIDATE / LC_DECIDE / LC_TRACE / LC_DONE` |
+| 动作码扩展 | `src/engine/AnimFrame.h` | 新增 39 个 `ActionType` 枚举值，按模块前缀（`BK_` / `RD_` / `CQ_` / `MQ_` / `EX_` / `HF_` / `STH_` / `LC_`）隔离 |
+| 模块注册 | `src/ui/MainWindow.cpp` | 桶排序 / 基数排序 → 排序；循环队列 → 数据结构 · 进阶；单调队列 / 哈夫曼树 → 贪心；字符串哈希 → 字符串；扩展欧几里得 → 数学；最长公共子序列 → 动态规划 |
+| 构建注册 | `CMakeLists.txt` + `tests/CMakeLists.txt` | 8 个模块的 `.h` / `.cpp` 同时加入主工程与测试工程源文件列表 |
+| 新增测试 | `tests/Batch9ModulesTest.cpp`（新增） + `tests/Batch9VisualTest.cpp`（新增） + `tests/GroupAUiTest.cpp` + `tests/PointerAlignTest.cpp` + `tests/PointerMotionTest.cpp` | `Batch9ModulesTest` 逐模块验证帧数、动作码计数与数值正确性（如桶排序输出 `8 11 13 22 26 30 37 45`、基数排序末趟升序、LCS 长度 4）；`Batch9VisualTest` 逐帧审计所有数组指针的箭头尖端是否越出单元格外框，并断言矩阵方括号的外扩量；`GroupAUiTest` 模块数 54 → 62 并逐个断言新模块名；`PointerAlignTest` / `PointerMotionTest` 的期望坐标改为外置后的 `-2.0` / `116.0` |
+
+
+## 2026-11-16 第 15 批：矩阵形态与尺寸 + 指针动画体系 + 分类合并
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 矩阵形态语义反转 | `src/render/MatrixBlock.{h,cpp}` | `paint()` 三形态分流：`PlainMatrix` 绘制数学方括号 `[` `]`（多段折线，`arm = 13` / `lip = 6`）；`Determinant` 保留左右单竖线 + 上下小衬线；`BracketedTable` 不画任何外框，`sideMargin()` 收到 4.0（BUG-181） |
+| 单元格大小宽高可调 | `src/modules/ModuleFields.{h,cpp}` + `src/modules/SandboxMatrixModule.{h,cpp}` + `src/render/MatrixBlock.{h,cpp}` | `ModuleField` 新增 `SizeInput` 类型与 `makeSize(key, label, w, wMin, wMax, h, hMin, hMax)`；面板渲染为「宽 × 高」双数值输入；`MatrixBlock` 新增 `cellHeight`（默认 52）与 `setCellHeight()` / `cellHeightValue()`，绘制、`cellAtPoint()`、就地编辑框定位全部改用矩形单元格（BUG-180） |
+| 画布残影清理 | `src/ui/MainWindow.{h,cpp}` | 新增 `invalidateCanvas()`：对场景所有视图调用 `invalidateScene(rect, BackgroundLayer)` + `invalidateScene(rect, ItemLayer)`，再 `viewport()->update()`；`clearScene()` 与 `rebuildCurrentLayout()` 末尾各调用一次（BUG-182） |
+| 指针平移动画体系 | `src/render/GraphElements.{h,cpp}` + `src/modules/IModule.{h,cpp}` | `PointerBlock` 新增 `m_placed` 标记与 `isPlaced()`（经 `xChanged` / `yChanged` 信号捕获）、`anchoredPos()`、`setLabelAtTail(gap)`；`boundingRect()` 在 `opacity() < 0.02` 时返回空矩形并监听 `opacityChanged`；`IModule` 新增 `retargetPointer()` / `retargetPointerToNode()` / `retargetPointerTo()`，`playPointerMove()` 在指针首次落位时直接定位、之后一律走 `QPropertyAnimation` 平移（BUG-177） |
+| 指针落位与标签归位 | `src/modules/TrieModule.cpp` + `src/modules/HashTableModule.{h,cpp}` + `src/modules/PrimModule.cpp` | Trie 的 `i` 锚点偏移 `(27, 19)` 精确落在格子中心、标签用 `setLabelAtTail(10.0)` 推到杆尾；哈希表的 `k` 下移至槽位行（`Down` 方向、`shaftLength = 26`、偏移 `(cellW / 2, 19)`）；Prim 的 `u` 改 `Up` 方向、偏移 `(0, 20)`、`shaftLength = 24`，尖端落在顶点圆边缘（BUG-178 / BUG-179 / BUG-174） |
+| 结点生成动画 | `src/modules/IModule.{h,cpp}` + `src/modules/TrieModule.cpp` | 新增 `playNodeAppear(item, duration)`（`QEasingCurve::OutBack`，0.15 → 1.14 → 1.0 缩放弹入 + 透明度淡入）与 `playFadeIn(item, duration)`；`TrieModule` 的 `TR_CREATE` 帧新建结点时播放生长动画，不再突兀冒点（BUG-178） |
+| 二分图数组下移 | `src/modules/BipartiteModule.cpp` | 图心 `(470, 210)`、节点间距放宽到 115/135；`col[]` 标签下移至 `y = 470`、数组行下移至 `y = 487`、结论文字下移至 `y = 610`；数组初值由 `"—"` 改为 `"-1"`（BUG-176） |
+| 最小生成树分类合并 | `src/ui/MainWindow.cpp` | Kruskal 与 Prim 合并入单一分组「图论 · 最小生成树」，去重后唯一模块数 56 → 54（BUG-175） |
+| 字符损坏修复 | `src/modules/EulerModule.cpp` | 修正 `统计每个节点的入度与出度` 中的损坏字节（BUG-173a） |
+| 字体统一收尾 | `src/render/GraphElements.cpp` + `src/modules/HeapBasicsModule.cpp` + `src/modules/TarjanModule.cpp` + `src/modules/GraphRenderHelper.h` | `GraphNode::paint()`（中心值 / `v:` / `dfn: low:`）、`StackBlock::paint()`、`ArrayBlock::paint()`、`HeapBasicsModule` 英文标题、`TarjanModule` 的 `ins / stk`、`GraphRenderHelper::addLabel()` 全部改走 `UiFonts::mono()` / `UiFonts::cjk()`；`src/` 下不再有绕过字体引擎的 `QFont(...)` 字面量（BUG-183） |
+| 指针动画路径收敛 | `src/modules/IModule.cpp` + `src/modules/StackModule.cpp` + `src/modules/ForwardStarModule.cpp` | `playPointersSync()` / `layoutPointerSlots()` / `StackModule` / `ForwardStarModule` 四处各自手写的 `acquireAnim(ptr, "pos", ...)` 统一改调 `playPointerMove()`，全项目指针移动只有一条动画路径（BUG-177） |
+| 新增 / 修订测试 | `tests/GroupAUiTest.cpp` + `tests/OverlapAuditTest.cpp` + `tests/PointerMotionTest.cpp`（新增） + `tests/SandboxVisualTest.cpp` | `GroupAUiTest` 期望模块数 56 → 54；`OverlapAuditTest` 采集 `PointerBlock::anchorItem()`，指针与其锚定目标的有意压叠不再计为冲突；`PointerMotionTest` 断言指针落位状态、终态坐标与顶点圆边缘贴合 |
+
+## 2026-11-16 第 14 批：10 项缺陷整改 + 分类重构 + 版本徽标
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 折叠面板内容不可见 | `src/ui/widgets/MyCollapsible.{h,cpp}` | `m_contentHeight` 原先只在 `setContentWidget()` 且布局未建立时算一次，高度被钉为 0。新增 `refreshContentHeight()`（`updateGeometry()` + `adjustSize()` + `sizeHint()` 三级回退测量）并同步 `setMaximumHeight`/`setMinimumHeight`；`eventFilter()` 拦截内容控件 `QEvent::LayoutRequest` 自动重测；`setContentWidget()` 统一走 `updateGeometryAnimated()`（BUG-173 / BUG-172） |
+| GCD 整模块重写 | `src/modules/GcdModule.{h,cpp}` | 删除堆叠的 `ValueBar` 槽位，画面只留 `a` / `b` 两个大号数字框与余数框 `r`，中央直书 `a % b = r`；每轮较小者被 `a % b` 替换较大者，历史轮次变灰（BUG-166） |
+| DFS 指针标签裁切 | `src/render/GraphElements.{h,cpp}` | `PointerBlock::labelWidth()` 与 `paint()` 统一 `UiFonts::mono(14, true)`，宽度改 `qMax(28.0, adv + 14.0)`；新增 `setAnchorItem(QGraphicsItem*)`，指针可锚定任意图元（`ArrayBlock` / `GraphNode` / 其它）（BUG-165） |
+| Prim 提前终止 | `src/modules/PrimModule.cpp` | `runAlgorithm()` 主循环前先 `relaxFrom(m_src)` 播种起点的出边候选集，避免第一轮候选集为空被误判为「存在孤立分量」（BUG-167） |
+| 计数排序前缀和 | `src/modules/CountingSortModule.cpp` | 前缀和阶段改用 `IModule::playMultiValueFlight`，`prefix[i-1]` 与 `cnt[i]` 同时飞出合并落入 `prefix[i]`（BUG-168） |
+| 二分图染色错乱 | `src/modules/BipartiteModule.{h,cpp}` | 染色写入与色块刷新彻底隔离，子节点染色不再覆写父节点色块；图内结点背景色与数组颜色标记同源刷新（BUG-169） |
+| 欧拉路径有向 / 无向 | `src/modules/EulerModule.{h,cpp}` | 新增有向图开关；有向时分别统计并渲染 `in[]` / `out[]` 双数组，无向时回落 `deg[]`；新增 `EU_DEGREE` 动作码（BUG-172） |
+| Trie 动态建树 | `src/modules/TrieModule.{h,cpp}` | 起始只有根节点、游标 `p` 指向根；字符串以数组呈现，指针 `i` 逐字符右移；逐步检测子节点命中复用（`TR_HIT`）/ 未命中新建（`TR_CREATE`）；下方用一条无缝数组模拟树形结构内存槽位（BUG-170） |
+| 哈希表无缝 + 探测 | `src/modules/HashTableModule.{h,cpp}` | 数组改 `cellWidth == spacing` 无缝排布；默认数据改 `5\n3 10 17 24 31`（模 7 后全冲突）完整演示线性探测；新增 `HT_PROBE` 逐步探测动画（BUG-171） |
+| 核心层自适应延时 | `src/modules/IModule.{h,cpp}` | 新增 `static int frameDelayMs(const AnimFrame&)` 与 `static int frameDelayMsForText(const QString&)`，按「解说 + 公式」长度计算：下限 900ms、上限 3000ms；`MainWindow::advanceFrame()` 改调基类实现（BUG-165a） |
+| 分类按 OI-Wiki 重排 | `src/ui/MainWindow.cpp` | 下拉分组调整为：自由结构 / 基础数据结构 / 排序 / 树与堆 / 数据结构 · 进阶（并查集、Kruskal、树状数组、线段树、**哈希表**）/ 图论 / 匹配 / 动态规划 / 字符串 / 数学 / **贪心**（区间调度）/ 树形 DP +「图论 · 最小生成树」跨分支组；哈希表归入数据结构，贪心独立成组 |
+| 版本徽标 | 新增 `src/core/AppVersion.h` + `src/ui/MainWindow.cpp` + `CMakeLists.txt` + `tests/CMakeLists.txt` | `AppVersion::display()` 返回 `0.7.<stamp>`；`MainWindow` 状态栏右下角新增 `labelVersion`（objectName `versionBadge`，弱化配色 + tooltip `SmartGround v0.7.<stamp>`）；CMake 配置阶段自动取 `git rev-list --count HEAD` 作为构建序号并写回 `generated/AppVersionGenerated.h`（工作区有未提交改动时 +1）；`AppVersion.h` 用 `__has_include` 探测生成头，缺失时回落到 `0.7.0`；测试工程同样生成该头并加入 `SgUi` / 目标的 include 路径 |
+| 新增测试 | `tests/Round10FixTest.cpp` + `tests/AutoPlayEndTest.cpp` + `tests/UiBehaviorTest.cpp` + `tests/VersionBadgeTest.cpp` | `Round10FixTest` 覆盖九项整改的行为断言（无缝行探针坐标随布局更新）；`AutoPlayEndTest` 的等待预算由 600×120ms 放宽到 4000×120ms（自适应延时使冒泡排序全流程超过原 72s 预算）；`UiBehaviorTest` 的延时上限断言改为 3000ms；`VersionBadgeTest` 断言版本号格式为 `主.次.构建`、徽标存在且文本与 `AppVersion::display()` 一致 |
+
+## 2026-11-16 第 13 批：矩阵设置落实 + 9 个新算法模块
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 矩阵设置面板 | `src/modules/SandboxMatrixModule.{h,cpp}` | `moduleSettingsFields()` 返回 `Segment("shape", 形态, {矩阵, 行列式, 表格}, 2)` + `IntInput("rows", 行数, 3, 1, 8)` + `IntInput("cols", 列数, 3, 1, 8)` + `TextInput("cell", 单元格)`；`moduleSettingsTitle()` 返回「矩阵设置」；`buildLayout` 删去全部 `rows=` / `cols=` / `type=` / `cell=` 键解析，改为把输入区所有 token 按行优先填入 `MatrixBlock`，不足处补 `0`；`applyShape()` 切换三种形态并同步配色（行列式=米黄底/棕竖线、表格=白底/深蓝竖线、矩阵=无竖线）；`applyDimensions()` 调整行列数时保留已有数据（BUG-162） |
+| 面板自动隐藏 | `src/ui/MainWindow.cpp` + `src/ui/MainWindow.h` | `rebuildModulePanel()` 在 `fields.isEmpty() && !graphSupported` 时隐藏 `modulePanelHost`，因此「矩阵设置」只在矩阵模块下出现；新增 `probeModulePanelVisible()` / `probeModulePanelTitle()` 供测试断言 |
+| GCD 辗转相除 | 新增 `src/modules/GcdModule.{h,cpp}` + `src/render/ValueBar.{h,cpp}` | 输入 `a b`；按 `a = a % b` 迭代，`ValueBar` 比例条表达数值大小，历史轮次逐条变灰，右下角余数条脉冲高亮；动作码 `GC_RESET / GC_DIVIDE / GC_SWAP / GC_DONE` |
+| DFS 深度优先搜索 | 新增 `src/modules/DfsModule.{h,cpp}` | 输入 `n m src` + 边表；显式栈 `stk` / 访问标记 `vis` / 访问序 `ord` 三组数组，指针随栈顶移动，节点三色态（待访问 / 栈中 / 已完成）；动作码 `DFS_RESET / PUSH / EDGE / VISIT / POP / DONE` |
+| Prim 最小生成树 | 新增 `src/modules/PrimModule.{h,cpp}` | 输入 `n m src` + 带权边；`dis[]` 数组记录到生成树的距离，每轮高亮最小候选边并松弛邻点；动作码 `PR_RESET / SELECT / RELAX / TAKE / FINISH` |
+| 计数排序 | 新增 `src/modules/CountingSortModule.{h,cpp}` | 输入 `n` + 数组；三阶段：计数桶 → 前缀和 → 从后往前回填，数值以飞行轨迹落入桶位；动作码 `CS_RESET / COUNT / PREFIX / PLACE / DONE` |
+| 二分图判定 | 新增 `src/modules/BipartiteModule.{h,cpp}` | 输入 `n m` + 边表；BFS 交替染色，冲突边以警示色高亮并终止；动作码 `BP_RESET / COLOR / CONFLICT / FINISH` |
+| 欧拉路径 | 新增 `src/modules/EulerModule.{h,cpp}` | 输入 `n m` + 边表；先算度数并判定欧拉通路存在性，再用 Hierholzer 栈式算法回溯生成路径，路径边逐条点亮；动作码 `EU_RESET / PUSH / EDGE / POP / PATH / DONE` |
+| 区间调度 | 新增 `src/modules/IntervalSchedModule.{h,cpp}` + `src/render/SegmentBar.{h,cpp}` | 输入 `n` + `n` 行 `l r`；按结束时间排序后逐条判定是否与已选活动冲突，冲突条灰化半透明，选中条加粗高亮；动作码 `IV_RESET / SORT / SCAN / PICK / REJECT / DONE` |
+| Trie 字典树 | 新增 `src/modules/TrieModule.{h,cpp}` | 输入 `n` + `n` 个单词；按字符逐层下行，已有分支复用、新分支才建节点，末节点 `end` 标记为 1；动作码 `TR_RESET / CREATE / HIT / END / DONE` |
+| 哈希表（开放寻址） | 新增 `src/modules/HashTableModule.{h,cpp}` | 输入 `n` + `n` 个关键字；`h(k) = k % 7`，冲突时线性探测下一空槽，槽位行显示哈希值、关键字行显示落位元素；动作码 `HT_RESET / HASH / PROBE / INSERT / DONE` |
+| 动作码扩展 | `src/engine/AnimFrame.h` | 新增 34 个 `ActionType` 枚举值，按模块前缀（`GC_` / `DFS_` / `PR_` / `CS_` / `BP_` / `EU_` / `IV_` / `TR_` / `HT_`）隔离，避免与既有模块动作码冲突 |
+| 模块注册 | `src/ui/MainWindow.cpp` | 9 个新模块分别挂到「经典排序」（计数排序）、「图论算法」（DFS、二分图、欧拉路径）、「字符串算法」（Trie）、「数论与树形」（GCD）、「贪心与哈希」（区间调度、Prim、哈希表）分组 |
+| 新增测试 | `tests/NewModuleBatchTest.cpp` + `tests/GroupAUiTest.cpp` + `tests/ModuleSettingsPanelTest.cpp` + `tests/MatrixShapeTest.cpp` + `tests/OverlapAuditTest.cpp` | 前者验证 9 个模块均能产生帧并渲染非空画面，并断言矩阵默认形态/尺寸/行优先填值；`GroupAUiTest` 模块数由 46 改为 56 并逐个断言新模块名；`ModuleSettingsPanelTest` 断言「矩阵设置」面板在矩阵模块可见、切到 01 背包自动隐藏、切回恢复；`MatrixShapeTest` 改为纯行优先输入；`OverlapAuditTest` 扩测 9 个新模块并把 `GraphNode` 审计框收紧为真实圆框（BUG-164） |
+
+
+## 2026-11-15 第 12 批：弹层 DWM 原生边框清除 + 侧栏悬空指针修复
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 弹层右/下边缘竖线 | `src/ui/widgets/MyComboBox.{h,cpp}` | `ComboPopupFrame` 构造追加 `setWindowFlags(windowFlags() | Qt::NoDropShadowWindowHint)`；`openPopup()` 改用 `setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint)`，关闭 DWM 原生描边与系统阴影；`ComboPopupFrame::paintEvent` 的 14 层同心圆角矩形扩散半径由 `i * 2.2` 收敛为 `maxSpreadX = 11` / `maxSpreadY = 6` 并改线性 alpha 衰减，阴影层完全落在窗口边界内不产生折角；外边距 (27,18,27,20) → (18,12,18,14)，窗口宽度 `popupWidth + 54` → `popupWidth + 36`（BUG-159） |
+| 侧栏切换模块崩溃 | `src/ui/MainWindow.cpp` | `rebuildModulePanel()` 清空 `modulePanelContent` 前先 `toggleDirected->setParent(modulePanelHost)` / `checkBidirectional->setParent(modulePanelHost)` 把复用控件移出待删集合，并在 `deleteLater()` 判断中跳过二者；非图模块分支显式 `setVisible(false)`、图模块分支恢复 `setVisible(true)`；拆开 `updateGraphOptionPanel()` 与 `animateSubOptionVisibility()` 中粘连的语句（BUG-160） |
+| 折叠面板标题访问器 | `src/ui/widgets/MyCollapsible.h` | 新增 `QString headerText() const` 访问器，供测试按标题定位「特化设置」面板（BUG-161） |
+| 新增测试 | `tests/PopupEdgeVerify.cpp` | 真实屏幕像素级回归：断言弹层带 `NoDropShadowWindowHint` / 无边框 / 半透明，并在真实屏幕抓图中扫描卡片右外侧与下外侧的空白区，确认不存在贯穿式硬线；`offscreen` 平台自动跳过 |
+
+## 2026-11-15 第 11 批：下拉收口 + 图结点权值入圆 + 矩阵族重构
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 弹层硬边阴影清除 | `src/ui/widgets/MyComboBox.cpp` | 删除 `ComboCard` 上的 `QGraphicsDropShadowEffect`（该控件把阴影裁到自身矩形，右侧与下侧留下包裹结构的硬边）；`ComboPopupFrame::paintEvent()` 改为 12 层同心圆角矩形由外到内叠加，alpha 递减、圆角随扩散半径同步放大，边缘无折线；外边距 (20,18,20,20) → (27,18,27,20)，宽度补偿 +54（BUG-153） |
+| 风格收敛为 Vue 扁平 | `src/ui/widgets/MyComboBox.{h,cpp}` + `src/ui/MainWindow.{h,cpp}` | `ComboVisualStyle` 删去 `SoftGlass` / `MinimalLine`；移除 `paintGlassTile` / `paintMinimalTile`、`ComboCard::paintEvent` 的分支、`ComboPopupFrame` 的阴影分支；`styleNames()` 只返回 `{"Vue 扁平"}`，`styleIndex()` 恒为 0；侧栏「界面风格」标签 + `comboStylePicker` 段控件整体删除（BUG-156） |
+| 下拉字号放大 8~10% | `src/ui/widgets/MyComboBox.cpp` | 新增常量 `kOptionFontSize = 10` / `kHeaderFontSize = 10` / `kButtonFontSize = 11`；`ComboOption` 构造字号 9→10、`preferredWidth()` 内边距 34→40、`computeColumnWidth()` 列宽 `qBound(120,...,240)` → `qBound(140,...,300)`，弹层宽度补偿 +32→+44（BUG-157） |
+| 图结点权值入圆 | `src/render/GraphElements.{h,cpp}` + `src/modules/IModule.cpp` | `commitEdit()` 统一写 `setCenterText(shown)`（圆内 `QRectF(-20,-20,40,40)`）并清空残留 `valueText`；`refreshLiveSlots()` 同步改为圆内写入；`beginEdit()` 预填优先级改为 圆内 > 自定义 > 下方 > `value`；新增 `belowText()` / `editorItem()` 访问器（BUG-154） |
+| 矩阵族重构 | `src/render/MatrixBlock.{h,cpp}` + `src/modules/SandboxMatrixModule.{h,cpp}` | `MatrixBlock` 重写：新增 `sideMargin()`（行列式 18 / 表格 16）、`setCellSize()`、`barColor` 独立括号配色；行列式与表格改用真正竖线括号并带顶部延伸短线；单元格改 `mono(13)`，双击就地改值保留；`SandboxMatrixModule` 支持 `rows=` / `cols=` / `type=` / `cell=` 键，形态（矩阵 / 行列式 / 表格）可切换，行列数与单元格尺寸可调且保留已有数据，`buildLayout` 保留用户已覆盖的设置不被重建回退；新增 `releaseSceneItems()` 正确释放图元（BUG-155） |
+| 特化设置面板统一 | `src/ui/MainWindow.cpp` | `rebuildModulePanel()` 把图结构选项（图类型开关 / 双向箭头复选框 / 边权提示）与模块自身 `ModuleField` 合并进唯一的「特化设置」折叠面板；`updateGraphOptionPanel()` 不再单独显示 `graphPanelHost`；分段控件独占整行，数值输入框固定 72px 宽（BUG-158） |
+| 新增测试 | `tests/MatrixShapeTest.cpp`、`tests/ModuleSettingsPanelTest.cpp`、`tests/StylePickerTest.cpp`、`tests/GraphInlineEditTest.cpp`、`tests/PanelEdgeScanTest.cpp` | 分别验证三形态渲染与输入解析、面板字段类型与数值钳制与重建后保留、风格唯一性与弹层可开、权值提交后落圆内且圆下无文字、侧栏像素扫描无残留强调色块 |
+
+## 2026-11-15 第 10 批：橡皮面板紧凑化 + 下拉气泡风格重做
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 橡皮面板贴合内容 | `src/ui/widgets/CanvasToolBar.{h,cpp}` | 新增 `applyToolPageSize()`：切换 / 重建工具页时按当前页 `sizeHint` 固定 `m_toolPages` 尺寸，绕开 `QStackedWidget` 取最大页高度的通病，橡皮面板由 477px 收敛到 103px（BUG-134） |
+| 橡皮形状可选 | 新增 `src/ui/widgets/MySegmentedControl.{h,cpp}` + `ToolController.{h,cpp}` + `CanvasView.cpp` | `ToolStyle` 增 `eraserSquare`；`eraseAt()` 圆形走 `hitTest`、方形走场景路径与矩形求交；画布橡皮光标同步画圆 / 画方；面板加「圆形 / 方形」分段选择器 |
+| 下拉气泡三套风格 | `src/ui/widgets/MyComboBox.{h,cpp}` | 引入 `ComboVisualStyle`（`VueLight` / `SoftGlass` / `MinimalLine`）：`VueLight` 为 Vue 式扁平瓦片（无左色条、无扫光、悬停 160ms 强调色淡入、选中用 34 透明底 + 3px 圆角指示条）；弹层阴影改 `QGraphicsDropShadowEffect` 真投影；卡片 16px 圆角极淡描边；分组标题改「6px 圆点 + 文字 + 渐隐细线」；下拉箭头开合旋转动画；中西文自动切字体（BUG-135） |
+| 新增测试 | `tests/EraserPanelTest.cpp` + `tests/ComboStyleShot.cpp` + `tests/StylePickerTest.cpp` | 前者断言橡皮面板 103px 且矮于画笔面板；后者生成 `style_vue_light.png` / `style_soft_glass.png` / `style_minimal_line.png` 三张对照图；`StylePickerTest` 断言三段风格切换器存在、默认 VueLight、三次切换分别落到 SoftGlass / MinimalLine / VueLight 且弹层仍可打开 |
+
+## 2026-11-15 第 10 批补记：风格切换入口
+
+PM 定稿：**VueLight 为默认风格**，**保留三套并提供运行时切换入口**。
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 全局风格状态 | `src/ui/widgets/MyComboBox.{h,cpp}` | 新增静态实例表 `g_instances` 与 `setGlobalVisualStyle()`，切换时同步刷新所有 `MyComboBox` 实例；新增 `styleNames()` / `styleName()` / `styleIndex()` 供 UI 绑定 |
+| 风格切换器 | `src/ui/MainWindow.{h,cpp}` | 左侧面板「算法模块」下方新增「界面风格」标签 + `MySegmentedControl`（Vue 扁平 / 柔光玻璃 / 极简描边），切换即时生效 |
+| 审计断言修正 | `tests/StartupPanelTest.cpp` | 扫描带改为按 `comboStylePicker` 几何动态定位，避免风格指示条被误判为「左栏残留强调色块」（BUG-136） |
+
+## 2026-11-15 第 9 批十四项需求轮
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 字体引擎 | 新增 `src/ui/UiFonts.h` | `UiFonts::cjk()`（Microsoft YaHei）/ `mono()`（Consolas）/ `mixed()`（`setFamilies({"Consolas","Microsoft YaHei"})` 按字形族回退）；全项目文本改用该引擎（BUG-151） |
+| 编辑态快捷键隔离 | 新增 `src/core/TextEditGuard.h` + `src/canvas/CanvasView.cpp` + `src/ui/MainWindow.cpp` | 检测 `QApplication::focusWidget()` 或 `QGraphicsScene::focusItem()` 处于 `Qt::TextEditorInteraction` 时跳过画布快捷键拦截，双击单元格可正常输入数字键 1-7（BUG-146） |
+| 指针几何重构 | `src/render/GraphElements.{h,cpp}` | `PointerBlock` 新增 `setShaftLength()` / `setLabelOffset()` / `setLabelAbove()`；四个方向的箭头尖端统一落在原点；标签偏移与杆长解耦，可甩到杆尾或上方；`boundingRect()` 改为「杆身 ∪ 标签」并集，与绘制严格一致（BUG-141） |
+| 树状数组布局 | `src/modules/FenwickTreeModule.{h,cpp}` | `t[]` / `a[]` 下标行改为独立文本并置于方块上方；指针 `i` 自下而上指向目标块底边、标签落在层间空隙；`L0/L1/...` 层级标记移至左列，说明文字移至右列（BUG-141） |
+| 链式前向星布局 | `src/modules/ForwardStarModule.{h,cpp}` | 四组数组由四列并排重构为**四行横排**；指针 `k` 与 `head[u]` 均自下向上指；标题移入左侧独立列；图节点中心右移到 1480 避开数组区（BUG-142） |
+| 堆类模块布局 | `src/modules/HeapTreeBase.h` | 数组标题上移到 `arrY - 54`、树结构标题上移到 `treeTop - 92`，与根节点包围盒及下标行彻底分离（BUG-143） |
+| 线段树指针 | `src/modules/SegmentTreeEditBase.cpp` + `src/modules/SegmentTreeBuildModule.cpp` | 指针 `node` 锚点偏移 `0,46` → `0,80`（BUG-144） |
+| 拓扑排序布局 | `src/modules/TopologicalSortModule.cpp` | 结点层下移到 `150 + j*90`；输出序列行下移到 `degreeY+270`；`playPointerArrange` 偏移改 40（BUG-145） |
+| 重叠自动审计 | 新增 `tests/OverlapAuditTest.cpp` | 渲染全帧后采集单元 / 下标行 / 指针 / 节点 / 文本的场景包围盒两两求交；区分「同一单元格的附属下标」与真实冲突；受测 10 个模块最终 `conflicts=0`（BUG-141） |
+| 堆节点飞出 | `src/modules/IModule.{h,cpp}` + `HeapAdjustModule.cpp` + `HeapSortModule.cpp` | 新增 `playNodeSwapAnim()` / `playDualSwapAnim()`，数组值交换时树节点数值同步弧线飞出（问题 10） |
+| 匈牙利默认数据 | `src/modules/HungarianModule.{h,cpp}` | 换成经典「分手重配」样例 `3 3 / 1 1 / 1 2 / 2 1 / 3 1 / 3 2 / 3 3`，补充换配关系说明文本（问题 11） |
+| 下拉瓦片动效 | `src/ui/widgets/MyComboBox.{h,cpp}` | `ComboOption` 重做为圆角 11px 渐变瓦片；新增 `hoverProgress` / `pressProgress` 两个 `Q_PROPERTY` 驱动 `QPropertyAnimation`；hover 顶部柔光扫掠、按下半径收缩文字微沉；分组瓦片继承分类主色；弹层开合加透明度过渡与多层柔化投影（BUG-152） |
+| 画板边框直拖 | `src/canvas/AnnotationItem.cpp` + `src/canvas/ToolController.cpp` | `borderHitTest(pos, tol)` + `borderItemAt(pos)`：命中轮廓环即进入 move 模式，无需先选中（问题 1） |
+| 表格图标化 | 新增 `src/ui/widgets/TableIconButton.{h,cpp}` + `src/ui/widgets/TableToolBar.cpp` | 以 `QPainterPath` 手工绘制对齐 / 选区 / 增删行列矢量图标，替换中文按钮（问题 2） |
+| 表格工具栏隐藏 | `src/ui/widgets/TableToolBar.cpp` | 校验表格对象有效性，表格删除 / 取消选中即刻隐藏（BUG-147） |
+| 框选删除清理 | `src/canvas/ToolController.cpp` | `deleteSelected()` 同步清空 `m_activeTable`、发 `tableActivated(nullptr)`、取消全部选中（BUG-148） |
+| 箭头笔尖对齐 | `src/canvas/ShapeItem.cpp` | 箭头多边形顶点严格落在 `m_end`，杆身截至 `m_end - (ux,uy) * head`（BUG-149） |
+| 实时预览 | `src/canvas/TextBoxItem.cpp` + `src/canvas/MarkdownItem.{h,cpp}` | `notifyContentChanged()` 每次按键即重绘；`MarkdownItem` 拆为 `m_editor` + `m_preview` 双文档，输入时实时重排预览（BUG-150） |
+| 坐标系规划 | `docs/outlines.md` | 新增「十六、几何与坐标系模拟器」章节：动态比例尺（`1 / 0.5 / 0.25 / 0.125`）、点插入命名、两点定线、表达式求值与曲线绘制；约束不引外部依赖、不套 `IModule` 帧体系；分四期推进（问题 13） |
+
+## 2026-11-15 第 8 批八模块轮 · 七项可视化改进
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 埃氏筛保留数字 | `src/render/GraphElements.{h,cpp}` + `src/modules/SieveOfEratosthenesModule.cpp` | `ArrayBlock` 新增 `m_struck` 划除标记；被划掉的格子**保留数字**，底色转灰、叠加删除线、缩放至 0.82（BUG-134） |
+| 帧滑块自动同步 | `src/ui/MainWindow.cpp` | `advanceFrame()` 调用 `syncFrameSlider()`，自动播放时右下角滑块与 "N / M" 徽标实时跟随帧索引（BUG-135） |
+| 质数筛倍数批量流动 | `src/modules/SieveOfEratosthenesModule.{h,cpp}` + `src/engine/AnimFrame.h` | 新增 `SV_CROSS_BATCH` 动作；同一素数的全部倍数合并为**一帧**，`QVariantAnimation` 按时长 28ms/格 顺序划除并逐格发出涟漪（BUG-136） |
+| 快速幂重做 | `src/modules/FastPowModule.{h,cpp}` + `src/engine/AnimFrame.h` | 删除 qmul 面板与 `FP_QMUL_*`/`FP_SQUARE`/`FP_SHIFT` 动作；2 个输入不取模、3 个输入按 p 取模；新增 `AnimFrame::big1~big4` 承载 64 位数值（修复精确模式 `a` 溢出显示 0）；二进制位条右端为第 0 位，每位合并为一帧，2^20 从 14 帧降到 7 帧（BUG-137） |
+| 树直径节点加宽 | `src/modules/TreeDiameterModule.cpp` | `layoutTreeScene()` 叶子间距由 104.0 放宽到 178.0，`dep=...` 标签不再被相邻节点遮挡（BUG-138） |
+| Dijkstra 数组化优先队列 | `src/modules/DijkstraHeapModule.{h,cpp}` + `src/render/GraphElements.{h,cpp}` | 删除二叉堆树视图，改为 `pq (堆)` 数组；`ArrayBlock` 新增 `setValueFontSize()`；单元格加宽到 98.0 并用 11 号字显示 `pair(dis, u)`；入堆时位置 k 之后的元素经 `playRowShift` 整体右移一格，新元素落入 k（BUG-139） |
+| 前向星指针与染色 | `src/modules/ForwardStarModule.cpp` + `src/render/GraphElements.{h,cpp}` | `PointerBlock` 新增 `Direction { Up, Down, Left, Right }`；四列 X 间距放宽到 150（head 40 / to 215 / nxt 365 / weight 515）；指针 k 改用 `PointerBlock::Right` 从 to 列左侧 30px 处指向；`highlightCell()` 增加 `playScalePulse(1.18)` 染色高亮脉冲（BUG-140） |
+| 新增测试 | `tests/LayoutFitTest.cpp` + `tests/FrameSliderTest.cpp` | 前者 3 项断言（Dijkstra pq 文本不溢出单元格、树直径标签不重叠、指针 k 与 to 列保持 30px 净空）；后者新增 4 项断言（自动播放时滑块前进且未跳到末尾、徽标文本跟随帧索引） |
+
+## 2026-11-15 第 8 批八模块轮
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 希尔排序 | 新增 `src/modules/ShellSortModule.{h,cpp}` | 按 `gap = n/2 → 1` 折半；同余下标元素用 `LinkLine` 弧线连成一组（6 色轮转）；组内做插入排序，`i` / `j` 双指针（橙 / 蓝）标注待插入与回退比较位；后移走 `playShiftAnim`，落位染翠绿 |
+| 快速幂（qpow） | 新增 `src/modules/FastPowModule.{h,cpp}` | 只展示 `qpow`：底数 a / 指数 b / 结果 res 三块面板 + 底部二进制位条（最右为第 0 位）；每帧完成「b%2 取位 → 写二进制位 → 必要时 res×a → a=a×a → b=b>>1」完整一步；支持 2 输入（精确值）与 3 输入（mod p）；`AnimFrame::big1~big4` 承载 64 位数值 |
+| 埃氏筛 | 新增 `src/modules/SieveOfEratosthenesModule.{h,cpp}` | 只输入 n；右侧 `ceil(n/10)` 行 × **10 列**矩阵逐行排列 1..n；扫描线从左往右从上往下定位当前数字；确认素数后从 **i*i** 起按步长 i **一帧流动划掉全部倍数**（划除后保留数字、置灰打叉并缩至 0.82）；右侧 `prime[]` 表逐个淡入 |
+| 链式前向星 | 新增 `src/modules/ForwardStarModule.{h,cpp}` | 左侧四列静态数组 `head[u]` / `to[k]` / `nxt[k]` / `weight[k]`（列距 150，指针 k 从 to 列左侧指向），右侧逻辑图；`add(u,v,w)` 头插全过程逐帧（`to[++tot]=v` → `nxt[tot]=head[u]` → `head[u]=tot`）；`to[k]` 连亮青实线箭头到图节点、`nxt[k]` 连紫虚线箭头到 `head[u]`，链表链一目了然；末尾 `for(i=head[u]; i; i=nxt[i])` 逐跳遍历 |
+| 并查集 路径压缩 | 新增 `src/modules/DSUPathCompressionModule.{h,cpp}` | 森林图 + 右侧 `pa[]` / `sz[]` 两行数组；find 沿父指针上行（路径亮橙），回溯时路径上所有非根节点父指针一次性重定向到根，**整树压扁成星**；`x` 指针绑定结点随动（BUG-131） |
+| 子树大小统计 | 新增 `src/modules/TreeSubtreeSizeModule.{h,cpp}` | 树 + 每结点 `sz=值` 徽章 + 底部后序序列条；子结点 sz 气泡脱落在树边弧线上滑向父节点（`playBubbleFlight`），碰撞相加数字跳动变大；父结点所有孩子到位才结算；底部序列逐个点亮（BUG-132 同类修复） |
+| 树的直径 | 新增 `src/modules/TreeDiameterModule.{h,cpp}` | 两轮**无向** DFS：第一轮暖色维护 `dep[]` 并随时更新最深点 c，钉住 A（金框）；第二轮冷色从 A 出发找 B；`dep` 标注挂在结点上（叶子间距放宽到 178.0，标签不重叠）；A→B 路径逐段点亮成粗红线（BUG-132） |
+| 堆优化 Dijkstra | 新增 `src/modules/DijkstraHeapModule.{h,cpp}` | 严格对齐「隐去 vis」的懒删除模板：只保留 `dis[]`（**不画 vis[]**），`if (d > dis[u]) continue` 过期条目标暗红直接丢弃；优先队列为**数组化 `pq (堆)`**（元素是 `pair(dis, u)`，单元格 98 宽 / 11 号字），入堆时插入位置 k 之后的元素整体右移一格，弹顶后剩余元素左移 |
+| 共享图元扩展 | `src/render/GraphElements.{h,cpp}` | 新增 `LinkLine`（二次贝塞尔飞线，支持实线 / 虚线 / 箭头 / 弯曲量）与 `Ripple`（扩散波纹），均为自绘 `QGraphicsObject` |
+| 共享动画扩展 | `src/modules/IModule.{h,cpp}` | 新增 `playRipple()`（波纹扩散）、`playLinkRedirect()`（飞线端点迁移）、`playBubbleFlight()`（数值气泡沿弧线飞行）；`m_transientItems` 拆为 `FloatingText` 与 `Ripple` 两个强类型向量（`QPointer` 仅支持 `QObject` 派生，`QGraphicsItem` 不能直接包 `QPointer`） |
+| 动作类型扩展 | `src/engine/AnimFrame.h` | 新增 40 个动作类型：`SH_*`（6）、`FP_*`（10）、`SV_*`（6）、`FS_*`（6）、`DP_*`（6）、`TSZ_*`（6）、`TD_*`（6）、`DH_*`（6） |
+| 新增测试 | `tests/Batch8ModulesTest.cpp` + `tests/GroupAUiTest.cpp` | 前者 40 项断言覆盖八模块帧序、答案正确性（`3^13 mod 1e9+7 = 1594323`、120 以内 30 个素数、直径长度 5、`sz[1]=8`）与非法输入降级；后者新增 9 项断言 + 14 个模块下拉可达性 |
+
+## 2026-11-15 画板四项缺陷修复轮
+
+| 项目 | 涉及文件 | 实现要点 |
+|------|----------|----------|
+| 拖拽震动根治 | `src/canvas/ToolController.{h,cpp}` | `beginMoveSelection()` 记录按下点 `m_movePressPos`；`updateMoveSelection()` 改用**累计位移** `total = pos - m_movePressPos`，目标位置 `origin + total`；步长为零时跳过重绘；`finishMoveSelection()` 复位按下点与步长（BUG-127） |
+| 编辑态快捷键隔离 | `src/canvas/ToolController.{h,cpp}` + `src/canvas/CanvasView.{h,cpp}` + `src/ui/MainWindow.cpp` | 新增 `ToolController::isInlineEditing()` 与 `handleKeyPress()`；`onKeyPress()` 改为返回布尔值，行内编辑时只交给 `m_editingItem->handleEditKey()` 并吞掉事件；`applyColorShortcut()` 编辑态返回 `false`；`MainWindow::keyPressEvent()` 的 Ctrl 段与普通段均先判编辑态；`beginInlineEdit()` 调 `viewport()->setFocus()` 夺取焦点；`CanvasView::keyPressEvent()` 让落在 view 上的按键也进入控制器，未处理的普通按键仍交回 `QGraphicsView`（BUG-128） |
+| 三图标重绘 | `src/ui/widgets/ToolIconButton.cpp` | `drawPencil()` 改为经典铅笔：笔身 + 金属箍（两道横线）+ 木质锥尖 + 实心笔芯；`drawHighlighter()` 改为马克笔：笔帽 + 荧光色带 + 笔身 + 楔形笔头 + 底部高亮横线；`drawEraser()` 改为斜置橡皮块：顶面 + 正面 + 分隔带 + 底部划痕线 |
+| 无极取色器重构 | `src/ui/widgets/MyColorPicker.{h,cpp}` | 新增自绘 `ColorField`（饱和度×明度二维区 + 连续色相条，按下即定位、拖动实时取色）与自绘 `ColorPreview`（纯色卡）；「渐变预设」→「预设」；色相滑条量程 0–359；`normalizedHue()` 处理灰色无色相；`m_syncing` 防信号回环，色值 / RGB / 滑条 / 预览实时同步（BUG-129） |
+| 表格越界崩溃修复 | `src/canvas/CanvasTableItem.cpp` | `insertColumns()` 按 `count` 循环插入；`insertRows()` / `removeRows()` / `removeColumns()` 统一走 `rebuildCells()` 归一化维度；`paint()` / `cellAt()` / `setCell()` / `setCellAlign()` / `cellAlign()` 补齐越界保护（BUG-130） |
+| 新增测试 | `tests/ColorPickerTest.cpp` + `tests/SmartCanvasTest.cpp` | 前者 11 项断言（逐像素采样色相条验证连续渐变与回绕、预览非黑、标签改名、拖动取色生效）；后者新增 6 项断言（拖拽累计位移精确等于整段光标行程、编辑态数字快捷键不改画笔颜色、字母快捷键不切换工具、输入字符仍进文本框） |
 
 ## 2026-11-15 画板十项需求轮
 
@@ -293,12 +652,12 @@
 | 冒泡排序 | ✅ | BubbleSortModule | Gemini → Kiro | 已从 ArrayModule 独立 |
 | 选择排序 | 🔄 | SelectionSortModule | Kiro | 已迁移到动画引擎 |
 | 插入排序 | 🔄 | InsertionSortModule | Kiro | 已迁移到动画引擎 |
-| 希尔排序 | ⏳ | ShellSortModule | - | 需多组颜色区分 gap |
+| 希尔排序 | ✅ | ShellSortModule | Cursor | 同余分组弧线 + 组内插入排序，gap 从 n/2 折半到 1 |
 | 快速排序 | 🔄 | QuickSortModule | Kiro | 已使用 playPointersSync |
 | 归并排序 | ✅ | MergeSortModule | Kiro | 辅助数组双视图已实现 |
 | 计数排序 | ⏳ | CountingSortModule | - | 需频次数组 + 前缀和 |
-| 桶排序 | ⏳ | BucketSortModule | - | 需桶容器可视化 |
-| 基数排序 | ⏳ | RadixSortModule | - | 需 10 个队列可视化 |
+| 桶排序 | ✅ | BucketSortModule | Cursor | 5 桶可视化 + 桶内插入排序 + 按桶序回填 out[] |
+| 基数排序 | ✅ | RadixSortModule | Cursor | LSD 三趟 × 10 数字桶，桶内顺序收集 |
 
 ---
 
@@ -309,7 +668,7 @@
 | 差分 | ✅ | DifferenceModule | Gemini | 已完成 |
 | 栈模拟 | ✅ | StackModule | Gemini | 已完成 |
 | 队列模拟 | ✅ | QueueModule | Gemini | 已完成 |
-| 循环队列 | ⏳ | CircularQueueModule | - | 需取模折返特效 |
+| 循环队列 | ✅ | CircularQueueModule | Cursor | 取模折返可视化 + head/tail 指针自下方外置（归类：基础数据结构） |
 | 静态数组基础 | ⏳ | StaticArrayModule | - | 插入/删除整体移动 |
 | 单向链表 | ⏳ | SinglyLinkedListModule | - | 静态数组模拟 |
 | 双向链表 | ⏳ | DoublyLinkedListModule | - | 四步指针重连 |
@@ -343,9 +702,9 @@
 | 模块名 | 状态 | 文件名 | 负责人 | 备注 |
 |--------|------|--------|--------|------|
 | 树的深度与层级 | ⏳ | TreeDepthModule | - | DFS/BFS 深度传递 |
-| 子树大小统计 | ⏳ | TreeSubtreeSizeModule | - | 树形 DP 入门 |
+| 子树大小统计 | ✅ | TreeSubtreeSizeModule | Cursor | 后序遍历自底向上，sz 气泡沿弧线汇入父节点相加 |
 | 树的重心 | ⏳ | TreeCentroidModule | - | 切断连通块计算 |
-| 树的直径 | ⏳ | TreeDiameterModule | - | 两次 DFS/BFS |
+| 树的直径 | ✅ | TreeDiameterModule | Cursor | 两轮无向 DFS + 波纹扩散，A→B 路径逐段点亮成粗红线 |
 | LCA 暴力向上爬 | ⏳ | LCANaiveModule | - | 双指针碰撞 |
 | LCA 倍增法 | ⏳ | LCADoublingModule | - | 2^k 跳跃 |
 
@@ -355,9 +714,9 @@
 | 模块名 | 状态 | 文件名 | 负责人 | 备注 |
 |--------|------|--------|--------|------|
 | 单调栈 | ✅ | MonotonicStackModule | Kiro | 下一个更大元素已实现 |
-| 单调队列 | ⏳ | MonotonicQueueModule | - | 滑动窗口 |
+| 单调队列 | ✅ | MonotonicQueueModule | Cursor | 滑动窗口最大值，q[] 存下标单调递减 |
 | 并查集基础 | ✅ | DSUBasicModule | Kiro | Find & Union 已实现 |
-| 并查集路径压缩 | ⏳ | DSUPathCompressionModule | - | 压扁树形 |
+| 并查集路径压缩 | ✅ | DSUPathCompressionModule | Cursor | find 回溯时路径一次性压扁成星，右侧 pa[] / sz[] 两行实时同步 |
 | 树状数组 | ✅ | FenwickTreeModule | Cursor | 二叉分层格阵（`floor(log2 n)+1` 层），`FT_MERGE` 自底向上合并，兄弟块与底层 `a[]` 数字同时飞入合成 `t[i]`，add/sum 双操作 |
 | 线段树建树 | ✅ | SegmentTreeBuildModule | - | 纯区间求和版，无取模、无乘法懒标记 |
 | 线段树单点修改 | ⏳ | SegmentTreePointUpdateModule | - | 链式回溯更新 |
@@ -370,10 +729,10 @@
 ## 七、经典图论模板 (9 模块)
 | 模块名 | 状态 | 文件名 | 负责人 | 备注 |
 |--------|------|--------|--------|------|
-| 链式前向星存图 | ⏳ | ForwardStarModule | - | 静态数组存图 |
+| 链式前向星存图 | ✅ | ForwardStarModule | Cursor | head/to/nxt/weight 四列静态数组，to 亮青实线连图、nxt 紫虚线连 head，末尾逐跳遍历 |
 | 拓扑排序 | ✅ | TopologicalSortModule | Codex | 入度队列、输出序列与有向环提示；有向/无向可切换 |
 | 朴素 Dijkstra | ✅ | DijkstraNaiveModule | Codex | O(N²) 选点、非负权松弛与前驱数组；有向/无向可切换 |
-| 堆优化 Dijkstra | ⏳ | DijkstraHeapModule | - | O(M log N) |
+| 堆优化 Dijkstra | ✅ | DijkstraHeapModule | Cursor | O(M log N)，隐去 vis 的懒删除模板，优先队列数组行 + 完全二叉树双视图 |
 | Bellman-Ford/SPFA | ⏳ | BellmanFordModule | - | 负权边松弛 |
 | Floyd 多源最短路 | ⏳ | FloydModule | - | 3D DP 矩阵 |
 | Kruskal 最小生成树 | ✅ | KruskalModule | Codex | 排序边、并查集合并与成环舍弃；强制无向图 |
@@ -400,7 +759,7 @@
 | 字符串暴力匹配 | ⏳ | BruteForceMatchModule | - | KMP 前置对比 |
 | KMP Next 数组 | ✅ | KMPNextModule | Codex | 前缀函数、双指针回退 |
 | KMP 匹配过程 | ⏳ | KMPMatchModule | - | 模式串滑动 |
-| 字符串哈希 | ⏳ | StringHashModule | - | 前缀哈希 O(1) |
+| 字符串哈希 | ✅ | StringHashModule | Cursor | 对标课堂模板：p=131 / mod=998244353，预计算 p[]/h1[]/h2[]，前后缀重叠匹配 |
 
 ---
 
@@ -410,7 +769,7 @@
 | 01 背包 | ✅ | Knapsack01Module | Codex | 二维 DP、选/不选候选状态飞入；教科书式表格排版（首行列下标 + 左侧行下标） |
 | 完全背包 | ✅ | KnapsackCompleteModule | Cursor | 同行左侧转移，重复取物双色候选 |
 | 最长递增子序列 | ✅ | LISModule | Codex | O(N²) DP 与 O(N log N) tails 对照 |
-| 最长公共子序列 | ⏳ | LCSModule | - | 二维网格字符匹配 |
+| 最长公共子序列 | ✅ | LCSModule | Cursor | 二维网格 dp[i][j]，上方横排 a/b 字符串数组 + 上下对指指针，标签与下标各占独立行，候选来源分色 + 对角线回溯 |
 | 区间 DP 石子合并 | ⏳ | IntervalDPModule | - | 三角矩阵逐层 |
 | 树形 DP 没有上司 | ⏳ | TreeDPModule | - | dp[u][0/1] |
 | 状压 DP 蒙德里安 | ⏳ | StateBitmaskDPModule | - | 二进制兼容判定 |
@@ -422,11 +781,11 @@
 ## 十一、数论与基础数学 (5 模块)
 | 模块名 | 状态 | 文件名 | 负责人 | 备注 |
 |--------|------|--------|--------|------|
-| 埃氏筛 | ⏳ | SieveOfEratosthenesModule | - | 倍数扫荡 |
+| 埃氏筛 | ✅ | SieveOfEratosthenesModule | Cursor | 只输入 n，右侧 10 列矩阵滚动定位，从 i*i 起划除并打叉下沉 |
 | 线性筛/欧拉筛 | ⏳ | LinearSieveModule | - | 最小质因子精准击杀 |
 | 辗转相除 GCD | ⏳ | GCDModule | - | 几何矩形缩短 |
-| 快速幂 | ⏳ | FastPowModule | - | 二进制拆分 |
-| 扩展欧几里得 | ⏳ | ExgcdModule | - | 递归栈推演 |
+| 快速幂 | ✅ | FastPowModule | Cursor | qpow + qmul 双层模板，竖式乘法面板逐帧展开 |
+| 扩展欧几里得 | ✅ | ExgcdModule | Cursor | 三阶段推导链：同余式变形 → 辗转相除双栏对照 → 递归回代逐层展开（公式飞入并展开），终帧给出模逆元 |
 
 ---
 
@@ -434,7 +793,7 @@
 | 模块名 | 状态 | 文件名 | 负责人 | 备注 |
 |--------|------|--------|--------|------|
 | 区间调度 | ⏳ | IntervalSchedulingModule | - | 扫描线淘汰 |
-| 哈夫曼树 | ⏳ | HuffmanTreeModule | - | 森林合并 |
+| 哈夫曼树 | ✅ | HuffmanTreeModule | Cursor | 频率数组初始即显示原始权值（n 格），排序阶段数值逐个飞出再流星般落回；树自上而下生长、根在最上、每行居中对称、无交叉线；树边为**无向**线段（无箭头），边中点标左 0 右 1；右侧 n×3 编码表（a[i]/编码/码长）；底部 WPL 逐项累加 |
 
 ---
 
@@ -443,7 +802,7 @@
 |--------|------|--------|--------|------|
 | 哈希表拉链法 | ⏳ | HashTableChainingModule | - | 链表头插 |
 | 哈希表开放寻址 | ⏳ | HashTableOpenAddressingModule | - | 探测空槽 |
-| 字符串哈希 | ⏳ | StringHashModule | - | 与 KMP 对比 |
+| 字符串哈希 | ✅ | StringHashModule | Cursor | 与 KMP 对比 |
 
 ---
 

@@ -24,7 +24,7 @@ void InsertionSortModule::buildLayout(QGraphicsScene* scene, const QString& inpu
     n = m_data.size();
     m_startX = 400 - (n * 60) / 2;
 
-    m_mathText = m_scene->addText("");
+    m_mathText = createScriptText(m_scene, "");
     m_mathText->setFont(QFont("Consolas", 18, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(180, 50, 50));
     m_mathText->setPos(300, 50);
@@ -100,7 +100,7 @@ std::vector<AnimFrame> InsertionSortModule::runAlgorithm() {
 }
 
 void InsertionSortModule::renderFrame(const AnimFrame& step) {
-    if (!step.mathText.isEmpty()) m_mathText->setPlainText(step.mathText);
+    if (!step.mathText.isEmpty()) setScriptText(m_mathText, step.mathText);
 
     if (step.type == ActionType::AR_RESET) {
         if (step.u == -1) { // 全局回滚 (Frame 0)
@@ -154,6 +154,8 @@ void InsertionSortModule::renderFrame(const AnimFrame& step) {
         if (m_blocks.count(step.u)) {
             m_blocks[step.u]->color = QColor(150, 255, 150);
             m_blocks[step.u]->update();
+            playScalePulse(m_blocks[step.u], 1.20, 300);
+            playCellRipple(m_blocks[step.u], QColor(120, 220, 140), 1.15, 560);
         }
     }
 }

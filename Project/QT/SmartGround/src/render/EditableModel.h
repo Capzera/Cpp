@@ -41,12 +41,38 @@ public:
         m_values.remove(buildKey(scope, row, index));
     }
 
+    int value(const QString& key, int fallback) const {
+        auto it = m_values.constFind(key);
+        return it == m_values.constEnd() ? fallback : it.value();
+    }
+
+    void setText(const QString& key, const QString& text) {
+        m_texts[key] = text;
+        bool ok = false;
+        const int parsed = text.toInt(&ok);
+        if (!ok) return;
+        const int sep = key.lastIndexOf('#');
+        if (sep < 0) return;
+        const QString row = key.left(sep);
+        const int index = key.mid(sep + 1).toInt();
+        const int scopeSep = row.indexOf('|');
+        if (scopeSep < 0) return;
+        const QString scope = row.left(scopeSep);
+        const QString plainRow = row.mid(scopeSep + 1);
+        m_values[buildKey(scope, plainRow, index)] = parsed;
+    }
+
+    QString text(const QString& key) const {
+        return m_texts.value(key);
+    }
+
     QString buildKey(const QString& scope, const QString& row, int index) const {
         return QString("%1|%2#%3").arg(scope, row).arg(index);
     }
 
 private:
     QHash<QString, int> m_values;
+    QHash<QString, QString> m_texts;
 };
 
 #endif

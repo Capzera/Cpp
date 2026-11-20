@@ -70,6 +70,7 @@ m_animated=false 时必须直接设置最终图元状态，不得创建或启动
   - MyComboBox：自绘下拉浮层。列表项为独立 `ComboRow` 控件，浮层是真正的 `Qt::Popup` 顶层窗口（自绘 `ComboCard` 白底圆角卡片 + 投影），内嵌 `QScrollArea` 使长列表可滚动（视口上限 268px，自定义细滚动条）；选中行用 `accentSoft` 高亮；点击外部或 Esc 自动关闭。
   - MyTextEdit：圆角边框、聚焦高亮、细滚动条、OI 格式占位提示。
   - MyCollapsible：可折叠面板，用 maximumHeight 动画做流线展开/收起。
+  - MyColorPicker：自绘无极取色器。顶部 `ColorPreview` 为纯色预览卡；中部 `ColorField` 上半是饱和度 × 明度二维取色区（白→纯色横向渐变叠加黑色纵向渐变），下半是 0–359° 连续色相条，两者均支持按下即定位与拖动实时取色；下方是色相 / 饱和 / 明度滑块、Hex 输入与 R / G / B 数字输入，全部通过 `syncInputs()` 双向同步（`m_syncing` 标志防信号回环）。
 - 规范：不得再向用户暴露原生 QPushButton / QRadioButton / QCheckBox / QComboBox / QTextEdit。
 
 ## 画布与网格

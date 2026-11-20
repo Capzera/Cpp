@@ -25,16 +25,44 @@ int main(int argc, char** argv) {
 
     QStringList names = w.probeModuleNames();
     printf("module count = %d\n", names.size());
-    check("module count == 38", names.size() == 38);
+    check("module count == 62", names.size() == 62);
+    check("has gcd", names.contains("GCD 辗转相除"));
+    check("has dfs", names.contains("DFS 深度优先搜索"));
+    check("has prim", names.contains("Prim 最小生成树"));
+    check("has counting sort", names.contains("计数排序"));
+    check("has bipartite", names.contains("二分图判定"));
+    check("has euler", names.contains("欧拉路径"));
+    check("has interval sched", names.contains("区间调度"));
+    check("has trie", names.contains("Trie 字典树"));
+    check("has hash table", names.contains("哈希表 (开放寻址)"));
     check("has fenwick tree", names.contains("树状数组 BIT"));
-    check("has complete knapsack", names.contains("完全背包"));
+    check("has complete knapsack", names.contains("完全背包 DP"));
     check("has tarjan cut vertex", names.contains("Tarjan 割点与桥"));
-    check("has hungarian", names.contains("匈牙利算法"));
-    check("has heap adjust", names.contains("堆调整 up/down"));
+    check("has hungarian", names.contains("二分图匹配 - 匈牙利算法"));
+    check("has heap adjust", names.contains("堆调整 up / down"));
     check("has heap sort", names.contains("堆排序"));
+    check("has shell sort", names.contains("希尔排序"));
+    check("has fast pow", names.contains("快速幂"));
+    check("has sieve", names.contains("埃氏筛"));
+    check("has forward star", names.contains("链式前向星"));
+    check("has dsu path compression", names.contains("并查集 路径压缩"));
+    check("has subtree size", names.contains("子树大小统计"));
+    check("has tree diameter", names.contains("树的直径"));
+    check("has dijkstra heap", names.contains("Dijkstra 堆优化"));
+    check("has bucket sort", names.contains("桶排序"));
+    check("has radix sort", names.contains("基数排序"));
+    check("has circular queue", names.contains("循环队列"));
+    check("has monotonic queue", names.contains("单调队列"));
+    check("has exgcd", names.contains("扩展欧几里得"));
+    check("has huffman", names.contains("哈夫曼树"));
+    check("has string hash", names.contains("字符串哈希"));
+    check("has lcs", names.contains("最长公共子序列"));
 
-    const QStringList targets = {"树状数组 BIT", "完全背包", "Tarjan 割点与桥",
-                                 "匈牙利算法", "堆调整 up/down", "堆排序"};
+    const QStringList targets = {"树状数组 BIT", "完全背包 DP", "Tarjan 割点与桥",
+                                 "二分图匹配 - 匈牙利算法", "堆调整 up / down", "堆排序",
+                                 "希尔排序", "快速幂", "埃氏筛", "链式前向星",
+                                 "并查集 路径压缩", "子树大小统计", "树的直径",
+                                 "Dijkstra 堆优化"};
     for (const QString& target : targets) {
         w.probeSelectModule(target);
         app.processEvents();

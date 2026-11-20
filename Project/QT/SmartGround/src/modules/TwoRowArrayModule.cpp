@@ -49,11 +49,22 @@ ArrayBlock* TwoRowArrayModule::getBlock(int id) const {
 }
 
 void TwoRowArrayModule::renderTwoRowFrame(const AnimFrame& frame) {
-    if (m_mathText && !frame.mathText.isEmpty()) m_mathText->setPlainText(frame.mathText);
+    if (m_mathText && !frame.mathText.isEmpty()) setScriptText(m_mathText, frame.mathText);
     if (frame.type == ActionType::PD_HIGHLIGHT) {
+        std::vector<ArrayBlock*> cells;
         for (int id : frame.group) {
             ArrayBlock* block = getBlock(id);
-            if (block) { block->color = QColor(255, 200, 100); block->update(); }
+            if (block) {
+                block->color = QColor(255, 200, 100);
+                block->update();
+                cells.push_back(block);
+            }
+        }
+        if (frame.group.size() == 1 && !cells.empty()) {
+            playNodePop(cells[0], 1.14, 260);
+            playCellRipple(cells[0], QColor(255, 190, 90), 0.9, 480);
+        } else if (cells.size() > 1) {
+            playCellSweep(cells, QColor(255, 200, 100), 55, 300);
         }
     } else if (frame.type == ActionType::PD_UPDATE_VAL) {
         ArrayBlock* target = getBlock(frame.u);
@@ -69,13 +80,14 @@ void TwoRowArrayModule::renderTwoRowFrame(const AnimFrame& frame) {
                 ArrayBlock* src = getBlock(srcId);
                 if (!src) continue;
                 QPointer<FloatingText> ft = new FloatingText(QString::number(src->value));
-                ft->setPos(src->pos());
+                ft->setFontSize(15);
+                ft->setPos(src->centerPos() - QPointF(15, 15));
                 m_scene->addItem(ft.data());
                 texts.push_back(ft);
                 QPropertyAnimation* anim = new QPropertyAnimation(ft.data(), "pos");
-                anim->setEndValue(target->pos());
+                anim->setEndValue(target->centerPos() - QPointF(15, 15));
                 anim->setDuration(400);
-                anim->setEasingCurve(QEasingCurve::InOutQuad);
+                anim->setEasingCurve(QEasingCurve::InOutCubic);
                 group->addAnimation(anim);
             }
             connect(group, &QParallelAnimationGroup::finished, [this, safeTarget, texts, finalVal]() {
@@ -90,6 +102,7 @@ void TwoRowArrayModule::renderTwoRowFrame(const AnimFrame& frame) {
                 safeTarget->showValue = true;
                 safeTarget->update();
                 playScalePulse(safeTarget, 1.3, 300);
+                playCellRipple(safeTarget, QColor(120, 220, 140), 1.1, 560);
             });
             group->start(QAbstractAnimation::DeleteWhenStopped);
         } else {

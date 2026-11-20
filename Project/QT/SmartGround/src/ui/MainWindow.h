@@ -16,15 +16,19 @@
 #include "ui/widgets/MyCheckBox.h"
 #include "ui/widgets/MyCollapsible.h"
 #include "ui/widgets/MySlider.h"
+#include "ui/widgets/MySegmentedControl.h"
+#include "modules/ModuleFields.h"
 #include "canvas/ToolController.h"
 
 class CanvasView;
 class AnnotationScene;
 class ToolController;
 class CanvasToolBar;
+class CanvasBrushSlider;
 class TableToolBar;
 class CanvasTableItem;
 class MyTextEdit;
+class MySegmentedControl;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -43,9 +47,11 @@ private slots:
     void onGraphOptionChanged();
     void onFrameSettled();
     void onGridToggled(bool on);
+    void onScriptTextToggled(bool on);
     void updateCollapsibleRatio();
     void animateSubOptionVisibility();
     void onFrameSliderMoved(int value);
+    void onFrameSliderPressed(int value);
     void onFrameSliderReleased(int value);
     void seekToFrame(int index);
     void syncFrameSlider();
@@ -65,6 +71,8 @@ private:
     void applyLiveEditsAndReplay();
     void updateGraphOptionPanel();
     void applyGraphOptions();
+    void rebuildModulePanel();
+    void onModuleFieldChanged(const QString& key);
     void updateInputHint();
     void updateGridOption();
     void startAutoPlay();
@@ -73,6 +81,7 @@ private:
     void advanceFrame();
     int frameDelayMs(const AnimFrame& frame) const;
     void setupCanvasTools();
+    void invalidateCanvas();
     void positionTableToolBar();
     void exportCanvasToPdf(const QString& path);
     void syncAnnotationToolButtons(int tool);
@@ -84,6 +93,7 @@ private:
     MySlider *frameSlider;
     QLabel *labelStatus;
     QLabel *labelFrameBadge;
+    QLabel *labelVersion;
     CanvasView *graphicsView;
     QGraphicsScene *graphicsScene;
     QWidget *graphPanelHost;
@@ -91,7 +101,13 @@ private:
     MyToggleSwitch *toggleDirected;
     MyCheckBox *checkBidirectional;
     MyCheckBox *checkGrid;
+    MyCheckBox *checkScriptText;
     QLabel *labelWeightHint;
+    QWidget *modulePanelHost;
+    MyCollapsible *modulePanel;
+    QVBoxLayout *modulePanelContent;
+    QHash<QString, ModuleField> m_moduleFieldValues;
+    QHash<QString, QWidget*> m_moduleFieldWidgets;
     QVBoxLayout *leftLayout;
     std::vector<IModule*> registeredModules;
     std::vector<int> comboToModule;
@@ -113,6 +129,7 @@ private:
     AnnotationScene* m_annotationScene = nullptr;
     ToolController* m_toolController = nullptr;
     CanvasToolBar* m_canvasToolBar = nullptr;
+    CanvasBrushSlider* m_canvasBrushSlider = nullptr;
     TableToolBar* m_tableToolBar = nullptr;
     MyButton* m_btnExportPdf = nullptr;
     MyButton* m_btnClearAnnotations = nullptr;
@@ -124,6 +141,10 @@ private:
     friend class GroupAProbe;
 
 public:
+    bool probeModulePanelVisible() const { return modulePanelHost && modulePanelHost->isVisible(); }
+    QString probeModulePanelTitle() const { return modulePanel ? modulePanel->headerText() : QString(); }
+    IModule* probeCurrentModule() const { return currentModule; }
+    void probeBuild() { onBtnBuildClicked(); }
     int probeFrameIndex() const { return m_frameIndex; }
     bool probeIsPlaying() const { return m_playing; }
     bool probePendingPause() const { return m_pendingPause; }
@@ -157,5 +178,6 @@ public:
         f.mathText = "";
         return frameDelayMs(f);
     }
+    QGraphicsScene* probeScene() const { return graphicsScene; }
 };
 #endif

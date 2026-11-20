@@ -10,7 +10,7 @@ static const QColor kPiGreen = QColor(140, 205, 150);
 
 KMPNextModule::KMPNextModule() : m_ptrI(nullptr), m_ptrJ(nullptr), m_mathText(nullptr), m_startX(0), m_cellW(56), m_valid(false) {}
 
-QString KMPNextModule::getModuleName() const { return "KMP (pi数组)"; }
+QString KMPNextModule::getModuleName() const { return "KMP pi 数组（前缀函数）"; }
 QString KMPNextModule::getDefaultInput() const { return "ABABCABAA"; }
 QString KMPNextModule::getInputHint() const {
     return "输入一行模式串（长度 1 - 12，不含空白字符）\n"
@@ -23,7 +23,7 @@ void KMPNextModule::buildLayout(QGraphicsScene* scene, const QString& inputData)
     m_scene = scene;
     m_pattern = inputData.trimmed();
     m_valid = !m_pattern.isEmpty() && m_pattern.size() <= 12 && !m_pattern.contains(QRegularExpression("\\s"));
-    m_mathText = scene->addText(m_valid ? "pi[]：p 的前缀函数，p 已加上哨兵 #，下标从 1 开始"
+    m_mathText = createScriptText(scene, m_valid ? "pi[]：p 的前缀函数，p 已加上哨兵 #，下标从 1 开始"
                                         : "输入格式：一行模式串；限制长度 1–12，暂不接受空白字符");
     m_mathText->setFont(QFont("Consolas", 13, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
@@ -101,7 +101,7 @@ std::vector<AnimFrame> KMPNextModule::runAlgorithm() {
 
 void KMPNextModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     int m = static_cast<int>(m_pattern.size());
     if (frame.type == ActionType::KMP_RESET) {
         for (int i = 0; i <= m; ++i) {
@@ -122,15 +122,30 @@ void KMPNextModule::renderFrame(const AnimFrame& frame) {
         m_ptrI->setOpacity(1);
         m_ptrJ->setOpacity(1);
         playPointerArrange({m_ptrI, m_ptrJ}, {m_charCells[frame.u], m_charCells[frame.v]}, 46.0);
+        if (m_animated) {
+            const QColor tint = frame.group.size() && frame.group[0] ? QColor(140, 205, 150) : QColor(250, 196, 110);
+            playCellRippleAt(m_charCells[frame.u]->sceneBoundingRect().center(),
+                             QSizeF(m_cellW, 42), tint, 12.0, 520);
+            playCellRippleAt(m_charCells[frame.v]->sceneBoundingRect().center(),
+                             QSizeF(m_cellW, 42), tint, 12.0, 520);
+        }
     } else if (frame.type == ActionType::KMP_FALLBACK) {
         m_charCells[frame.v]->setBrush(QBrush(QColor(205, 224, 248)));
         m_ptrJ->setOpacity(1);
         playPointerArrange({m_ptrJ}, {m_charCells[frame.val1]}, 46.0);
+        if (m_animated) {
+            playCellRippleAt(m_charCells[frame.v]->sceneBoundingRect().center(),
+                             QSizeF(m_cellW, 42), kPiBlue, 14.0, 560);
+        }
     } else if (frame.type == ActionType::KMP_SET) {
         m_piBlocks[frame.u]->value = frame.val1;
         m_piBlocks[frame.u]->showValue = true;
         m_piBlocks[frame.u]->color = QColor(200, 235, 205);
         m_piBlocks[frame.u]->update();
+        if (m_animated) {
+            playCellLanding(m_piBlocks[frame.u], kPiGreen, 400);
+            playCellRipple(m_piBlocks[frame.u], kPiGreen, 1.3, 520);
+        }
         if (frame.u > 1) {
             m_ptrI->setOpacity(1);
             m_ptrJ->setOpacity(1);

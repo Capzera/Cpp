@@ -57,6 +57,7 @@ static void animStress(IModule* m, const QString& label, const QString& input) {
 }
 
 int main(int argc, char** argv) {
+    setvbuf(stdout, nullptr, _IONBF, 0);
     QApplication app(argc, argv);
     animStress(new BubbleSortModule(), "Bubble", "8\n3 5 1 9 2 7 4 6");
     animStress(new SelectionSortModule(), "Selection", "8\n3 5 1 9 2 7 4 6");

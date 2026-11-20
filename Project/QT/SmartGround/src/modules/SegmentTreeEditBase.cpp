@@ -1,4 +1,4 @@
-﻿#include "SegmentTreeEditBase.h"
+#include "SegmentTreeEditBase.h"
 #include "ui/UiTheme.h"
 #include <QFont>
 
@@ -14,12 +14,12 @@ void SegmentTreeEditBase::buildLayout(QGraphicsScene* scene, const QString& inpu
 }
 
 void SegmentTreeEditBase::buildTreeScene(const QString& title, const QString& subtitle) {
-    m_mathText = m_scene->addText(title);
+    m_mathText = createScriptText(m_scene, title);
     m_mathText->setFont(QFont("Consolas", 14, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
     m_mathText->setPos(50, 22);
     if (!m_valid) {
-        m_mathText->setPlainText("输入错误：" + subtitle);
+        setScriptText(m_mathText, "输入错误：" + subtitle);
         return;
     }
 
@@ -68,10 +68,12 @@ void SegmentTreeEditBase::buildTreeScene(const QString& title, const QString& su
         m_scene->addItem(e1);
         self->addEdge(e1);
         left->addEdge(e1);
+        m_treeEdges[{info.node, SegmentTreeCommon::ls(info.node)}] = e1;
         GraphEdge* e2 = new GraphEdge(self, right, false, false);
         m_scene->addItem(e2);
         self->addEdge(e2);
         right->addEdge(e2);
+        m_treeEdges[{info.node, SegmentTreeCommon::rs(info.node)}] = e2;
     }
 
     const QStringList rows = QStringList() << "tr" << "add" << "mul";
@@ -93,7 +95,7 @@ void SegmentTreeEditBase::buildTreeScene(const QString& title, const QString& su
         QGraphicsTextItem* title = m_scene->addText(row);
         title->setFont(QFont("Consolas", 13, QFont::Bold));
         title->setDefaultTextColor(QColor(40, 70, 110));
-        title->setPos(m_slotStartX - 42, y);
+        title->setPos(m_slotStartX - 76, y);
         y += layout.rowStep;
     }
 
@@ -118,10 +120,48 @@ void SegmentTreeEditBase::resetTreeScene() {
         }
     }
     if (m_ptrNode) m_ptrNode->setOpacity(0);
+    clearDescentTrail();
+}
+
+void SegmentTreeEditBase::ensureDescentTrail(QColor color) {
+    if (m_descentTrail) return;
+    m_descentTrail = new PathTrail(color);
+    m_descentTrail->setTrailWidth(4.5);
+    m_descentTrail->setHeadRadius(7.0);
+    m_scene->addItem(m_descentTrail);
+    m_descentPoints.clear();
+}
+
+void SegmentTreeEditBase::clearDescentTrail() {
+    if (!m_descentTrail) return;
+    m_descentTrail->clearPoints();
+    m_descentTrail->setProgress(0.0);
+    m_descentPoints.clear();
+}
+
+void SegmentTreeEditBase::appendDescent(int node, QColor color) {
+    if (node <= 0) return;
+    auto it = m_treeNodes.find(node);
+    if (it == m_treeNodes.end()) return;
+    ensureDescentTrail(color);
+    m_descentPoints.append(it->second->pos());
+    if (m_descentPoints.size() >= 2) {
+        playPathTrail(m_descentTrail, m_descentPoints, color, 420);
+    } else {
+        m_descentTrail->setPoints(m_descentPoints);
+        m_descentTrail->setColor(color);
+        m_descentTrail->setProgress(1.0);
+    }
+}
+
+void SegmentTreeEditBase::freezeDescentTrail(QColor color) {
+    if (!m_descentTrail) return;
+    m_descentTrail->setColor(color);
+    m_descentTrail->setProgress(1.0);
 }
 
 void SegmentTreeEditBase::highlightNode(int node, const QColor& color, const QColor& fill) {
-    GraphNode* item = nodeItem(node);
+    GraphNode* item = m_treeNodes[node];
     if (!item) return;
     item->setHighlightColor(color);
     item->color = fill;
@@ -135,17 +175,17 @@ void SegmentTreeEditBase::clearHighlights() {
 }
 
 void SegmentTreeEditBase::setNodeValue(int node, const QString& text) {
-    GraphNode* item = nodeItem(node);
+    GraphNode* item = m_treeNodes[node];
     if (item) item->setValueText(text);
 }
 
 void SegmentTreeEditBase::setNodeTag(int node, const QString& text, const QColor& color) {
-    GraphNode* item = nodeItem(node);
+    GraphNode* item = m_treeNodes[node];
     if (item) item->setTag(text, color);
 }
 
 void SegmentTreeEditBase::clearNodeTag(int node) {
-    GraphNode* item = nodeItem(node);
+    GraphNode* item = m_treeNodes[node];
     if (item) item->setTag(QString(), QColor());
 }
 
@@ -203,7 +243,7 @@ void SegmentTreeEditBase::movePointerTo(int node) {
 }
 
 void SegmentTreeEditBase::setFormula(const QString& text) {
-    if (m_mathText) m_mathText->setPlainText(text);
+    if (m_mathText) setScriptText(m_mathText, text);
 }
 
 void SegmentTreeEditBase::onLiveDataChanged(const QString& row, int index, int value) {
@@ -233,6 +273,8 @@ void SegmentTreeEditBase::reset() {
     m_nodes.clear();
     m_ptrNode = nullptr;
     m_mathText = nullptr;
+    m_descentTrail = nullptr;
+    m_descentPoints.clear();
     m_arr.clear();
     m_tr.clear();
     m_add.clear();
@@ -247,11 +289,13 @@ void SegmentTreeEditBase::reset() {
 
 void SegmentTreeEditBase::releaseSceneItems() {
     m_treeNodes.clear();
+    m_treeEdges.clear();
     m_arrays.clear();
     m_nodeIntervalL.clear();
     m_nodeIntervalR.clear();
     m_nodes.clear();
+    m_descentTrail = nullptr;
+    m_descentPoints.clear();
     m_ptrNode = nullptr;
     m_mathText = nullptr;
 }
-

@@ -1,6 +1,8 @@
-﻿#include "MainWindow.h"
+#include "MainWindow.h"
 #include "UiTheme.h"
 #include "ui/widgets/TableToolBar.h"
+#include "ui/widgets/MyTextInput.h"
+#include "core/TextEditGuard.h"
 #include "canvas/CanvasTableItem.h"
 #include "modules/TarjanModule.h"
 #include "modules/BubbleSortModule.h"
@@ -39,12 +41,39 @@
 #include "modules/SandboxTreeModule.h"
 #include "modules/SandboxGraphModule.h"
 #include "modules/SandboxBlankModule.h"
+#include "modules/ShellSortModule.h"
+#include "modules/FastPowModule.h"
+#include "modules/SieveOfEratosthenesModule.h"
+#include "modules/ForwardStarModule.h"
+#include "modules/DSUPathCompressionModule.h"
+#include "modules/TreeSubtreeSizeModule.h"
+#include "modules/TreeDiameterModule.h"
+#include "modules/DijkstraHeapModule.h"
+#include "modules/GcdModule.h"
+#include "modules/DfsModule.h"
+#include "modules/PrimModule.h"
+#include "modules/CountingSortModule.h"
+#include "modules/BipartiteModule.h"
+#include "modules/EulerModule.h"
+#include "modules/IntervalSchedModule.h"
+#include "modules/TrieModule.h"
+#include "modules/HashTableModule.h"
+#include "modules/BucketSortModule.h"
+#include "modules/RadixSortModule.h"
+#include "modules/CircularQueueModule.h"
+#include "modules/MonotonicQueueModule.h"
+#include "modules/ExgcdModule.h"
+#include "modules/HuffmanTreeModule.h"
+#include "modules/StringHashModule.h"
+#include "modules/LCSModule.h"
+#include "core/AppVersion.h"
 #include "render/LatexBlock.h"
 #include "render/EditableModel.h"
 #include "canvas/CanvasView.h"
 #include "canvas/AnnotationScene.h"
 #include "canvas/ToolController.h"
 #include "ui/widgets/CanvasToolBar.h"
+#include "ui/widgets/CanvasBrushSlider.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QMessageBox>
@@ -75,6 +104,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), currentModule(nul
     m_settleTimer->setSingleShot(true);
     connect(m_settleTimer, &QTimer::timeout, this, &MainWindow::onFrameSettled);
     connect(frameSlider, &MySlider::valueChanged, this, &MainWindow::onFrameSliderMoved);
+    connect(frameSlider, &MySlider::sliderPressed, this, &MainWindow::onFrameSliderPressed);
     connect(frameSlider, &MySlider::sliderReleased, this, &MainWindow::onFrameSliderReleased);
 
     // 全他妈模块
@@ -82,31 +112,42 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), currentModule(nul
     categories.push_back({"自由结构", {
         new SandboxArrayModule(), new SandboxMatrixModule(), new SandboxTreeModule(),
         new SandboxGraphModule(), new SandboxBlankModule()}});
-    categories.push_back({"数学基础", {
-        new PrefixSumModule(), new DifferenceModule(),
-        new BinarySearchClosedModule(), new BinarySearchHalfOpenModule()}});
-    categories.push_back({"线性结构", {
-        new StackModule(), new QueueModule(), new MonotonicStackModule()}});
-    categories.push_back({"经典排序", {
+    categories.push_back({"基础数据结构", {
+        new StackModule(), new QueueModule(), new MonotonicStackModule(),
+        new CircularQueueModule()}});
+    categories.push_back({"排序", {
         new BubbleSortModule(), new SelectionSortModule(), new InsertionSortModule(),
-        new QuickSortModule(), new MergeSortModule()}});
-    categories.push_back({"堆结构", {
+        new ShellSortModule(), new QuickSortModule(), new MergeSortModule(),
+        new CountingSortModule(), new BucketSortModule(), new RadixSortModule()}});
+    categories.push_back({"树与堆", {
         new HeapBasicsModule(), new HeapAdjustModule(), new HeapSortModule()}});
-    categories.push_back({"并查集", {
-        new DSUBasicModule(), new KruskalModule()}});
-    categories.push_back({"树状数组", {
-        new FenwickTreeModule()}});
-    categories.push_back({"线段树", {
+    categories.push_back({"数据结构 · 进阶", {
+        new DSUBasicModule(), new DSUPathCompressionModule(),
+        new FenwickTreeModule(),
         new SegmentTreeBuildModule(), new SegmentTreeQueryModule(),
-        new SegmentTreeTagModule()}});
-    categories.push_back({"图论算法", {
-        new BFSModule(), new TopologicalSortModule(), new DijkstraNaiveModule(),
-        new TarjanModule(), new TarjanCutVertexBridgeModule()}});
-    categories.push_back({"匹配与动态规划", {
-        new HungarianModule(), new Knapsack01Module(), new KnapsackCompleteModule(),
-        new LISModule()}});
-    categories.push_back({"字符串算法", {
-        new KMPNextModule(), new KMPMatchModule()}});
+        new SegmentTreeTagModule(),
+        new HashTableModule()}});
+    categories.push_back({"图论 · 最小生成树", {
+        new KruskalModule(), new PrimModule()}});
+    categories.push_back({"图论", {
+        new BFSModule(), new DfsModule(), new TopologicalSortModule(), new DijkstraNaiveModule(),
+        new DijkstraHeapModule(), new ForwardStarModule(),
+        new TarjanModule(), new TarjanCutVertexBridgeModule(),
+        new BipartiteModule(), new EulerModule()}});
+    categories.push_back({"匹配", {
+        new HungarianModule()}});
+    categories.push_back({"动态规划", {
+        new Knapsack01Module(), new KnapsackCompleteModule(), new LISModule(), new LCSModule()}});
+    categories.push_back({"字符串", {
+        new KMPNextModule(), new KMPMatchModule(), new TrieModule(), new StringHashModule()}});
+    categories.push_back({"数学", {
+        new PrefixSumModule(), new DifferenceModule(),
+        new BinarySearchClosedModule(), new BinarySearchHalfOpenModule(),
+        new SieveOfEratosthenesModule(), new FastPowModule(), new GcdModule(), new ExgcdModule()}});
+    categories.push_back({"贪心", {
+        new IntervalSchedModule(), new MonotonicQueueModule(), new HuffmanTreeModule()}});
+    categories.push_back({"树形 DP", {
+        new TreeSubtreeSizeModule(), new TreeDiameterModule()}});
 
     for (auto& category : categories) {
         for (IModule* m : category.second) registeredModules.push_back(m);
@@ -124,10 +165,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), currentModule(nul
         QStringList names;
         for (IModule* m : category.second) names << m->getModuleName();
         groupItems.push_back({category.first, names});
-    }
-
-    if (IModule* kruskal = findModule("Kruskal 最小生成树")) {
-        groupItems.push_back({"图论 · 最小生成树", {kruskal->getModuleName()}});
     }
 
     comboModules->addItem("请选择...");
@@ -182,6 +219,7 @@ void MainWindow::setupUI() {
     labelTitle->setObjectName("sectionLabel");
     comboModules = new MyComboBox();
     comboModules->setMinimumHeight(36);
+    comboModules->setVisualStyle(ComboVisualStyle::VueLight);
 
     QLabel *labelInput = new QLabel("数据输入");
     labelInput->setObjectName("sectionLabel");
@@ -232,9 +270,32 @@ void MainWindow::setupUI() {
     graphPanel->setContentWidget(graphContent);
     graphPanelLayout->addWidget(graphPanel);
 
+    modulePanelHost = new QWidget();
+    modulePanelHost->setObjectName("graphPanelHost");
+    QVBoxLayout *modulePanelLayout = new QVBoxLayout(modulePanelHost);
+    modulePanelLayout->setContentsMargins(0, 0, 0, 0);
+    modulePanelLayout->setSpacing(0);
+
+    QWidget *moduleContent = new QWidget();
+    moduleContent->setAttribute(Qt::WA_TranslucentBackground, true);
+    modulePanelContent = new QVBoxLayout(moduleContent);
+    modulePanelContent->setContentsMargins(14, 0, 14, 14);
+    modulePanelContent->setSpacing(10);
+
+    modulePanel = new MyCollapsible();
+    modulePanel->setHeaderText("特化设置");
+    modulePanel->setContentWidget(moduleContent);
+    modulePanelLayout->addWidget(modulePanel);
+    modulePanelHost->setVisible(false);
+
     checkGrid = new MyCheckBox("启用对齐网格");
     checkGrid->setChecked(true);
     checkGrid->setObjectName("gridToggle");
+
+    checkScriptText = new MyCheckBox("显示讲课脚本文字");
+    checkScriptText->setChecked(false);
+    checkScriptText->setObjectName("scriptTextToggle");
+    IModule::setScriptTextVisible(false);
 
     btnBuild = new MyButton("绘制可视化效果");
     btnStepBack = new MyButton("上一步");
@@ -256,9 +317,11 @@ void MainWindow::setupUI() {
     leftLayout->addWidget(labelTitle);
     leftLayout->addWidget(comboModules);
     leftLayout->addWidget(graphPanelHost);
+    leftLayout->addWidget(modulePanelHost);
     leftLayout->addWidget(labelInput);
     leftLayout->addWidget(textInput, 1);
     leftLayout->addWidget(checkGrid);
+    leftLayout->addWidget(checkScriptText);
     leftLayout->addWidget(btnBuild);
     leftLayout->addLayout(playLayout);
     leftLayout->addWidget(btnAuto);
@@ -282,6 +345,11 @@ void MainWindow::setupUI() {
     labelStatus = new QLabel("就绪。");
     labelStatus->setObjectName("statusLabel");
 
+    labelVersion = new QLabel(AppVersion::display());
+    labelVersion->setObjectName("versionBadge");
+    labelVersion->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    labelVersion->setToolTip(AppVersion::tooltip());
+
     QWidget* statusBar = new QWidget();
     statusBar->setObjectName("statusBar");
     QHBoxLayout* statusLayout = new QHBoxLayout(statusBar);
@@ -302,11 +370,17 @@ void MainWindow::setupUI() {
 
     statusLayout->addWidget(frameSlider);
     statusLayout->addWidget(labelFrameBadge);
+    statusLayout->addWidget(labelVersion);
 
     m_canvasToolBar = new CanvasToolBar(m_toolController, graphicsView);
     m_canvasToolBar->setObjectName("canvasToolBarHost");
     m_canvasToolBar->setHostWidget(graphicsView);
     m_canvasToolBar->raise();
+
+    m_canvasBrushSlider = new CanvasBrushSlider(m_toolController, graphicsView);
+    m_canvasBrushSlider->setObjectName("canvasBrushSliderHost");
+    m_canvasBrushSlider->setHostWidget(graphicsView);
+    m_canvasBrushSlider->raise();
 
     m_tableToolBar = new TableToolBar(graphicsView);
     m_tableToolBar->setObjectName("tableToolBarHost");
@@ -330,6 +404,7 @@ void MainWindow::setupUI() {
     connect(toggleDirected, &MyToggleSwitch::toggled, this, &MainWindow::onGraphOptionChanged);
     connect(checkBidirectional, &MyCheckBox::toggled, this, &MainWindow::onGraphOptionChanged);
     connect(checkGrid, &MyCheckBox::toggled, this, &MainWindow::onGridToggled);
+    connect(checkScriptText, &MyCheckBox::toggled, this, &MainWindow::onScriptTextToggled);
     setupCanvasTools();
     applyStyleSheet();
 }
@@ -353,6 +428,21 @@ void MainWindow::setupCanvasTools() {
         m_tableToolBar->setTable(table);
         positionTableToolBar();
     });
+    connect(m_toolController, &ToolController::selectionChanged, this, [this](int count) {
+        if (!m_tableToolBar) return;
+        CanvasTableItem* active = m_toolController->activeTable();
+        if (!active || !active->scene()) {
+            m_tableToolBar->setTable(nullptr);
+            m_tableToolBar->hide();
+            return;
+        }
+        if (count == 0) {
+            m_tableToolBar->setTable(nullptr);
+            m_tableToolBar->hide();
+            return;
+        }
+        positionTableToolBar();
+    });
     connect(m_toolController, &ToolController::tableContextRequested, this,
             [this](CanvasTableItem* table, int row, int col, const QPoint& globalPos) {
         if (!m_tableToolBar) return;
@@ -367,8 +457,13 @@ void MainWindow::setupCanvasTools() {
 }
 
 void MainWindow::positionTableToolBar() {
-    if (!m_tableToolBar || !m_tableToolBar->table()) return;
+    if (!m_tableToolBar) return;
     CanvasTableItem* table = m_tableToolBar->table();
+    if (!table || !table->scene() || table->isLocked()) {
+        m_tableToolBar->setTable(nullptr);
+        m_tableToolBar->hide();
+        return;
+    }
     const QRectF bounds = table->mapRectToScene(table->contentBounds());
     const QPoint topLeft = graphicsView->mapFromScene(bounds.topLeft());
     const QPoint bottomLeft = graphicsView->mapFromScene(bounds.bottomLeft());
@@ -511,6 +606,8 @@ void MainWindow::applyStyleSheet() {
         "QWidget#statusBar { background:%7; border-top:1px solid %8; }"
         "QLabel#frameBadge { font-family:'Cascadia Mono','Consolas'; font-size:10px; color:%6;"
         " background:%7; padding:2px 6px; border-radius:6px; }"
+        "QLabel#versionBadge { font-family:'Cascadia Mono','Consolas'; font-size:9px; color:%6;"
+        " background:transparent; padding:2px 2px 2px 10px; }"
     ).arg(surface, textPrimary, canvasBg, textSecondary, textPrimary, textMuted, surfaceAlt, border));
 }
 
@@ -527,6 +624,7 @@ void MainWindow::onBtnStepBackClicked() {
     for (int i = 0; i < m_frameIndex; ++i) {
         currentModule->renderFrame(m_frames[i]);
     }
+    currentModule->finalizeFrame();
     currentModule->m_animated = previousAnimationState;
     adjustSceneBoundary(false);
     syncFrameSlider();
@@ -550,6 +648,10 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
 void MainWindow::keyPressEvent(QKeyEvent* event) {
     if (m_toolController) {
         if (event->modifiers().testFlag(Qt::ControlModifier)) {
+            if (m_toolController->isInlineEditing()) {
+                event->accept();
+                return;
+            }
             if (event->key() == Qt::Key_Z) {
                 if (event->modifiers().testFlag(Qt::ShiftModifier)) m_toolController->redo();
                 else m_toolController->undo();
@@ -578,6 +680,10 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
         }
     }
     if (m_toolController && !event->modifiers().testFlag(Qt::ControlModifier)) {
+        if (m_toolController->isInlineEditing() || TextEditGuard::active(graphicsScene)) {
+            event->accept();
+            return;
+        }
         if (m_toolController->applyColorShortcut(event)) {
             event->accept();
             return;
@@ -624,6 +730,7 @@ void MainWindow::onModuleChanged(int index) {
         updateInputHint();
         updateGraphOptionPanel();
         applyGraphOptions();
+        rebuildModulePanel();
         restoreAnnotations();
     } else {
         currentModule = nullptr;
@@ -637,6 +744,7 @@ void MainWindow::onModuleChanged(int index) {
         textInput->setPlaceholderText("请在上方选择算法模块，这里会显示对应的输入格式说明");
         graphPanelHost->setVisible(false);
         m_graphPanelInLayout = false;
+        rebuildModulePanel();
         graphicsView->resetTransform();
         syncFrameSlider();
         labelStatus->setText("已清空画布，请选择算法模块。");
@@ -663,9 +771,13 @@ void MainWindow::updateInputHint() {
 }
 void MainWindow::updateGraphOptionPanel() {
     bool supported = currentModule && currentModule->supportsGraphOptions();
-    graphPanelHost->setVisible(supported);
-    m_graphPanelInLayout = supported;
-    if (!supported) return;
+    graphPanelHost->setVisible(false);
+    m_graphPanelInLayout = false;
+    if (!supported) {
+        toggleDirected->setVisible(false);
+        checkBidirectional->setVisible(false);
+        return;
+    }
     GraphModuleUtils::GraphOptions options = currentModule->getGraphOptions();
     bool canDirected = currentModule->supportsDirected();
     bool canBidirectional = currentModule->supportsBidirectional();
@@ -700,6 +812,228 @@ void MainWindow::updateCollapsibleRatio() {
     checkBidirectional->style()->unpolish(checkBidirectional);
     checkBidirectional->style()->polish(checkBidirectional);
 }
+
+void MainWindow::rebuildModulePanel() {
+    if (!modulePanelContent) return;
+    toggleDirected->setParent(modulePanelHost);
+    checkBidirectional->setParent(modulePanelHost);
+    while (QLayoutItem* item = modulePanelContent->takeAt(0)) {
+        if (QWidget* w = item->widget()) {
+            if (w != toggleDirected && w != checkBidirectional) {
+                w->deleteLater();
+            }
+        }
+        delete item;
+    }
+    m_moduleFieldValues.clear();
+    m_moduleFieldWidgets.clear();
+
+    if (!currentModule) {
+        modulePanelHost->setVisible(false);
+        graphPanelHost->setVisible(false);
+        toggleDirected->setVisible(false);
+        checkBidirectional->setVisible(false);
+        return;
+    }
+    const QVector<ModuleField> fields = currentModule->moduleSettingsFields();
+    const bool graphSupported = currentModule->supportsGraphOptions();
+    if (fields.isEmpty() && !graphSupported) {
+        modulePanelHost->setVisible(false);
+        graphPanelHost->setVisible(false);
+        toggleDirected->setVisible(false);
+        checkBidirectional->setVisible(false);
+        return;
+    }
+
+    graphPanelHost->setVisible(false);
+    m_graphPanelInLayout = false;
+
+    modulePanelHost->setVisible(true);
+    QString title = currentModule->moduleSettingsTitle();
+    if (title.isEmpty()) title = graphSupported ? QString("图结构选项") : QString("特化设置");
+    modulePanel->setHeaderText(title);
+
+    if (graphSupported) {
+        GraphModuleUtils::GraphOptions options = currentModule->getGraphOptions();
+        const bool canDirected = currentModule->supportsDirected();
+        const bool canBidirectional = currentModule->supportsBidirectional();
+        const bool wantUndirected = canDirected ? !options.directed : true;
+
+        QWidget* directionRow = new QWidget();
+        directionRow->setAttribute(Qt::WA_TranslucentBackground, true);
+        QHBoxLayout* directionLayout = new QHBoxLayout(directionRow);
+        directionLayout->setContentsMargins(0, 0, 0, 0);
+        directionLayout->setSpacing(10);
+        QLabel* directionLabel = new QLabel("图的类型");
+        directionLabel->setObjectName("fieldLabel");
+        directionLabel->setMinimumWidth(38);
+        directionLayout->addWidget(directionLabel);
+        directionLayout->addStretch(1);
+        toggleDirected->setOnText("无向图");
+        toggleDirected->setOffText("有向图");
+        toggleDirected->setOnColor(UiTheme::success());
+        toggleDirected->setChecked(wantUndirected);
+        toggleDirected->setEnabled(canDirected);
+        toggleDirected->setVisible(true);
+        directionLayout->addWidget(toggleDirected);
+        modulePanelContent->addWidget(directionRow);
+
+        checkBidirectional->setEnabled(canBidirectional && wantUndirected);
+        checkBidirectional->setChecked(canBidirectional && options.bidirectional && wantUndirected);
+        checkBidirectional->setVisible(true);
+        modulePanelContent->addWidget(checkBidirectional);
+
+        QLabel* hint = new QLabel("边权按输入自动判定：某行写了 3 个数即为带权图");
+        hint->setObjectName("hintLabel");
+        hint->setWordWrap(true);
+        modulePanelContent->addWidget(hint);
+    }
+
+    for (const ModuleField& field : fields) {
+        const bool wide = (field.type == ModuleField::Segment);
+        QWidget* row = new QWidget();
+        row->setAttribute(Qt::WA_TranslucentBackground, true);
+        QHBoxLayout* rowLayout = new QHBoxLayout(row);
+        rowLayout->setContentsMargins(0, 0, 0, 0);
+        rowLayout->setSpacing(10);
+
+        QLabel* label = new QLabel(field.label);
+        label->setObjectName("fieldLabel");
+        label->setMinimumWidth(38);
+        rowLayout->addWidget(label);
+
+        QWidget* control = nullptr;
+        switch (field.type) {
+        case ModuleField::Toggle: {
+            MyToggleSwitch* toggle = new MyToggleSwitch();
+            toggle->setOnText("开");
+            toggle->setOffText("关");
+            toggle->setChecked(field.boolValue);
+            connect(toggle, &MyToggleSwitch::toggled, this, [this, field](bool on) {
+                ModuleField updated = m_moduleFieldValues.value(field.key);
+                updated.boolValue = on;
+                m_moduleFieldValues[field.key] = updated;
+                onModuleFieldChanged(field.key);
+            });
+            control = toggle;
+            break;
+        }
+        case ModuleField::Segment: {
+            MySegmentedControl* segment = new MySegmentedControl(field.options);
+            segment->setCurrentIndex(field.intValue);
+            segment->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+            connect(segment, &MySegmentedControl::currentIndexChanged, this, [this, field](int idx) {
+                ModuleField updated = m_moduleFieldValues.value(field.key);
+                updated.intValue = idx;
+                m_moduleFieldValues[field.key] = updated;
+                onModuleFieldChanged(field.key);
+            });
+            control = segment;
+            break;
+        }
+        case ModuleField::IntInput: {
+            MyTextInput* input = new MyTextInput();
+            input->setText(QString::number(field.intValue));
+            input->setFixedWidth(72);
+            connect(input, &MyTextInput::editingFinished, this, [this, field, input]() {
+                ModuleField updated = m_moduleFieldValues.value(field.key);
+                updated.intValue = qBound(field.minValue, input->text().toInt(), field.maxValue);
+                input->setText(QString::number(updated.intValue));
+                m_moduleFieldValues[field.key] = updated;
+                onModuleFieldChanged(field.key);
+            });
+            control = input;
+            break;
+        }
+        case ModuleField::TextInput: {
+            MyTextInput* input = new MyTextInput();
+            input->setText(field.textValue);
+            input->setFixedWidth(72);
+            connect(input, &MyTextInput::editingFinished, this, [this, field, input]() {
+                ModuleField updated = m_moduleFieldValues.value(field.key);
+                updated.textValue = input->text();
+                m_moduleFieldValues[field.key] = updated;
+                onModuleFieldChanged(field.key);
+            });
+            control = input;
+            break;
+        }
+        case ModuleField::SizeInput: {
+            QWidget* box = new QWidget();
+            box->setAttribute(Qt::WA_TranslucentBackground, true);
+            QHBoxLayout* boxLayout = new QHBoxLayout(box);
+            boxLayout->setContentsMargins(0, 0, 0, 0);
+            boxLayout->setSpacing(6);
+            MyTextInput* widthInput = new MyTextInput();
+            widthInput->setText(QString::number(field.intValue));
+            widthInput->setFixedWidth(56);
+            MyTextInput* heightInput = new MyTextInput();
+            heightInput->setText(QString::number(field.secondaryIntValue));
+            heightInput->setFixedWidth(56);
+            boxLayout->addWidget(widthInput);
+            boxLayout->addWidget(new QLabel("×"));
+            boxLayout->addWidget(heightInput);
+            connect(widthInput, &MyTextInput::editingFinished, this, [this, field, widthInput, heightInput]() {
+                ModuleField updated = m_moduleFieldValues.value(field.key);
+                updated.intValue = qBound(field.minValue, widthInput->text().toInt(), field.maxValue);
+                updated.secondaryIntValue = qBound(field.secondaryMinValue, heightInput->text().toInt(), field.secondaryMaxValue);
+                widthInput->setText(QString::number(updated.intValue));
+                heightInput->setText(QString::number(updated.secondaryIntValue));
+                m_moduleFieldValues[field.key] = updated;
+                onModuleFieldChanged(field.key);
+            });
+            connect(heightInput, &MyTextInput::editingFinished, this, [this, field, widthInput, heightInput]() {
+                ModuleField updated = m_moduleFieldValues.value(field.key);
+                updated.intValue = qBound(field.minValue, widthInput->text().toInt(), field.maxValue);
+                updated.secondaryIntValue = qBound(field.secondaryMinValue, heightInput->text().toInt(), field.secondaryMaxValue);
+                widthInput->setText(QString::number(updated.intValue));
+                heightInput->setText(QString::number(updated.secondaryIntValue));
+                m_moduleFieldValues[field.key] = updated;
+                onModuleFieldChanged(field.key);
+            });
+            control = box;
+            break;
+        }
+        }
+        if (!control) continue;
+        m_moduleFieldValues[field.key] = field;
+        m_moduleFieldWidgets[field.key] = control;
+        if (wide) {
+            rowLayout->addWidget(control, 1);
+        } else {
+            rowLayout->addStretch(1);
+            rowLayout->addWidget(control);
+        }
+        modulePanelContent->addWidget(row);
+
+        if (!field.hint.isEmpty()) {
+            QLabel* hint = new QLabel(field.hint);
+            hint->setObjectName("hintLabel");
+            hint->setWordWrap(true);
+            modulePanelContent->addWidget(hint);
+        }
+    }
+    modulePanel->refreshContentHeight();
+    modulePanelHost->adjustSize();
+}
+
+void MainWindow::onModuleFieldChanged(const QString& key) {
+    if (!currentModule) return;
+    const ModuleField field = m_moduleFieldValues.value(key);
+    currentModule->applyModuleSetting(key, field);
+    currentModule->moduleSettingsChanged();
+    finishAutoPlay();
+    m_playTimer->stop();
+    m_settleTimer->stop();
+    m_frames.clear();
+    m_frameIndex = 0;
+    m_recordedInput.clear();
+    std::map<int, QPointF> saved = currentModule->captureNodePositions();
+    rebuildCurrentLayout(textInput->toPlainText(), false, false);
+    currentModule->restoreNodePositions(saved);
+    adjustSceneBoundary(false);
+    syncFrameSlider();
+}
 void MainWindow::applyGraphOptions() {
     if (!currentModule || !currentModule->supportsGraphOptions()) return;
     GraphModuleUtils::GraphOptions options = currentModule->getGraphOptions();
@@ -733,7 +1067,15 @@ void MainWindow::onGridToggled(bool on) {
                             : "已关闭对齐网格，节点可自由拖动。");
 }
 
-void MainWindow::animateSubOptionVisibility() {    bool show = toggleDirected->isChecked();
+void MainWindow::onScriptTextToggled(bool on) {
+    IModule::setScriptTextVisible(on);
+    if (m_layoutBuilt) rebuildCurrentLayout(m_builtInput, false, false);
+    labelStatus->setText(on ? "已显示讲课脚本文字：画布中会显示各步骤的文字讲解。"
+                            : "已隐藏讲课脚本文字：画布只保留数组名、下标、树名等结构性标注。");
+}
+
+void MainWindow::animateSubOptionVisibility() {
+    bool show = toggleDirected->isChecked();
     QPropertyAnimation* anim = new QPropertyAnimation(checkBidirectional, "ratio", this);
     anim->setDuration(show ? 220 : 260);
     anim->setEasingCurve(QEasingCurve::InOutCubic);
@@ -777,6 +1119,7 @@ void MainWindow::applyLiveEditsAndReplay() {
     for (int i = 0; i < target; ++i) {
         currentModule->renderFrame(m_frames[i]);
     }
+    currentModule->finalizeFrame();
     currentModule->m_animated = previousAnimationState;
     m_frameIndex = target;
     syncFrameSlider();
@@ -792,6 +1135,7 @@ void MainWindow::onBtnStepClicked() {
     AnimFrame f = m_frames[m_frameIndex++];
     currentModule->beginFrame();
     currentModule->renderFrame(f);
+    currentModule->finalizeFrame();
     adjustSceneBoundary(false);
     syncFrameSlider();
     labelStatus->setText(QString("帧 %1/%2 : %3").arg(m_frameIndex).arg(m_frames.size()).arg(f.explanation));
@@ -845,8 +1189,10 @@ void MainWindow::advanceFrame() {
     AnimFrame f = m_frames[m_frameIndex++];
     currentModule->beginFrame();
     currentModule->renderFrame(f);
+    currentModule->finalizeFrame();
     m_frameClock.start();
     adjustSceneBoundary(false);
+    syncFrameSlider();
     labelStatus->setText(QString("帧 %1/%2 : %3").arg(m_frameIndex).arg(m_frames.size()).arg(f.explanation));
     if (m_pendingPause) {
         m_settleTimer->start(820);
@@ -872,11 +1218,7 @@ void MainWindow::onFrameSettled() {
     }
 }
 int MainWindow::frameDelayMs(const AnimFrame& frame) const {
-    int textLength = frame.explanation.size() + frame.mathText.size();
-    int delay = 520 + textLength * 28;
-    if (delay < 900) delay = 900;
-    if (delay > 2800) delay = 2800;
-    return delay;
+    return IModule::frameDelayMs(frame);
 }
 void MainWindow::syncFrameSlider() {
     if (!frameSlider) return;
@@ -903,6 +1245,7 @@ void MainWindow::seekToFrame(int index) {
     for (int i = 0; i < index; ++i) {
         currentModule->renderFrame(m_frames[i]);
     }
+    currentModule->finalizeFrame();
     currentModule->m_animated = previousAnimationState;
     m_frameIndex = index;
     adjustSceneBoundary(false);
@@ -910,21 +1253,39 @@ void MainWindow::seekToFrame(int index) {
 
 void MainWindow::onFrameSliderMoved(int value) {
     if (!currentModule || m_frames.empty()) return;
+    seekToFrame(value);
+    labelStatus->setText(QString("已定位到第 %1 帧").arg(m_frameIndex));
+}
+
+void MainWindow::onFrameSliderPressed(int value) {
     m_seeking = true;
+    if (!currentModule || m_frames.empty()) return;
     seekToFrame(value);
     labelStatus->setText(QString("已定位到第 %1 帧").arg(m_frameIndex));
 }
 
 void MainWindow::onFrameSliderReleased(int value) {
     m_seeking = false;
-    onFrameSliderMoved(value);
+    if (!currentModule || m_frames.empty()) return;
+    seekToFrame(value);
     syncFrameSlider();
 }
 
 void MainWindow::clearScene() {
     if (currentModule) currentModule->releaseSceneItems();
     graphicsScene->clear();
+    invalidateCanvas();
 }
+
+void MainWindow::invalidateCanvas() {
+    if (!graphicsScene) return;
+    for (QGraphicsView* view : graphicsScene->views()) {
+        view->invalidateScene(view->rect(), QGraphicsScene::BackgroundLayer);
+        view->invalidateScene(view->rect(), QGraphicsScene::ItemLayer);
+    }
+    if (graphicsView) graphicsView->viewport()->update();
+}
+
 void MainWindow::rebuildCurrentLayout(const QString& inputData, bool animated, bool centerView) {
     if (!currentModule) return;
     bool previousAnimationState = currentModule->m_animated;
@@ -937,6 +1298,7 @@ void MainWindow::rebuildCurrentLayout(const QString& inputData, bool animated, b
     m_layoutBuilt = true;
     currentModule->enableLiveEditing();
     adjustSceneBoundary(centerView);
+    invalidateCanvas();
 }
 
 void MainWindow::adjustSceneBoundary(bool centerView) {

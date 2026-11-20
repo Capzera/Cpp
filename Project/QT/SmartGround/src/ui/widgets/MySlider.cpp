@@ -147,7 +147,9 @@ void MySlider::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         m_dragging = true;
         setGlow(1.0);
-        emitIfChanged(valueAtX(event->position().x()));
+        const int target = valueAtX(event->position().x());
+        emit sliderPressed(target);
+        emitIfChanged(target);
         event->accept();
         return;
     }

@@ -18,6 +18,7 @@ class CanvasToolBar : public QWidget {
     Q_OBJECT
 public:
     explicit CanvasToolBar(ToolController* controller, QWidget* parent = nullptr);
+    ~CanvasToolBar() override;
 
     void setHostWidget(QWidget* host);
     void reposition();
@@ -45,12 +46,16 @@ private:
     QWidget* createToolPage(int tool);
     void showToolPage(int tool);
     void refreshToolPage(int tool);
+    void applyToolPageSize();
     void toggleMorePanel();
     void toggleToolPanel();
     void closeFlyouts();
     void placePanel(QWidget* panel, int barX, int barW, int barY, int barH);
     void placeToolPanelUnderButton();
     void syncToolButtons();
+    bool isInsidePanel(QWidget* panel, const QPoint& globalPos) const;
+    bool isInsideToolbar(const QPoint& globalPos) const;
+    bool shouldCloseOnPress(QObject* obj, QEvent* event) const;
 
     ToolController* m_controller = nullptr;
     QWidget* m_host = nullptr;

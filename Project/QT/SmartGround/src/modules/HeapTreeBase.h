@@ -8,6 +8,8 @@
 #include <cmath>
 #include <QFont>
 #include <QGraphicsTextItem>
+#include <QPointer>
+#include <QVector>
 
 class HeapTreeBase : public IModule {
 public:
@@ -44,7 +46,7 @@ public:
         QGraphicsTextItem* arrTitle = m_scene->addText("heap[]（数组存储）");
         arrTitle->setFont(QFont("Consolas", 12, QFont::Bold));
         arrTitle->setDefaultTextColor(QColor(40, 70, 110));
-        arrTitle->setPos(centerX - (n * cellW) / 2.0 - 10, arrY - 30);
+        arrTitle->setPos(centerX - (n * cellW) / 2.0, arrY + 48);
 
         int depth = heapDepth(n);
         for (int i = 1; i <= n; ++i) {
@@ -78,12 +80,12 @@ public:
         QGraphicsTextItem* treeTitle = m_scene->addText("完全二叉树结构（heap[i] 的孩子是 heap[2i] 与 heap[2i+1]）");
         treeTitle->setFont(QFont("Microsoft YaHei UI", 11, QFont::Bold));
         treeTitle->setDefaultTextColor(QColor(120, 130, 145));
-        treeTitle->setPos(centerX - 240, treeTop - 54);
+        treeTitle->setPos(centerX - 320, treeTop - 96);
 
         m_relationText = m_scene->addText("");
         m_relationText->setFont(QFont("Consolas", 12, QFont::Bold));
         m_relationText->setDefaultTextColor(QColor(190, 110, 40));
-        m_relationText->setPos(centerX - 220, arrY + 62);
+        m_relationText->setPos(centerX - 220, arrY + 92);
     }
 
     void syncTreeValues(const std::vector<int>& heap) {
@@ -174,7 +176,46 @@ public:
         }
     }
 
+    void ensureDescentTrail(QColor color) {
+        if (m_descentTrail) return;
+        m_descentTrail = new PathTrail(color);
+        m_descentTrail->setTrailWidth(4.5);
+        m_descentTrail->setHeadRadius(7.0);
+        m_scene->addItem(m_descentTrail);
+        m_descentPoints.clear();
+    }
+
+    void clearDescentTrail() {
+        if (!m_descentTrail) return;
+        m_descentTrail->clearPoints();
+        m_descentTrail->setProgress(0.0);
+        m_descentPoints.clear();
+    }
+
+    void appendDescent(int nodeIndex, QColor color) {
+        if (nodeIndex <= 0) return;
+        auto it = m_treeNodes.find(nodeIndex);
+        if (it == m_treeNodes.end()) return;
+        ensureDescentTrail(color);
+        m_descentPoints.append(it->second->pos());
+        if (m_descentPoints.size() >= 2) {
+            playPathTrail(m_descentTrail, m_descentPoints, color, 420);
+        } else {
+            m_descentTrail->setPoints(m_descentPoints);
+            m_descentTrail->setColor(color);
+            m_descentTrail->setProgress(1.0);
+        }
+    }
+
+    void freezeDescentTrail(QColor color) {
+        if (!m_descentTrail) return;
+        m_descentTrail->setColor(color);
+        m_descentTrail->setProgress(1.0);
+    }
+
 protected:
+    QPointer<PathTrail> m_descentTrail;
+    QVector<QPointF> m_descentPoints;
     std::vector<int> m_heap;
     std::map<int, ArrayBlock*> m_arrayBlocks;
     std::map<int, GraphNode*> m_treeNodes;

@@ -36,7 +36,7 @@ void TopologicalSortModule::buildLayout(QGraphicsScene* scene, const QString& in
     GraphModuleUtils::GraphOptions options = m_options;
     options.directed = true;
     m_valid = GraphModuleUtils::parse(inputData, false, options, input);
-    m_mathText = scene->addText(m_valid ? "拓扑排序：每次移除入度为 0 的点" : "输入格式：n m，随后输入 m 条有向边 u v");
+    m_mathText = createScriptText(scene, m_valid ? "拓扑排序：每次移除入度为 0 的点" : "输入格式：n m，随后输入 m 条有向边 u v");
     m_mathText->setFont(QFont("Consolas", 16, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
     m_mathText->setPos(180, 18);
@@ -160,7 +160,7 @@ std::vector<AnimFrame> TopologicalSortModule::runAlgorithm() {
 
 void TopologicalSortModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     if (frame.type == ActionType::TS_RESET) {
         for (int i = 1; i <= m_n; ++i) {
             m_degreeBlocks[i]->value = 0;
@@ -179,11 +179,16 @@ void TopologicalSortModule::renderFrame(const AnimFrame& frame) {
         m_degreeBlocks[frame.v]->color = QColor(170, 215, 255);
         m_degreeBlocks[frame.v]->update();
         GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v);
-        if (edge) edge->setColor(QColor(65, 145, 220));
+        if (edge) {
+            edge->setColor(QColor(65, 145, 220));
+            playEdgeTravel(edge, QColor(65, 145, 220), 460);
+        }
+        playNodeWake(m_nodes[frame.v], QColor(110, 175, 245), 30.0, 440);
     } else if (frame.type == ActionType::TS_ENQUEUE) {
         GraphNode* node = m_nodes[frame.u];
         node->color = QColor(145, 220, 235);
         node->update();
+        playDiscover(node, QColor(110, 210, 235), 48.0, 660);
         playValueFlight(node->pos(), m_queueBlocks[frame.v], frame.u, QColor(190, 240, 245), true);
         if (frame.v == 0) m_headPointer->setOpacity(1);
         int next = frame.v + 1;
@@ -203,28 +208,39 @@ void TopologicalSortModule::renderFrame(const AnimFrame& frame) {
         }
         m_nodes[frame.u]->color = QColor(255, 190, 105);
         m_nodes[frame.u]->update();
+        playNodeWake(m_nodes[frame.u], QColor(255, 190, 105), 44.0, 560);
     } else if (frame.type == ActionType::TS_OUTPUT) {
         playValueFlight(m_nodes[frame.u]->pos(), m_orderBlocks[frame.v], frame.u, QColor(175, 220, 180), true);
         m_nodes[frame.u]->color = QColor(195, 200, 208);
         m_nodes[frame.u]->update();
+        playNodePop(m_nodes[frame.u], 1.08, 260);
     } else if (frame.type == ActionType::TS_SCAN_EDGE) {
         for (auto& pair : m_edges) if (pair.second->color == QColor(235, 155, 55)) pair.second->setColor(QColor(170, 195, 220));
         GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v);
-        if (edge) edge->setColor(QColor(235, 155, 55));
+        if (edge) {
+            edge->setColor(QColor(235, 155, 55));
+            playEdgeTravel(edge, QColor(235, 155, 55), 440);
+        }
         m_degreeBlocks[frame.v]->value = frame.val1;
         m_degreeBlocks[frame.v]->color = frame.val1 == 0 ? QColor(145, 220, 235) : QColor(255, 220, 165);
         m_degreeBlocks[frame.v]->update();
-        if (frame.val1 == 0) { m_nodes[frame.v]->color = QColor(145, 220, 235); m_nodes[frame.v]->update(); }
+        if (frame.val1 == 0) {
+            m_nodes[frame.v]->color = QColor(145, 220, 235);
+            m_nodes[frame.v]->update();
+            playDiscover(m_nodes[frame.v], QColor(110, 210, 235), 46.0, 620);
+        }
     } else if (frame.type == ActionType::TS_BLOCKED) {
         m_nodes[frame.u]->color = QColor(245, 155, 155);
         m_nodes[frame.u]->update();
         m_degreeBlocks[frame.u]->color = QColor(245, 155, 155);
         m_degreeBlocks[frame.u]->update();
+        playNodePop(m_nodes[frame.u], 0.93, 280);
     } else if (frame.type == ActionType::TS_FINISH) {
         if (frame.u == m_n) {
             for (auto& pair : m_orderBlocks) pair.second->color = QColor(175, 220, 180);
         }
         for (auto& pair : m_orderBlocks) pair.second->update();
+        for (auto& kv : m_nodes) playNodePop(kv.second, 1.10, 260);
     }
 }
 

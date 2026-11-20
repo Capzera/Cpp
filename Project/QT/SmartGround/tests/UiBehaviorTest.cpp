@@ -88,7 +88,10 @@ int main(int argc, char** argv) {
         MyComboBox* combo = w.findChild<MyComboBox*>();
         MyTextEdit* input = w.findChild<MyTextEdit*>();
         MyToggleSwitch* toggle = w.findChild<MyToggleSwitch*>();
-        MyCollapsible* panel = w.findChild<MyCollapsible*>();
+        MyCollapsible* panel = nullptr;
+        for (MyCollapsible* c : w.findChildren<MyCollapsible*>()) {
+            if (c->headerText() == "特化设置") { panel = c; break; }
+        }
         MyButton* btnAuto = findButton(&w, "自动播放");
         MyButton* btnBuild = findButton(&w, "绘制");
         MyButton* btnStep = findButton(&w, "下一步");
@@ -102,7 +105,7 @@ int main(int argc, char** argv) {
         check(combo && input && toggle && panel && btnAuto && btnBuild && btnStep && biCheck,
               "all custom widgets found");
 
-        check(!panel->isVisible(), "BUG-039: graph panel HIDDEN on startup");
+        check(!panel->isVisible(), "BUG-039: settings panel HIDDEN on startup");
 
         int idxGraph = -1, idxNonGraph = -1;
         for (int i = 1; i < combo->count(); ++i) {
@@ -115,17 +118,17 @@ int main(int argc, char** argv) {
 
         combo->setCurrentIndex(idxGraph);
         pump(200);
-        check(panel->isVisible(), "graph panel VISIBLE for graph module");
+        check(panel->isVisible(), "settings panel VISIBLE for graph module");
         check(input->placeholderText().contains("顶点数"), "graph placeholder mentions 顶点数");
 
         combo->setCurrentIndex(idxNonGraph);
         pump(200);
-        check(!panel->isVisible(), "graph panel HIDDEN for non-graph module");
+        check(!panel->isVisible(), "settings panel HIDDEN for non-graph module");
         check(input->placeholderText().contains("数组长度"), "sort placeholder mentions 数组长度");
 
         combo->setCurrentIndex(idxGraph);
         pump(200);
-        check(panel->isVisible(), "graph panel VISIBLE again after switching back");
+        check(panel->isVisible(), "settings panel VISIBLE again after switching back");
         check(toggle->isChecked(), "undirected switch ON by default for BFS");
 
         btnAuto->setText("自动播放");

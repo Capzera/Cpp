@@ -12,7 +12,7 @@ static const QColor kTagGray = QColor(228, 231, 236);
 
 SegmentTreeTagModule::SegmentTreeTagModule() {}
 
-QString SegmentTreeTagModule::getModuleName() const { return "线段树 (lz标记)"; }
+QString SegmentTreeTagModule::getModuleName() const { return "线段树 - 区间乘 / 区间加（懒标记）"; }
 QString SegmentTreeTagModule::getDefaultInput() const { return "4 2 100\n1 2 3 4\n1 2 3 2\n2 1 4 5"; }
 QString SegmentTreeTagModule::getInputHint() const {
     return "第一行输入 n、m、p：数组长度、操作次数、模数\n"
@@ -150,7 +150,7 @@ void SegmentTreeTagModule::changeAdd(int node, int l, int r, int lt, int rt, lon
 
 void SegmentTreeTagModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     if (frame.type == ActionType::SEG_RESET) {
         resetTreeScene();
     } else if (frame.type == ActionType::SEG_INIT_MUL) {
@@ -160,11 +160,19 @@ void SegmentTreeTagModule::renderFrame(const AnimFrame& frame) {
     } else if (frame.type == ActionType::SEG_DESCEND) {
         highlightNode(frame.u, kTagOrange, QColor(255, 248, 232));
         highlightNode(frame.val1, kTagOrange, QColor(255, 248, 232));
+        GraphNode* child = m_treeNodes.count(frame.val1) ? m_treeNodes[frame.val1] : nullptr;
+        if (child) playNodeRipple(child, kTagOrange, 34.0, 480);
+        auto edgeIt = m_treeEdges.find({frame.u, frame.val1});
+        if (edgeIt != m_treeEdges.end()) playEdgeTravel(edgeIt->second, kTagOrange, 420);
+        appendDescent(frame.u, kTagOrange);
+        appendDescent(frame.val1, kTagOrange);
         movePointerTo(frame.u);
     } else if (frame.type == ActionType::SEG_LEAF) {
         setArrayValue("tr", frame.u, frame.val1, kTagGreen);
         setNodeValue(frame.u, QString("tr=%1").arg(frame.val1));
         highlightNode(frame.u, kTagGreen, QColor(240, 252, 242));
+        GraphNode* leaf = m_treeNodes.count(frame.u) ? m_treeNodes[frame.u] : nullptr;
+        if (leaf) playNodeRipple(leaf, kTagGreen, 42.0, 560);
         movePointerTo(frame.u);
     } else if (frame.type == ActionType::SEG_PUSHUP) {
         ArrayBlock* blk = arrayBlock("tr", frame.u);
@@ -178,6 +186,8 @@ void SegmentTreeTagModule::renderFrame(const AnimFrame& frame) {
         }
         setNodeValue(frame.u, QString("tr=%1").arg((frame.val1 + frame.val2) % m_mod));
         highlightNode(frame.u, kTagGreen, QColor(240, 252, 242));
+        GraphNode* parent = m_treeNodes.count(frame.u) ? m_treeNodes[frame.u] : nullptr;
+        if (parent) playNodeRipple(parent, kTagGreen, 46.0, 600);
         movePointerTo(frame.u);
     } else if (frame.type == ActionType::SEG_COVER_MUL) {
         setArrayValue("tr", frame.u, frame.val1, kTagYellow);
@@ -185,6 +195,8 @@ void SegmentTreeTagModule::renderFrame(const AnimFrame& frame) {
         setNodeValue(frame.u, QString("tr=%1").arg(frame.val1));
         setNodeTag(frame.u, QString("×%1").arg(frame.val2), kTagPurple);
         highlightNode(frame.u, kTagPurple, QColor(246, 240, 252));
+        GraphNode* cover = m_treeNodes.count(frame.u) ? m_treeNodes[frame.u] : nullptr;
+        if (cover) playNodeRipple(cover, kTagPurple, 44.0, 560);
         movePointerTo(frame.u);
     } else if (frame.type == ActionType::SEG_COVER_ADD) {
         setArrayValue("tr", frame.u, frame.val1, kTagYellow);
@@ -192,6 +204,8 @@ void SegmentTreeTagModule::renderFrame(const AnimFrame& frame) {
         setNodeValue(frame.u, QString("tr=%1").arg(frame.val1));
         setNodeTag(frame.u, QString("+%1").arg(frame.val2), kTagBlue);
         highlightNode(frame.u, kTagBlue, QColor(236, 244, 252));
+        GraphNode* coverAdd = m_treeNodes.count(frame.u) ? m_treeNodes[frame.u] : nullptr;
+        if (coverAdd) playNodeRipple(coverAdd, kTagBlue, 44.0, 560);
         movePointerTo(frame.u);
     } else if (frame.type == ActionType::SEG_PARTIAL) {
         highlightNode(frame.u, kTagOrange, QColor(255, 248, 232));

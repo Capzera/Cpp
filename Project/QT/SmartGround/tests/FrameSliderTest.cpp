@@ -80,6 +80,22 @@ int main(int argc, char** argv) {
     pump(200);
     check("slider: can seek back to start", slider->value() == 0);
 
+    slider->setValue(0);
+    pump(200);
+    clickButton(w, "自动播放");
+    pump(2600);
+    int duringValue = slider->value();
+    check("slider: auto play advances the slider", duringValue > 0);
+    check("slider: auto play does not jump to the end", duringValue < slider->maximum());
+    QLabel* badge = w.findChild<QLabel*>("frameBadge");
+    check("slider: badge exists", badge != nullptr);
+    if (badge) {
+        printf("  badge text = '%s', slider = %d\n", qPrintable(badge->text()), duringValue);
+        check("slider: badge text tracks the frame index",
+              badge->text().startsWith(QString("%1 ").arg(duringValue)));
+    }
+    w.grab().save("ui_slider_autoplay.png");
+
     printf("\n%s  fail=%d\n", g_fail == 0 ? "ALL PASS" : "HAS FAILURE", g_fail);
     return g_fail == 0 ? 0 : 1;
 }

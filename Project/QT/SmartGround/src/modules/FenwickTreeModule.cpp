@@ -93,7 +93,7 @@ void FenwickTreeModule::buildLayout(QGraphicsScene* scene, const QString& inputD
         }
     }
 
-    m_mathText = scene->addText(m_valid ? "树状数组分层结构：t[i] 位于第 ctz(i) 层，维护区间 [i-lowbit(i)+1, i]"
+    m_mathText = createScriptText(scene, m_valid ? "树状数组分层结构：t[i] 位于第 ctz(i) 层，维护区间 [i-lowbit(i)+1, i]"
                                          : "输入格式：n、n 个元素、m、m 行 op x；限制 n≤16，m≤8");
     m_mathText->setFont(QFont("Microsoft YaHei UI", 12, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
@@ -105,6 +105,8 @@ void FenwickTreeModule::buildLayout(QGraphicsScene* scene, const QString& inputD
     drawGuides();
 
     m_ptrIndex = new PointerBlock("i", kFtRed);
+    m_ptrIndex->setDirection(PointerBlock::Up);
+    m_ptrIndex->setLabelOffset(QPointF(-30.0, 0.0));
     m_ptrIndex->setOpacity(0);
     scene->addItem(m_ptrIndex);
 }
@@ -140,7 +142,7 @@ void FenwickTreeModule::layoutLevels() {
     QGraphicsTextItem* baseTitle = m_scene->addText("a[]");
     baseTitle->setFont(QFont("Microsoft YaHei UI", 13, QFont::Bold));
     baseTitle->setDefaultTextColor(QColor(40, 70, 110));
-    baseTitle->setPos(m_startX - 52, m_arrY + 12);
+    baseTitle->setPos(m_startX - 66, m_arrY + 12);
 
     for (LevelSlot& slot : m_levels) {
         const double y = m_arrY - (slot.level + 1) * m_levelStep;
@@ -173,7 +175,7 @@ void FenwickTreeModule::layoutLevels() {
         note->setPos(m_startX + rowWidth + 22, levelY + 14);
     }
 
-    m_accText = m_scene->addText("");
+    m_accText = createScriptText(m_scene, "");
     m_accText->setFont(QFont("Consolas", 13, QFont::Bold));
     m_accText->setDefaultTextColor(QColor(180, 60, 40));
     m_accText->setPos(m_startX, m_arrY + 60);
@@ -238,8 +240,15 @@ void FenwickTreeModule::movePointerTo(int index) {
     if (!m_ptrIndex) return;
     ArrayBlock* t = tBlock(index);
     if (!t) return;
+    double cellX = t->cellWidth() / 2.0;
+    for (const LevelSlot& slot : m_levels) {
+        if (slot.block != t) continue;
+        cellX = (index - slot.left) * m_cellW + m_cellW / 2.0;
+        break;
+    }
     m_ptrIndex->setOpacity(1);
-    playPointerMove(m_ptrIndex, t->pos() + QPointF(t->cellWidth() / 2.0, m_cellH + 4.0));
+    m_ptrIndex->setDirection(PointerBlock::Up);
+    playPointerMove(m_ptrIndex, t->pos() + QPointF(cellX, t->cellHeight()));
 }
 
 void FenwickTreeModule::clearAllStates() {
@@ -252,7 +261,7 @@ void FenwickTreeModule::clearAllStates() {
             slot.block->update();
         }
     }
-    if (m_accText) m_accText->setPlainText("");
+    if (m_accText) setScriptText(m_accText, "");
     if (m_ptrIndex) m_ptrIndex->setOpacity(0);
 }
 
@@ -344,7 +353,7 @@ std::vector<AnimFrame> FenwickTreeModule::runAlgorithm() {
 
 void FenwickTreeModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
 
     if (frame.type == ActionType::FT_RESET) {
         clearAllStates();
@@ -418,6 +427,7 @@ void FenwickTreeModule::renderFrame(const AnimFrame& frame) {
             t->color = kFtOrange;
             t->update();
             playScalePulse(t, 1.2, 240);
+            playCellRipple(t, kFtOrange, 0.9, 480);
         }
         if (a && frame.val2 != 0) {
             a->color = kFtOrange;
@@ -437,9 +447,10 @@ void FenwickTreeModule::renderFrame(const AnimFrame& frame) {
             t->color = kFtOrange;
             t->update();
             playScalePulse(t, 1.25, 240);
+            playCellRipple(t, kFtOrange, 1.1, 520);
         }
         if (m_accText) {
-            m_accText->setPlainText(QString("累计 sum = %1").arg(frame.val1));
+            setScriptText(m_accText, QString("累计 sum = %1").arg(frame.val1));
             m_accText->setDefaultTextColor(QColor(180, 60, 40));
         }
         movePointerTo(frame.u);
@@ -452,7 +463,7 @@ void FenwickTreeModule::renderFrame(const AnimFrame& frame) {
         }
     } else if (frame.type == ActionType::FT_RESULT) {
         if (m_accText) {
-            m_accText->setPlainText(QString("sum(%1) = %2").arg(frame.u).arg(frame.val1));
+            setScriptText(m_accText, QString("sum(%1) = %2").arg(frame.u).arg(frame.val1));
             m_accText->setDefaultTextColor(QColor(40, 140, 70));
         }
         for (const LevelSlot& slot : m_levels) {

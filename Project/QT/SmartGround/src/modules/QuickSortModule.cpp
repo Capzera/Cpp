@@ -25,7 +25,7 @@ void QuickSortModule::buildLayout(QGraphicsScene* scene, const QString& inputDat
     n = m_data.size();
     m_startX = 400 - (n * 60) / 2;
 
-    m_mathText = m_scene->addText("");
+    m_mathText = createScriptText(m_scene, "");
     m_mathText->setFont(QFont("Consolas", 18, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(180, 50, 50));
     m_mathText->setPos(300, 50);
@@ -120,7 +120,7 @@ void QuickSortModule::quickSort(std::vector<int>& arr, int l, int r, int depth) 
 }
 
 void QuickSortModule::renderFrame(const AnimFrame& step) {
-    if (!step.mathText.isEmpty()) m_mathText->setPlainText(step.mathText);
+    if (!step.mathText.isEmpty()) setScriptText(m_mathText, step.mathText);
 
     if (step.type == ActionType::AR_RESET) {
         if (step.u == -1) {
@@ -175,6 +175,11 @@ void QuickSortModule::renderFrame(const AnimFrame& step) {
                 }
             }
         }
+        std::vector<ArrayBlock*> range;
+        for (int k = step.u; k <= step.v; ++k) {
+            if (m_blocks.count(k) && k < 1000) range.push_back(m_blocks[k]);
+        }
+        if (!range.empty()) playCellSweep(range, QColor(150, 190, 245), 46, 280);
     } else if (step.type == ActionType::AR_SCAN_MIN) {
         ArrayBlock* src = m_blocks[step.u];
         ArrayBlock* dst = m_blocks[step.v];
@@ -217,17 +222,25 @@ void QuickSortModule::renderFrame(const AnimFrame& step) {
         }
     } else if (step.type == ActionType::AR_COMPARE_SHIFT) {
         ArrayBlock* b = m_blocks[step.u];
-        if (b) playScaleAnim(b);
+        if (b) {
+            playScaleAnim(b);
+            playCellRipple(b, QColor(255, 190, 90), 1.6, 460);
+        }
     } else if (step.type == ActionType::AR_SWAP) {
         ArrayBlock* b1 = m_blocks[step.u];
         ArrayBlock* b2 = m_blocks[step.v];
         playSwapAnim(b1, b2, step.val1, step.val2);
+        if (b1 && b2) {
+            playCellLanding(b1, QColor(255, 170, 0), 340);
+            playCellLanding(b2, QColor(255, 170, 0), 340);
+        }
     } else if (step.type == ActionType::AR_DONE) {
         if (m_blocks.count(step.u)) {
             m_blocks[step.u]->color = QColor(150, 255, 150);
             m_blocks[step.u]->setOpacity(1.0);
             m_blocks[step.u]->update();
             playScaleAnim(m_blocks[step.u]);
+            playCellRipple(m_blocks[step.u], QColor(150, 255, 150), 1.9, 560);
         }
     }
 }

@@ -4,7 +4,7 @@
 #include <QSet>
 
 class CanvasTableItem;
-class MyButton;
+class TableIconButton;
 class QMenu;
 
 class TableToolBar : public QWidget {
@@ -46,15 +46,17 @@ private:
 
     CanvasTableItem* m_table = nullptr;
     QWidget* m_bar = nullptr;
-    MyButton* m_alignCenter = nullptr;
-    MyButton* m_alignLeft = nullptr;
-    MyButton* m_alignRight = nullptr;
-    MyButton* m_alignTop = nullptr;
-    MyButton* m_cell = nullptr;
-    MyButton* m_row = nullptr;
-    MyButton* m_col = nullptr;
-    MyButton* m_insert = nullptr;
-    MyButton* m_delete = nullptr;
+    TableIconButton* m_alignCenter = nullptr;
+    TableIconButton* m_alignLeft = nullptr;
+    TableIconButton* m_alignRight = nullptr;
+    TableIconButton* m_alignTop = nullptr;
+    TableIconButton* m_cell = nullptr;
+    TableIconButton* m_row = nullptr;
+    TableIconButton* m_col = nullptr;
+    TableIconButton* m_insertRow = nullptr;
+    TableIconButton* m_insertCol = nullptr;
+    TableIconButton* m_deleteRow = nullptr;
+    TableIconButton* m_deleteCol = nullptr;
     QMenu* m_insertMenu = nullptr;
     QMenu* m_deleteMenu = nullptr;
 };

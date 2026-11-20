@@ -60,7 +60,7 @@ void DSUBasicModule::buildLayout(QGraphicsScene* scene, const QString& inputData
             m_edges.push_back(edge);
         }
     }
-    m_mathText = m_scene->addText("并查集：快速判断连通性和合并集合");
+    m_mathText = createScriptText(m_scene, "并查集：快速判断连通性和合并集合");
     m_mathText->setPos(100, 50);
     m_mathText->setFont(QFont("Consolas", 12, QFont::Bold));
 }
@@ -124,7 +124,7 @@ int DSUBasicModule::find(std::vector<int>& parent, int x) {
 
 void DSUBasicModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.explanation);
+    setScriptText(m_mathText, frame.explanation);
     if (frame.type == ActionType::GN_HIGHLIGHT_NODE) {
         if (m_nodes.count(frame.u)) {
             m_nodes[frame.u]->color = QColor(255, 200, 100);
@@ -132,6 +132,7 @@ void DSUBasicModule::renderFrame(const AnimFrame& frame) {
             m_nodes[frame.u]->update();
             if (m_animated) {
                 playScalePulse(m_nodes[frame.u], 1.15, 200);
+                playNodeRipple(m_nodes[frame.u], QColor(255, 190, 90), 34.0, 480);
             }
         }
     } else if (frame.type == ActionType::GN_TRAVERSE_EDGE) {
@@ -147,25 +148,30 @@ void DSUBasicModule::renderFrame(const AnimFrame& frame) {
             if ((edge->source->id == frame.u && edge->dest->id == frame.v) ||
                 (edge->source->id == frame.v && edge->dest->id == frame.u)) {
                 edge->setColor(QColor(255, 100, 100));
+                playEdgeTravel(edge, QColor(255, 100, 100), 460);
             }
         }
     } else if (frame.type == ActionType::GN_UPDATE_LOW) {
         if (m_nodes.count(frame.u)) {
             m_nodes[frame.u]->color = QColor(150, 255, 150);
             m_nodes[frame.u]->update();
+            playNodeRipple(m_nodes[frame.u], QColor(140, 230, 160), 38.0, 520);
         }
         if (m_nodes.count(frame.v)) {
             m_nodes[frame.v]->color = QColor(150, 255, 150);
             m_nodes[frame.v]->update();
+            playNodeRipple(m_nodes[frame.v], QColor(140, 230, 160), 38.0, 520);
         }
     } else if (frame.type == ActionType::GN_CONDENSE) {
         if (m_nodes.count(frame.u)) {
             m_nodes[frame.u]->color = QColor(200, 200, 200);
             m_nodes[frame.u]->update();
+            playNodePop(m_nodes[frame.u], 0.93, 260);
         }
         if (m_nodes.count(frame.v)) {
             m_nodes[frame.v]->color = QColor(200, 200, 200);
             m_nodes[frame.v]->update();
+            playNodePop(m_nodes[frame.v], 0.93, 260);
         }
     }
 }

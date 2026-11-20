@@ -32,7 +32,7 @@ void HeapSortModule::buildLayout(QGraphicsScene* scene, const QString& inputData
     if (n > static_cast<int>(tokens.size()) - 1) n = tokens.size() - 1;
     m_valid = n > 0;
 
-    m_mathText = scene->addText(m_valid ? "堆排序：自底向上建堆 → 反复取堆顶放到末尾"
+    m_mathText = createScriptText(scene, m_valid ? "堆排序：自底向上建堆 → 反复取堆顶放到末尾"
                                          : "输入格式：n，随后 n 个整数；限制 n≤16");
     m_mathText->setFont(QFont("Consolas", 14, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
@@ -140,7 +140,7 @@ std::vector<AnimFrame> HeapSortModule::runAlgorithm() {
 
 void HeapSortModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     if (frame.type == ActionType::HS_RESET) {
         for (auto& kv : m_arrayBlocks) { kv.second->color = kHsPale; kv.second->update(); }
         for (auto& kv : m_treeNodes) {
@@ -149,6 +149,7 @@ void HeapSortModule::renderFrame(const AnimFrame& frame) {
             kv.second->update();
         }
         for (auto& kv : m_treeEdges) { kv.second->color = QColor(170, 180, 195); kv.second->update(); }
+        clearDescentTrail();
     } else if (frame.type == ActionType::HS_COMPARE) {
         auto paint = [&](int index, QColor c) {
             if (index <= 0) return;
@@ -164,6 +165,15 @@ void HeapSortModule::renderFrame(const AnimFrame& frame) {
         };
         paint(frame.u, kHsCompare);
         if (frame.v > 0) paint(frame.v, kHsHeap);
+        if (frame.u > 0) {
+            GraphNode* node = m_treeNodes.count(frame.u) ? m_treeNodes[frame.u] : nullptr;
+            if (node) playNodeWake(node, kHsCompare, 30.0, 460);
+        }
+        if (frame.v > 0 && frame.v != frame.u) {
+            auto edgeIt = m_treeEdges.find({std::min(frame.u, frame.v), std::max(frame.u, frame.v)});
+            if (edgeIt != m_treeEdges.end()) playEdgeTravel(edgeIt->second, kHsCompare, 420);
+        }
+        if (frame.u > 0) appendDescent(frame.u, kHsCompare);
         int current = frame.u;
         int partner = frame.v;
         QString caption;
@@ -180,6 +190,8 @@ void HeapSortModule::renderFrame(const AnimFrame& frame) {
     } else if (frame.type == ActionType::HS_SWAP) {
         ArrayBlock* ba = m_arrayBlocks.count(frame.u) ? m_arrayBlocks[frame.u] : nullptr;
         ArrayBlock* bb = m_arrayBlocks.count(frame.v) ? m_arrayBlocks[frame.v] : nullptr;
+        GraphNode* na = m_treeNodes.count(frame.u) ? m_treeNodes[frame.u] : nullptr;
+        GraphNode* nb = m_treeNodes.count(frame.v) ? m_treeNodes[frame.v] : nullptr;
         if (ba && bb) {
             playSwapAnim(ba, bb, frame.val1, frame.val2);
             ba->color = kHsSwap;
@@ -187,13 +199,17 @@ void HeapSortModule::renderFrame(const AnimFrame& frame) {
             ba->update();
             bb->update();
         }
+        if (na && nb) {
+            playNodeSwapAnim(na, nb, frame.val1, frame.val2);
+            auto edgeIt = m_treeEdges.find({std::min(frame.u, frame.v), std::max(frame.u, frame.v)});
+            if (edgeIt != m_treeEdges.end()) playEdgeTravel(edgeIt->second, kHsSwap, 460);
+        }
+        if (frame.u > 0) appendDescent(frame.u, kHsSwap);
         swapHeapValues(frame.u, frame.v, frame.val1, frame.val2);
-        GraphNode* na = m_treeNodes.count(frame.u) ? m_treeNodes[frame.u] : nullptr;
-        GraphNode* nb = m_treeNodes.count(frame.v) ? m_treeNodes[frame.v] : nullptr;
         if (na) { na->color = kHsSwap; na->setHighlightColor(kHsSwap); na->update(); }
         if (nb) { nb->color = kHsSwap; nb->setHighlightColor(kHsSwap); nb->update(); }
         if (m_relationText) {
-            m_relationText->setPlainText(QString("swap(heap[%1], heap[%2])：值真正互换")
+            setScriptText(m_relationText, QString("swap(heap[%1], heap[%2])：值真正互换")
                                              .arg(frame.u).arg(frame.v));
             m_relationText->setDefaultTextColor(kHsSwap.darker(120));
         }
@@ -210,7 +226,9 @@ void HeapSortModule::renderFrame(const AnimFrame& frame) {
                 kv.second->setHighlightColor(Qt::transparent);
                 kv.second->color = kHsSorted;
                 kv.second->update();
+                playNodePop(kv.second, 1.14, 320);
             }
+            freezeDescentTrail(kHsSorted);
         }
     }
 }
@@ -234,5 +252,7 @@ void HeapSortModule::releaseSceneItems() {
     m_arrayBlocks.clear();
     m_treeNodes.clear();
     m_treeEdges.clear();
+    m_descentTrail = nullptr;
+    m_descentPoints.clear();
     m_mathText = nullptr;
 }

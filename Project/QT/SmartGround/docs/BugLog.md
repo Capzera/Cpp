@@ -1,8 +1,106 @@
 # SmartGround Bug Log
 
-**更新时间：2026-11-14**
+**更新时间：2026-11-20**
 | ID | 问题 | 状态 | 修复记录 |
 |---|---|---|---|
+| BUG-225 | **画布「右键擦除」开关不生效且偏好无法记忆**：橡皮面板里的 toggle 虽能切换，但重启软件后设置丢失 | 已修复 | 根因：`ToolController::rightClickErasePreference()` 用的是**无参** `QSettings`，而 `main.cpp` 从未调用 `setOrganizationName()` / `setApplicationName()`，Qt 因缺少 org/app 名而把 `QSettings` 判定为 `InvalidScope`，读写全部落到空操作，偏好**根本没有落盘**。修复：① `src/main.cpp` 增加 `QCoreApplication::setOrganizationName("SmartGround")` 与 `setApplicationName("SmartGround")`；② `ToolController` 的偏好读写改为**显式作用域** `QSettings(QSettings::IniFormat, QSettings::UserScope, "SmartGround", "SmartGround")`，并在写入后调用 `sync()`，即使宿主未设置 org/app 名也能可靠持久化。关闭开关后画笔/荧光笔的右键恢复为与左键完全相同的绘制行为 |
+| BUG-224 | **画板新增功能三项**：① 画布最左侧缺少竖向笔刷粗细滑块；② 画笔/荧光笔缺「左写右擦」与可记忆的关闭开关；③ 矩形/圆形/三角形缺空心/实心切换 | 已修复 | ① 新增 `src/ui/widgets/CanvasBrushSlider.{h,cpp}`：贴靠画布左缘的圆角竖向滑块，仅在笔/荧光笔/橡皮三种工具下显示，与工具飞出面板、滚轮**双向同步**（`ToolController::styleChanged` 信号驱动）；② `ToolController` 新增 `m_rightClickErase` 与 `beginRightErase/updateRightErase/finishRightErase`，右键按下即进入橡皮拖拽态；橡皮面板新增 `MyToggleSwitch`（objectName = `canvasToolRightClickErase`）控制该行为；③ 矩形/圆形/三角形面板顶部新增 `MySegmentedControl`（objectName = `canvasToolShapeFill`，选项「空心 / 实心」），`ShapeItem` 以虚线框 + 透明填充表示空心、实线 + `#EEF0F4` 填充表示实心 |
+| BUG-223 | **图论算法的「激光边」在射向目标结点时沿途留下碎片残留波纹**（所有图论模块均复现）：边像激光一样从 u 射向 v 的过程中，路径上出现一串断断续续的残影 | 已修复 | 根因有两处：① `GraphEdge::paint()` 用 **26 段短线**叠加绘制光束，每段各自带 `RoundCap` 与不同的 alpha 与线宽，段与段之间在曲线内侧留出可见缝隙，形成「串珠/波纹」；② `IModule::playEdgeTravel()` 每次都 `new QPropertyAnimation(edge, "beamProgress")` 而**不入动画注册表**，同一条边被多次触发时会有多个动画实例同时写 `beamProgress`，互相打断后留下停在半途的残段。修复：① 光束改用 `QLinearGradient` 沿路径**一次性连续绘制**（外层 9px 宽渐变 + 内层 3.4px 亮芯 + 端点亮点），彻底消除分段接缝；② 新增 `IModule::startBeam(GraphEdge*, QColor, int)` 统一管理光束，`m_beamAnims` 注册表按边去重（同一时刻同一条边只有一条光束），并在 `purgeTransientItems()`（每帧 `beginFrame` 触发）与析构时统一 `stop()` + `clearBeam()`，杜绝残留 |
+| BUG-222 | **指针移动过程中的「瞬移」与「穿过单元格」**：指针换锚点时箭头方向瞬间翻转、位置瞬移；数组指针从一侧换到另一侧时箭头杆体横穿整排单元格 | 已修复 | 新增 `IModule::retargetPointerWithDirection(ptr, anchor, offset, dir)`：方向翻转时**不在翻转瞬间改方向**，而是先按原方向走「绕行路径」（先退到单元格行外 → 沿行外平移 → 从目标侧进入），到位后才切换方向并锁定终点；新增 `IModule::retargetPointerAcrossCells()` 让同侧换格也走行外弧线，不再直线穿过单元格。`CircularQueueModule::aimQueuePointers()` 改用新接口，`head`/`tail` 在 head==tail 时分别停在格子上下边缘 |
+| BUG-221 | **指针锚点偏移 2px**：图结点指针的箭头尖端停在圆周外 2px 而非圆周上，「指向结点」看起来差一点点 | 已修复 | `GraphNode` 新增 `static constexpr double kRadius = 20.0`，`IModule::pointerTipFor()` 与 `PointerBlock::anchoredPos()` 统一改用 `kRadius`，结点指针尖端精确落在圆周上（`PointerAlignTest` 校验 dy == 20.0） |
+| BUG-220 | 哈夫曼树「向上飞入」的落点算错：结点 16 飞进来后落在叶子 5/9 所在的第 0 行（而不是与合并伙伴 14 同排），下一帧又自动「跳」到正确位置；结点 20 同样先落错行再跳 | 已修复 | 根因：`HF_PROMOTE` 用 `treePosOf(id, step.before)` 计算飞入目标，而 `step.before` 是**上移之前**的森林行号，被提升的子树此时还停在更低的行，导致目标行算低一级。修复：改用 `step.afterLift`（上移对齐后的森林）计算目标 `treePosOf(id, step.afterLift)`，飞入即直接落到对齐行，无需下一帧二次跳位。同时 `HF_PROMOTE` 只处理**原始叶子**的队列筹码（内部结点由 `HF_LIFT` 帧负责树内位移），避免同一结点在树区与队列区各留一份造成重影 |
+| BUG-219 | 哈夫曼树合并出新父结点时，父结点的队列副本**从屏幕上方 (0,0) 飞下来**，中间拖出一条穿越全画面的长轨迹 | 已修复 | 根因：`HF_MERGE` 新建队列筹码 `GraphNode(9000 + parentId)` 后未设置初始位置，`GraphNode` 默认 `pos()` 为原点。修复：新建筹码时先 `chip->setPos(treePosOf(parentId, step.after))`（父结点在树中的真实坐标），再 `playMoveTo` 到 `queueSlotPos`，父结点即从树里「落」回候选队列 |
+| BUG-218 | 哈夫曼树根结点向上调整完成后，**旧的那个点没有及时删除**，在候选队列里留下一个多余的根结点副本 | 已修复 | 根因：最后一次合并 `HF_MERGE` 仍把根结点的队列筹码送到候选队列（`queueIndexOf` 返回 0），随后 `HF_FINAL` 只染色树内根结点，没有回收队列筹码。修复：`HF_MERGE` 增加 `isRoot` 判定，最后一次合并只为根结点**创建但立刻隐藏**队列筹码（保持「每个结点一份队列副本」的节点计数不变），不再把它排入队列；`HF_FINAL` 再次兜底隐藏根结点的队列筹码，双重保险消除重影 |
+| BUG-217 | 哈夫曼树合并出父结点时，两条子边**瞬间出现**，动画缺少「从孩子长到父亲」的流线感 | 新增需求（已实现） | `GraphEdge` 新增可动画属性 `Q_PROPERTY(qreal drawProgress READ drawProgress WRITE setDrawProgress)`，默认 1.0（完全绘制）；`GraphEdge::paint()` 按 `drawProgress` 对二次贝塞尔曲线做**部分求值**（de Casteljau 分割出 `[0, t]` 段），画出从孩子端生长到父亲端的渐进曲线；`IModule` 新增共享辅助 `playEdgeGrow(GraphEdge* edge, int duration = 200)`（`OutCubic` 缓动）。`HF_JELLY` 帧中父结点「果冻」出现的同时，把两条子边的 `drawProgress` 置 0 后在 **200ms** 内生长到 1.0；`HF_PICK` / `HF_JELLY` / `HF_MERGE` 三帧入口调用 `completeEdgeGrowth()` 兜底，保证快速播放时边不会停留在半画状态。实测 t=45ms 时 progress≈0.42、t=90ms 时≈0.75、t=135ms 时已 1.00 |
+| BUG-216 | 哈夫曼树整棵树「乱完了」：根结点被画在叶子下方、同一层的结点错行、整棵树完全不成结构 | 已修复 | 根因在 `HuffmanTreeModule::simulateStates()`：把「子树整体上移」的行差算成了 **结点 id 之差**（`const int higher = (aRow < bRow) ? b : a; const int delta = higher - lower;`），而不是**行号之差**，导致 delta 一路放大到 9、11，树高失控、层次错乱。修复后 delta 改为 `higherRow - lowerRow`（`aRow` / `bRow` 本身），行高回到理论值；最终树为「根在最上、叶子在最下、每个父结点严格高于其孩子」的规范结构，最小结点间距 56.08px，无交叉线 |
+| BUG-215 | 哈夫曼树的边带有箭头，树是**无向**结构，箭头是错的 | 已修复 | `HuffmanTreeModule::buildLayout()` 中两条子边改用 `new GraphEdge(child, parent, false)`（`is_directed = false`、`is_bidirectional = false`），`GraphEdge::paint()` 不再绘制箭头端点。0/1 路径标签由 `pathLabel` 徽标机制单独绘制，不受影响 |
+| BUG-214 | 哈夫曼树的频率数组**整格是空的**，看不到任何原始权值 | 已修复 | 根因：`buildLayout()` 按 `m_nodes.size()`（2n-1，含内部结点）创建数组格子，导致 `HF_SORT_DROP` 的 `perm.size() != m_arrayCells.size()` 守卫**永远成立**而提前 `return`，数值从未写入；且初始态 `showValue = false` 本就全空。修复：数组格子数改为 `m_leafCount`（n 个），初始态即写入原始权值并置 `showValue = true`（`kHfLeaf` 底色），`HF_RESET` 同样恢复原始权值；排序阶段改为 `HF_SORT_LIFT`（该格飞空）→ `HF_SORT_DROP`（数值流星般落回）成对推进，每帧携带当前置换数组以保证回放/拖进度条可复现 |
+| BUG-213 | 扩展欧几里得的公式飞入时**位置太偏左**，落点明显偏在目标位置左侧 | 已修复 | 根因有二：① `IModule::playTextFlight()` 把终点当**中心**处理（`end.x - halfW`），而调用方传的是目标文本的**左上角**，导致落点偏左半个字宽；② 回代片段的前缀宽度用**硬编码 7.6px/字符**估算，与 mono(13) 实际约 17px/字符严重不符，片段被甩到行首左侧。修复：① 新增 `IModule::playTextFlightAligned(text, start, endLeft, ...)` —— 起点终点均为**左对齐**语义，`ExgcdModule` 的四处飞行全部改用它；② `ExgcdBackStep` 新增 `prefixText` 字段记录片段前的真实前缀文本，落点改用 `QFontMetrics(target->font()).horizontalAdvance("1 = " + prefixText)` 实测宽度（末行 425px，原估算仅约 170px）。回代片段现精确落进括号位置 |
+| BUG-217 | 扩展欧几里得的推导文字**互相重叠**：回代各行、辗转相除左右两栏、章节标题与正文全部压在一起 | 已修复 | 根因：行距（`kExRowStep = 26` / 回代 24）小于 mono(13) 的实际行高（28px）。修复后重排为**单栏左对齐**结构：等式段 `kExEqY = 80`（步距 34）、辗转相除段标题 `kExGcdTitleY = 190` / 栏头 `kExHeadY = 222` / 行首 `kExRowY = 252`（步距 32，左右两栏分置 `x = 100` 与 `x = 500`，互不侵占）、回代段标题与正文独立成行（步距 32）；章节标题与栏头全部错开行位。文本框两两相交检测由 15 处降为 **0 处** |
+| BUG-212 | 画布上大量讲课脚本文字（`m_noteText` / `m_mathText` / `m_resultText` / `m_scanText` / `m_heapText` / `m_windowText` / `m_probeText` / `m_stateText` 等）直接常驻显示，遮挡结构标注；软件定位是「老师免备课的讲课助手」，这些文字应由老师在口头讲解时自行发挥，而不是印在画布上 | 已修复 | `IModule` 新增**全局讲课脚本文字门控**：`static bool s_scriptTextVisible` + `setScriptTextVisible(bool)` / `scriptTextVisible()` / `createScriptText(scene, text)` / `setScriptText(item, text[, color])` / `clearScriptText(item)` / `createStatusText(scene, text)` / `setStatusText(item, text)`。`createScriptText` 在关闭状态下创建**空且不可见**的文本项，`setScriptText` 在关闭状态下清空内容并隐藏。59 个算法模块的讲课脚本类文字成员共 **263 处**改为经由门控创建与写入。**结构性标注全部保留**：`频率数组 a[]`、`a[] 原数组`、下标行、`桶 0`、树名、`第一步：…` / `阶段一：…` 章节标题、`a[i] / 编码 / 码长` 表头仍由 `scene->addText()` 直接创建并常驻。界面新增「显示讲课脚本文字」开关（`MainWindow`，`objectName = "scriptTextToggle"`），**默认关闭**，勾选后所有讲课脚本文字恢复显示并即时重绘画布 |
+| BUG-211 | 扩展欧几里得的回代公式片段飞入后与最终静止位置存在像素偏差，飞入终点与文字最终落点不重合 | 已修复 | `IModule::playTextFlightTo` 的飞行副本目标点直接取 `target->pos()`，落地时 `safeTarget->setPos(dst)` 保证与静止位置**完全重合**；`playTextFlightFragment` 额外用 `QFontMetrics(target->font()).horizontalAdvance(prefix)` 计算前缀宽度，片段落在前缀右端而非整行左端，两者均无像素差 |
+| BUG-210 | 哈夫曼树森林中出现多棵组件树时，各树之间位置移动混乱、结点大量重叠（多个示例均复现），判定为坐标计算错误 | 已修复 | 布局引擎重写为 `subtreeLayout` + `layoutComponentSym`：递归计算每棵子树占用的宽度后，组件树按 `m_compRank` **稳定排序**并依次分配水平区间，区间内再按对称规则放置结点；各组件树**互不交换位置**且**不再重叠** |
+| BUG-209 | 哈夫曼树左右两棵子树在不合适时机交换位置；交换后有结点重合；从第三层开始，新造结点并不在它两个孩子的垂直平分线上（坐标计算错误） | 已修复 | 布局改用**对称递归** `layoutComponentSym`：对每个内部结点强制 $x_L = x_P - d$、$x_R = x_P + d$，其中 $d$ 为子树半宽，从而严格满足 $x_P = (x_L + x_R)/2$；左右孩子的次序由合并时的子结点次序**固定**，不再随布局重新洗牌 |
+| BUG-208 | 哈夫曼树阶段三「下方选点并出现新的点」时，新结点从屏幕上方 (0,0) 飞入并拖出一条特别长的边线，逻辑很糟 | 已修复 | 新父结点在 `HF_PICK` 帧起即在两子结点中点处 `setOpacity(0)` **原地预置**，`HF_JELLY` 帧只播放 `playNodeAppear` 果冻生长 + `playRipple` 涟漪扩散，不再从屏幕上方飞入，超长边线消失 |
+| BUG-207 | 哈夫曼树「选用的结点」是闪现上去的，看不到从下方候选队列**向上飞入树区域框内**的过程 | 已修复 | `HF_PICK` 帧中两个被选候选结点由底部队列位置**向上飞入树区域框内**（`playMoveTo` 逐项独立目标点补间），到位后再进入 `HF_PROMOTE` / `HF_JELLY`，不再是原地闪现 |
+| BUG-206 | 哈夫曼树阶段一数字飞入频率数组格子时**位置偏下**，没有落在格子正中 | 已修复 | `HF_SORT_DROP` 的落点由「格子上边缘」改为**格子中心**：水平方向按格子宽度居中、垂直方向按格子高度居中，数字精确落在单元格几何中心 |
+| BUG-202 | 哈夫曼树 WPL 累加结束帧显示的总数是 0（`HF_WPL_DONE` 帧在累加循环结束前就读取了尚未写入的 `m_wplTotal`），导致最终结论与逐项累加数值不一致 | 已修复 | `runAlgorithm()` 的 WPL 段改为先在循环外累加变量 `running` 中求和，循环结束后再执行 `m_wplTotal = running;` 然后才构造 `HF_WPL_DONE` 帧；`HF_WPL` 帧本身仍把 `running` 实时写入 `m_wplSumCell`，逐项高亮与累加过程不变。默认数据 `45 13 20 16 9 12 5` 的 WPL = 45×2 + 13×3 + 20×2 + 16×3 + 9×4 + 12×3 + 5×4 = **309**（等于全部内部结点权值之和 14+25+30+45+75+120，符合哈夫曼最优性） |
+| BUG-203 | 哈夫曼树的建树阶段不满足「参考草图」的 choreography：候选队列行长一行没有按权值升序排好；合并时新结点没有在两子结点中点「果冻」般长出；父结点生成后没有复制一份落回底部候选队列；合并后队列成员也没有左右让位重排 | 已修复 | `HuffmanTreeModule` 整模块重写为六阶段：**阶段一**顶部数组初始为空，数字先悬停在格子上方（`kHoldY`），再按升序一个一个飞入正确格子（`HF_SORT_LIFT` → `HF_SORT_DROP` × n → `HF_SORT_DONE`）；**阶段二**全部数字飞入底部候选队列圆形结点（`HF_QUEUE_DROP`），按 `(权值, 是否叶子, id)` 三级比较排好；**阶段三**每次合并走 `HF_PICK`（取两最小，高亮 + 缩放脉冲）→ `HF_PROMOTE`（子树整体上移到同一行，树高自动对齐）→ `HF_JELLY`（在中点长出新结点，`playNodeAppear` + `playRipple` 果冻特效，边线由橙色高亮）→ `HF_MERGE`（父结点副本从树中飞下落到候选队列，被取走的两个结点淡出，其余成员左右让位重排）；**阶段四**`HF_FINAL` 根结点染成专用根色并缩放强调；**阶段五**`HF_CODE` 沿根到叶路径逐段贴出 0/1 路径标签并填写右侧编码表；**阶段六**`HF_WPL` 逐项高亮 `a[i]×码长` 并累加到 WPL 汇总格。树布局改用「子树宽度」递归算法（`subtreeWidth` / `layoutComponent`），父结点严格居中于两子结点中点，子树过宽时自动左右分开保证间距均匀 |
+| BUG-204 | 哈夫曼树的候选队列在权值相同时无法区分叶子与内部结点，导致取数顺序与「优先取叶子」的课堂约定冲突（例如 45 同时是叶子和内部结点时先取了内部结点） | 已修复 | `computeTree()` / `simulateStates()` 的排序比较器改为三级比较：先比权值，权值相同再比「是否原始叶子」（叶子优先），最后按 id 稳定排序；即 `(weight, isOriginal ? 0 : 1, id)`，与课堂「同权值优先取叶子」的规则一致 |
+| BUG-205 | 哈夫曼树的 `HF_CODE` / `HF_WPL` 帧文案里编码与码长恒为空：帧文本在 `runAlgorithm()` 里就按 `m_codeRows[r].code` / `codeLength` 拼装，但这两个字段要到播放阶段的 `HF_CODE` 帧才被 `setLeafCode()` 回填，导致讲解文字变成「编码为 ，码长 0」 | 已修复 | `computeCodes()` 在求出 `m_codeMap` 后立即回填 `m_codeRows` 的 `code` 与 `codeLength`；`buildLayout()` 中的调用顺序改为 `computeTree() → simulateStates() → buildCodeTable() → computeCodes()`，保证表格行先建、编码后填 |
+| BUG-199 | 扩展欧几里得模块只是抽象递归演示，没有可视化「同余式 → 不定方程 → 辗转相除 → 递归回代」的完整推导链，缺少左侧取余 / 右侧整除式的双栏对照，也没有任何公式飞入展开的效果 | 已修复 | `ExgcdModule` 整模块重写为三阶段：**第一步**在画布上方依次呈现 `11914·x ≡ 1 (mod 146415)` → `11914·x = 146415·y + 1` → `11914·x - 146415·y = 1` 三行变形（逐行高亮）；**第二步**双栏对照表，左栏 `146415 % 11914 = 3447`、右栏 `146415 = 12 × 11914 + 3447`，每轮由「行」指针锚定当前行并高亮左右两式；**第三步**递归回代逐层展开，回代式由右侧整除式行飞入并展开为 `1 = 10 × 1 - 1 × 9` → `1 = 10 - (29 - 2 × 10) = 3 × 10 - 29 × 1` → … → `1 = 15079 × 11914 - 1227 × 146415`，末尾给出「11914 在模 146415 意义下的乘法逆元是 15079」的绿色结论 |
+| BUG-200 | 扩展欧几里得的输入上限为 `b <= 100000`，导致 `146415` 这类合法数据被直接判为非法 | 已修复 | `ExgcdModule::buildLayout()` 的取值上限放宽到 `1000000`，并在 `getInputHint()` 中同步说明 |
+| BUG-201 | LCS 模块的文字与数组下标重合：「串 a[]」/「串 b[]」标签压在字符串单元格上方，矩阵列下标标签与矩阵首行重叠 | 已修复 | `LCSModule` 的 `kLcStrY` 由 62 调到 92、`kLcGridY` 由 206 调到 236；字符串标签上移到 `kLcStrY - 26`，矩阵列下标移到 `m_gridY - 22`，行下标移到 `m_gridX - 34`，三者各占独立行不再重叠 |
+| BUG-188 | 哈夫曼树完全没有动画：整棵树在建树前就被一次性画好，用户看不到「排序 → 建树」的流线过程，也没有「元素飞出数组、像飞星一样落位」的效果 | 已修复 | `HuffmanTreeModule` 整模块重写为两阶段动画：**阶段一**先把频率数组升序排序（不在应在位置的元素先飞出数组并高亮，再像流星一样逐个飞回正确位置）；**阶段二**每次从森林中取两个最小权值，用 `HF_PICK`（取最小）→ `HF_LIFT`（飞到一起 / 子树上移到同一行）→ `HF_MERGE`（连线生成父节点）三帧逐步建树。树不是预先画好的：所有结点与边 `setOpacity(0)`，随合并逐个淡入，配合 `IModule::playNodeAppear()` 的 `OutBack` 生长动画 |
+| BUG-189 | 哈夫曼树建树时树高与树宽瞬间跳变，没有过渡；且树根与叶子行的上下关系颠倒，根被画在底部 | 已修复 | `simulateLayout()` 预先模拟每次合并后的森林形态，记录每一帧的 `rows` / `cols` 快照；`computePositions()` 采用「叶子等距铺开 + 内部结点取左右孩子中点」的对称布局；每次合并先补间到「上移对齐」位姿（300ms），再补间到「合并完成」位姿（460ms）。`IModule` 新增共享助手 `playMoveTo(items, targets, duration)` 支持逐项独立目标点的补间 |
+| BUG-190 | 哈夫曼树模块内嵌结构体导致 moc 编译失败（`Meta object features not supported for nested classes` / `Missing access specifier for slots`） | 已修复 | 把 `HuffNode` / `MergeStep` 从类内嵌套结构体提升为文件级结构体 `HuffmanNodeData` / `HuffmanMergeStep`；成员 `slots` 与 Qt 关键字 `slots` 冲突，统一改名为 `cols` |
+| BUG-191 | 桶排序与基数排序的竖直桶数组单元格之间存在空行，相邻单元格之间出现两条横线 | 已修复 | `BucketSortModule` / `RadixSortModule` 的桶槽位改用 `cellHeight == spacing` 的无缝竖向排布（相邻单元格之间只保留 1 条线） |
+| BUG-192 | 桶排序的章节说明文字与 Bucket 0 的标题重叠；基数排序的「按当前位分的 10 个桶」压住数字 0 的标题 | 已修复 | 桶排序的章节说明文字上移到 `(40, 180)`、桶头单元格下移到 `y = 250`；基数排序的「按当前位分的 10 个桶」上移到 `(40, 154)`，并把数字标题整合进桶头单元格 |
+| BUG-193 | 循环队列的 `head` / `tail` 指针从上方插入数组内部，箭头杆体穿过单元格；数组上方多出一行冗余标题 `q[N], N = 6`；右下角有「队尾走到末尾后回到队头」的提示文字；左下角的「操作日志」方框内容全部渲染在框格下方，语义不明 | 已修复 | `CircularQueueModule` 的两个指针改为 `Direction::Up` + `PointerGeometry::belowCell()`，从数组下方指上去且箭头尖端停在单元格外；删除 `q[N], N = 6` 标题行、右下角回绕提示文字、以及整套「操作日志」方框与标题（含 `m_logBlocks` / `logTitle` 成员） |
+| BUG-194 | 循环队列被归类在「数据结构 · 进阶」，实际属于基础数据结构 | 已修复 | `MainWindow` 的模块分类表把 `CircularQueueModule` 从「数据结构 · 进阶」移到「基础数据结构」 |
+| BUG-195 | 字符串哈希的演示与课堂模板完全不一致 | 已修复 | `StringHashModule` 按课堂模板重写：`p1 = 131`、`m1 = 998244353`；`p[i] = p[i-1] * p1 % mod`；`h1[i] = (h1[i-1] * p1 + s1[i-1]) % mod`；`h2[i]` 同理；从 `len = min(n1, n2)` 递减枚举，比较 `getHash(h1,1,len) == getHash(h2,n2-len+1,n2)` 或 `getHash(h2,1,len) == getHash(h1,n1-len+1,n1)`，首个匹配即为答案 |
+| BUG-196 | 字符串哈希缺少字符游标指针 `i`，无法看出当前在算哪个字符；且 `p[]` 的计算与 `h[]` 的计算混用同一个动作类型，测试无法区分 | 已修复 | 新增 `STH_POW` 动作类型专门记录 `p[]` 幂次计算；新增指针 `i`（s1 行，`Up` 方向）与 `j`（s2 行，`Up` 方向），锚定字符单元格并用 `PointerGeometry::belowCell()` 保证箭头尖端不进入格子 |
+| BUG-197 | LCS 左下角文字重叠、矩阵上方的数组单元格不并拢、左上角多出 `s = "abcbdab"` 一行 | 已修复 | `LCSModule` 删除左上角的 `s = "abcbdab"`；矩阵上方横排两个无缝数组（字符串 a / 串 b，中间留 40px 间隙）；指针 `i` 自上而下指向 a 串元素、指针 `j` 自下而上指向 b 串元素；底部轨迹区重新排布为 追踪标签(624) / 追踪格(650) / 说明(712) / 结论(746)，彻底消除压字 |
+| BUG-198 | 哈夫曼树的阶段二没有把「被取走的两个最小值」从数组里移除，数组始终显示全部原始权值 | 已修复 | 每完成一次合并，数组已用槽位计数 `m_usedCount` 递增，剩余槽位置灰为 `kHfEmpty`，直观体现「森林中还剩哪些候选」 |
+| BUG-187 | 8 个新增算法模块的指针偏移沿用了旧的「落进格子中心」写法，箭头尖端与杆体会压在单元格内部，与项目「指针必须在单元格外」的统一规范冲突 | 已修复 | 新增 `tests/Batch9VisualTest.cpp` 逐帧审计全部数组指针：只要箭头尖端越出其锚定单元格的外框即判失败。桶排序 / 基数排序 / 循环队列 / 单调队列 / 字符串哈希 / 最长公共子序列的指针统一改用 `PointerGeometry::aboveCell()`；LCS 的行指针 `i` 改 `PointerGeometry::leftOfCell()` 且方向为 `Right`（横向从左侧指入），列指针 `j` 用 `aboveCell()` |
+| BUG-186 | 哈希表探针指针 `k` 的箭头体与箭头尖扎进槽位单元格内部 | 已修复 | `HashTableModule` 的 `m_probePointer` 锚点偏移由 `(cellW / 2, 19)`（落在格子中心）改为 `PointerGeometry::aboveCell(cellW, cellH)`，尖端停在槽位上边缘上方 2px、杆体与 `k` 标签全部在单元格之外；补齐此前缺失的 `cellHeight()` 访问器（`renderFrame` 引用了未声明的 `cellHeight`）；`tests/PointerAlignTest.cpp` 与 `tests/PointerMotionTest.cpp` 的期望坐标同步改为 `(cellW / 2, -2)` 与 `y = 116.0` |
+| BUG-185 | Trie 字典树的游标指针 `i` 整体下移，箭头体与箭头尖都跑进数组格子内部 | 已修复 | `TrieModule` 的 `m_indexPointer` 锚点偏移由 `(27, 19)`（格子中心）改为 `PointerGeometry::aboveCell(54.0, 38.0)`，箭头尖端停在格子上边缘上方 2px，杆体向上、标签 `i` 落在杆尾之外，整根指针完全位于数组外部 |
+| BUG-184 | 行列式模块中「矩阵」形态的数学方括号 `[` `]` 没有把矩阵包住，括号上下与矩阵外边框齐平甚至更靠内，视觉上像是浮在矩阵边上 | 已修复 | `MatrixBlock::paint()` 的 `PlainMatrix` 分支：括号折线上下各外扩 `over = 9.0`、左右各外扩 `3.0`，臂长 `arm = 14.0`、唇长 `lip = 7.0`；`sideMargin()` 由 20 放宽到 26 以完整容纳括号臂；`boundingRect()` 按形态引入 `vPad`（矩阵 13.0，其余形态 4.0），保证外扩出的括号部分不被场景包围盒裁剪 |
+| BUG-183 | 全项目字体未统一：结点数值、堆数组标题、Tarjan 的 `ins / stk` 标签仍直接用 `QFont("Arial", ...)` / `QFont("Consolas", ...)`，绕开了 BUG-151 建立的 `UiFonts` 字体引擎 | 已修复 | `GraphElements.cpp` 的 `GraphNode::paint()`（中心值 / `v:` / `dfn: low:`）、`StackBlock::paint()`、`ArrayBlock::paint()` 全部改走 `UiFonts::mono()`；`HeapBasicsModule` 的两个英文标题改 `UiFonts::cjk()`；`TarjanModule` 的 `ins / stk` 改 `UiFonts::mono()`；`GraphRenderHelper::addLabel()` 的 `QFont("Microsoft YaHei", ...)` 改 `UiFonts::cjk()`。至此 `src/` 下不再有任何直接 `QFont(...)` 字面量（`ToolIconButton` 的 `Segoe UI` 符号字体探测除外） |
+| BUG-182 | 矩阵 / 行列式 / 表格三种形态互相切换时，新形态渲染出来了、旧形态的残影却留在画布上，必须拖动右侧画布才会被清掉 | 已修复 | 根因：`QGraphicsScene::clear()` 只清场景项，`QGraphicsView` 的缓存层（背景层 + 物品层）仍保留旧像素。修复：`MainWindow` 新增 `invalidateCanvas()`，对场景的所有视图调用 `invalidateScene(view->rect(), BackgroundLayer)` 与 `invalidateScene(view->rect(), ItemLayer)` 并强制 `viewport()->update()`；`clearScene()` 与 `rebuildCurrentLayout()` 末尾各调用一次 |
+| BUG-181 | 矩阵形态被画成行列式的两根竖线，与数学中的方括号矩阵写法不符；表格形态反而带上了矩阵外框 | 已修复 | `MatrixBlock::paint()` 三形态分流：`PlainMatrix` 用多段折线绘制数学方括号 `[` `]`（`arm = 13` / `lip = 6` 的上下小唇）；`Determinant` 保持左右单根竖线加上下小衬线；`BracketedTable` 完全不画外框，`sideMargin()` 由 20 收到 4 |
+| BUG-180 | 矩阵设置只能改单元格宽度，老师无法画长方形窗格；标签「单元格」也不够醒目 | 已修复 | `ModuleField` 新增 `SizeInput` 复合控件与 `makeSize(key, label, w, wMin, wMax, h, hMin, hMax)` 工厂；`SandboxMatrixModule` 的设置项由 `makeText("cell", "单元格", ...)` 改为 `makeSize("cell", "单元格大小", ...)`，宽度 34~120px、高度 26~120px 双向可调；`MatrixBlock` 新增 `cellHeight` 属性与 `setCellHeight()` / `cellHeightValue()`，绘制、`cellAtPoint()` 与编辑框定位全部改用矩形单元格 |
+| BUG-179 | 哈希表指针 `k` 悬在表格上方的虚空里，指不到槽位；且所有指针都是瞬间跳到目标，没有平移动画 | 已修复 | `HashTableModule` 的 `m_probePointer` 改 `Down` 方向、`shaftLength = 26`、锚点偏移 `(cellW / 2, 19)`，尖端正好落在槽位中心；标签用 `setLabelAtTail(10.0)` 放到杆尾；`HT_HASH` / `HT_PROBE` 的定位改用 `IModule::retargetPointerTo()` 平移过去 |
+| BUG-178 | Trie 字典树的指针 `i` 没有指到格子正中间；向下指时标签 `i` 与箭头杆身重叠；新建结点突然「啪」地冒出来，很突兀 | 已修复 | `m_indexPointer` 锚点偏移改为 `(27, 19)`（格子水平中心 + 竖直中心），`setLabelAtTail(10.0)` 把标签推到杆尾之外；新增 `IModule::playNodeAppear()`（`QEasingCurve::OutBack` 从 0.15 缩放弹到 1.14 再回落 1.0，叠加透明度淡入）与 `playFadeIn()`，`TR_CREATE` 帧新建结点时播放生长动画 |
+| BUG-177 | 指针会瞬间闪现并跳到新位置，不像「移动过去」；且指针在未被使用前停在原点 `(0,0)`，把 `itemsBoundingRect()` 撑大、连带整个画布渲染错位 | 已修复 | `PointerBlock` 新增 `m_placed` 标记（通过 `xChanged` / `yChanged` 信号捕获）与 `isPlaced()`；`IModule::playPointerMove()` 在指针尚未落位时直接定位、落位之后一律走 `QPropertyAnimation` 平移；`PointerBlock::boundingRect()` 在 `opacity() < 0.02` 时返回空矩形并监听 `opacityChanged` 触发 `prepareGeometryChange()`，隐藏指针不再污染场景包围盒 |
+| BUG-176 | 二分图的 `col[]` 数组紧贴在图下方，视觉上挤成一团；数组默认初值显示为 `—` 而不是 `-1` | 已修复 | `BipartiteModule` 图心由 `(470, 210)` 下移到 `(470, 210)` 并加大节点间距到 115/135，`col[]` 标签下移到 `y = 470`、数组行下移到 `y = 487`、结论文字下移到 `y = 610`；`col[]` 初始自定义值由 `"—"` 改为 `"-1"`（与 `m_color` 数组的 `-1` 未染色语义一致） |
+| BUG-175 | 下拉里 Kruskal 与 Prim 分散在两个「最小生成树」分类里 | 已修复 | `MainWindow` 分类表合并为单一分组「图论 · 最小生成树」，内含 `KruskalModule` 与 `PrimModule`；去重后唯一模块数由 56 降为 54，`tests/GroupAUiTest.cpp` 的断言同步由 56 改为 54 |
+| BUG-174 | Prim 演示时指针 `u` 没有正对顶点圆，偏了一截 | 已修复 | `PrimModule` 的 `m_pickPointer` 改 `Up` 方向、`anchorOffset = (0, 20)`、`labelOffset = (0, 30)`、`shaftLength = 24`，尖端落在半径 20 的顶点圆边缘；定位改用 `retargetPointerToNode()` 平移 |
+| BUG-173a | `EulerModule.cpp` 中文字符串 `统计每个节点的入度与出度` 存在损坏字符 | 已修复 | 修正为 `统计每个节点的入度与出度`（原字节序列非 UTF-8，编译期被转义为乱码） |
+| BUG-173 | 折叠面板内容不可见：「矩阵设置」与「图结构选项」面板展开后一片空白，控件全部看不见 | 已修复 | 根因：`MyCollapsible::m_contentHeight` 只在 `setContentWidget()` 里、且在布局尚未建立（`sizeHint()` 返回 0）时计算一次，导致内容区高度被钉死为 0。修复：新增 `refreshContentHeight()` 重新测量并同步 `min/maxHeight`；`eventFilter()` 拦截内容控件的 `QEvent::LayoutRequest` 自动重测；`setContentWidget()` 改走 `updateGeometryAnimated()` 统一路径。`MainWindow::rebuildModulePanel()` 保持「矩阵设置」仅在矩阵模块下渲染、切到其他模块自动隐藏 |
+| BUG-172 | 图结构选项面板在图模块下同样看不到任何控件（与 BUG-173 同根因），连带欧拉路径无法切换有向/无向导致入度不显示 | 已修复 | 同 BUG-173 的 `MyCollapsible` 高度重测修复；`EulerModule` 另补有向图开关与 `in[]` / `out[]` 双数组入出度渲染，无向图时回落 `deg[]` |
+| BUG-171 | 哈希表与 Trie 字典树的数组行单元格之间存在空隙，与项目内其他数组视觉不一致；哈希表默认数据缺乏代表性，看不到冲突 | 已修复 | `HashTableModule` / `TrieModule` 数组改用 `cellWidth == spacing` 的无缝排布（单元格起点 = `startX + i * cellWidth`）；`HashTableModule` 默认数据改为 `5\n3 10 17 24 31`（对 7 取模后 `3 3 3 3 3` 全部冲突，完整演示线性探测） |
+| BUG-170 | Trie 字典树是「先建好整棵树再先序遍历一遍」，不是真正的动态建树教学 | 已修复 | `TrieModule` 重写为动态构造：起始只有根节点、游标 `p` 默认指向根；字符串以数组呈现并由指针 `i` 右移逐字符推进；每步检测当前子节点是否已存在，命中复用（`HIT`）、未命中新建（`CREATE`）；下方用一整条无缝数组模拟树形结构的内存槽位 |
+| BUG-169 | 二分图判定 BFS 染色时，父节点的色块被子节点染色过程覆写，最终 6 个点出现 4 橙 + 2 蓝，与二分图应有的 3 蓝 + 3 橙不符 | 已修复 | `BipartiteModule` 把颜色写入与颜色块刷新彻底隔离：染色只写目标结点的 `centerText` / 状态色，不再遍历修改父结点的色块；图内结点背景色与数组中的颜色标记同源刷新 |
+| BUG-168 | 计数排序的前缀和阶段是逐位静态赋值，没有体现「原数组与前缀和 `s[i-1]` 同时飞出合并成和」的效果 | 已修复 | `CountingSortModule` 前缀和阶段改用 `IModule::playMultiValueFlight`，把 `prefix[i-1]` 与 `cnt[i]` 两个来源数字同时沿弧线飞入 `prefix[i]` 合并落位 |
+| BUG-167 | Prim 最小生成树只演示了第一个点便提前结束，直接报「存在孤立分量，不存在 MST」，全程仅 3 帧，逻辑炸裂 | 已修复 | `PrimModule::runAlgorithm()` 在主循环开始前先执行一次 `relaxFrom(m_src)`，把起点的出边松弛进候选集，否则第一轮候选集为空即被误判为不连通 |
+| BUG-166 | GCD 辗转相除画面堆叠了多组重复的 `ValueBar` 槽位，特效杂乱、空间重复，看不出「取模 + 小的替换大的」 | 已修复 | `GcdModule` 整模块重写：画面只保留两个大号数字框 `a` / `b` 与一个余数框 `r`，中央直书 `a % b = r` 的算式；每轮把较小者用 `a % b` 替换较大者，历史轮次变灰留存 |
+| BUG-165 | DFS 显式栈的 `stk` 指针标签在右边缘被裁掉一半，看不全 `stk` 字样 | 已修复 | 根因：`PointerBlock::labelWidth()` 的测量字体与 `paint()` 的绘制字体不一致导致宽度估计偏窄。修复：`labelWidth()` 与 `paint()` 统一使用 `UiFonts::mono(14, true)`，宽度改为 `qMax(28.0, adv + 14.0)` 留足内边距；`PointerBlock` 新增 `setAnchorItem(QGraphicsItem*)` 支持锚定任意图元（不再局限于 `GraphNode*`） |
+| BUG-165a | 部分较新的算法模块动画速度固定，未随当前解说文字长度变化 | 已修复 | 把自适应延时下沉到核心基层：`IModule::frameDelayMs(const AnimFrame&)` 与 `IModule::frameDelayMsForText(const QString&)` 统一按「解说 + 公式」文本长度计算（下限 900ms、上限 3000ms），`MainWindow::advanceFrame()` 改用该基类实现，新模块自动继承 |
+| BUG-164 | 9 个新模块的画布存在多处元素压盖：标题文字压住图结点、结点锚定指针压住被指向的圆、指针压住数组下标行、行标签压住单元格 | 已修复 | `PointerBlock` 新增 `setLabelToRight()`（标签移到杆右侧）与 `setAnchorOffset()`；`DFSModule` 图心下移到 y=205、`vis`/`ord` 两行下移 30px、`u` 指针改 `Left` 方向且锚点偏移到圆右侧；`PrimModule` 图心下移到 y=200、`u` 指针锚点偏移到 (30,30)；`EulerModule` 图心下移到 y=200；`CountingSortModule` 四行整体下移 20px、行标签与单元格起点间距由 140px 放宽到 180px。`tests/OverlapAuditTest.cpp` 扩测至 9 个新模块（并把 `GraphNode` 审计框由宽松的 `boundingRect()` 改为真实圆框 + 单独采集 `subLabel`/`valueText`），最终 `conflicts=0` |
+| BUG-162 | 行列式功能未落实：「矩阵设置」面板缺少形态单选、行/列默认 3×3；数据输入区仍强制 `rows=` / `cols=` / `type=` 键；面板在其他模块下依然显示 | 已修复 | `SandboxMatrixModule` 重构：`moduleSettingsFields()` 追加 `Segment` 形态字段（矩阵 / 行列式 / 表格，默认索引 2 即「表格」）、`IntInput` 行数与列数（默认 3×3）；`buildLayout` 移除全部 `rows=` / `cols=` / `type=` / `cell=` 键解析，数据输入区只按行优先顺序收集纯数值填入 `MatrixBlock`，缺额自动补 0；`moduleSettingsTitle()` 返回「矩阵设置」，面板仅在选中本模块时由 `MainWindow::rebuildModulePanel()` 渲染，切到其他模块自动隐藏。测试新增 `tests/NewModuleBatchTest.cpp` 与 `ModuleSettingsPanelTest.cpp` 的面板显隐断言 |
+| BUG-163 | 新增 9 个算法模块后，多处编译失败：头文件缺少 `supportsBidirectional()` 声明、`QString::arg()` 空参调用、`const int n` 重复定义、`GraphNode*` 与 `QGraphicsItem*` 类型不匹配、`SegmentBar` 未加入链接 | 已修复 | `PrimModule.h` / `BipartiteModule.h` / `EulerModule.h` 补齐 `supportsBidirectional()` 声明；`PrimModule.cpp` 移除多余 `.arg()`；`CountingSortModule.cpp` 将重复的 `const int n` 合并为 `const int count`；`TrieModule.cpp` 节点指针改用 `static_cast<GraphNode*>`；新增 `src/render/SegmentBar.h/.cpp` 并同步登记到 `CMakeLists.txt` 与 `tests/CMakeLists.txt`；`HashTableModule.cpp` 删除无声明的 `buildLabels()` |
+| BUG-159 | 打开算法模块下拉列表时，弹层窗口**最右侧与最下方**各有一条贯穿整个弹层高度的深灰硬竖线（RGB 140,140,141），位于卡片外侧与窗口边界之间的空白区 | 已修复 | 根因不在自绘阴影，而在 **Windows 给 `Qt::Popup` 顶层窗口绘制的原生 DWM 边框**：`Qt::FramelessWindowHint` 只去掉标题栏，不会去掉 DWM 的 1px 描边。修复：`ComboPopupFrame` 构造时与 `MyComboBox::openPopup()` 中均追加 `Qt::NoDropShadowWindowHint`（0x40000000），关闭系统阴影与原生描边；阴影完全由 `ComboPopupFrame::paintEvent` 自绘。同时候 `ComboPopupFrame::paintEvent` 的多层同心圆角矩形扩散半径由 `i*2.2`（最外层 26.4px）收敛为 `maxSpreadX=11 / maxSpreadY=6`，避免阴影被窗口边界裁切成折线；弹层外边距由 (27,18,27,20) 调整为 (18,12,18,14)。像素实测：修复前窗口右边界 x=1220 为 `140,140,141` 硬线，修复后该列变为纯净 `251,252,254`，右/下边缘均为平滑渐变 |
+| BUG-160 | 切换算法模块时侧栏崩溃（SIGSEGV，`MainWindow::updateGraphOptionPanel` → `QObject::blockSignals` 空指针） | 已修复 | 根因：`MainWindow::rebuildModulePanel()` 清空 `modulePanelContent` 时对每个子控件调用 `deleteLater()`，其中包含**跨模块复用的成员控件** `toggleDirected` / `checkBidirectional`；随后 `rebuildModulePanel()` 又把这两个已析构的成员指针重新加入新面板，造成悬空指针。修复：清空前先 `setParent(modulePanelHost)` 把复用控件移出待删列表，并跳过对二者的 `deleteLater()`；非图模块下显式 `setVisible(false)` 隐藏二者。另修复 `updateGraphOptionPanel()` 与 `animateSubOptionVisibility()` 中因语句粘连（`if (!supported) return;` 与下一语句同行）导致的不可达代码 |
+| BUG-161 | `SmartGroundUiBehaviorTest` 断言图面板（`graphPanel`）在图模块下可见，与 BUG-158 合并后的「特化设置」单面板设计冲突 | 已修复 | 测试改为按标题查找 `MyCollapsible`（新增 `headerText()` 访问器），定位到「特化设置」面板再断言可见性；断言文案同步由「graph panel」改为「settings panel」 |
+| BUG-153 | 算法模块下拉弹层外侧残留一圈包裹整个结构的硬边阴影线（右侧与下侧尤为明显，与卡片之间有明显空隙） | 已修复 | 移除 `ComboCard` 上的 `QGraphicsDropShadowEffect`（该控件会把阴影裁切到自身矩形，形成硬边）；`ComboPopupFrame::paintEvent` 改为 12 层由外到内的同心圆角矩形叠加绘制柔和渐隐阴影，边缘不再出现折线；弹层外边距由 (20,18,20,20) 调整为 (27,18,27,20) 使阴影四周对称 |
+| BUG-154 | 图结点权值双击修改后，新值仍显示在圆形结点下方（`valueText` 位置 y=22）而非圆内 | 已修复 | `GraphNode::commitEdit()` 统一走 `setCenterText()`（绘制于 `QRectF(-20,-20,40,40)`）并清除残留的 `valueText`；`IModule::refreshLiveSlots()` 同步改为写入圆内文本；`GraphNode::beginEdit()` 预填圆内/自定义/下方文本优先级；新增 `GraphNode::belowText()` 访问器与 `editorItem()` 便于测试 |
+| BUG-155 | 行列式 / 矩阵 / 表格模块仅有行列式形态可改，其余功能残缺；形态切换与行列数调整散落、无法在统一面板内操作 | 已修复 | `MatrixBlock` 重写：新增 `sideMargin()` / `setCellSize()`，行列式与表格形态使用真正的左右竖线括号（`barColor` 独立配色），单元格改为 `mono(13)` 且支持双击就地改值；`SandboxMatrixModule` 支持 `rows=` / `cols=` / `type=` / `cell=` 输入键，三种形态（矩阵 / 行列式 / 表格）可切换，行列数与单元格尺寸可在「特化设置」面板中调整并保留已有数据；`buildLayout` 保留用户已覆盖的形态与尺寸设置，避免重建时回退 |
+| BUG-156 | 左侧存在三个下拉视觉风格（Vue 扁平 / 柔光玻璃 / 极简描边），风格切换器冗余 | 已修复 | `ComboVisualStyle` 仅保留 `VueLight`；删除 `paintGlassTile` / `paintMinimalTile` 与 `ComboCard` / `ComboPopupFrame` 中的对应分支；移除 `MainWindow` 侧栏的风格切换器（`comboStylePicker`）；`MyComboBox::styleNames()` 只返回 `{"Vue 扁平"}` |
+| BUG-157 | 算法模块下拉内的文字偏小，可读性不足 | 已修复 | 选项字号由 9pt 提升至 10pt（`kOptionFontSize`），分组标题 9pt → 10pt（`kHeaderFontSize`），按钮文字 10pt → 11pt（`kButtonFontSize`）；选项内边距由 34 → 40，列宽由 `qBound(120, ..., 240)` 放宽为 `qBound(140, ..., 300)`，长名称（如「自由结构 - 矩阵 / 行列式」）不再截断 |
+| BUG-158 | 图结构选项与模块设置分成两块独立面板，割裂且占用侧栏空间 | 已修复 | 合并为唯一的「特化设置」折叠面板：`MainWindow::rebuildModulePanel()` 在图模块下自动插入「图的类型」开关、「无向边加双向箭头」复选框与边权提示，随后追加模块自身的 `ModuleField`；`updateGraphOptionPanel()` 不再单独显示 `graphPanelHost`；分段控件独占整行，数值输入框固定 72px 宽 |
+| BUG-141 | 树状数组指针箭头与数组下标行重合，多个算法的指针 / 文字 / 单元格互相压盖 | 已修复 | `PointerBlock` 重构：新增 `setShaftLength()` / `setLabelOffset()` / `setLabelAbove()`，箭头尖端统一落在原点，标签位置与杆长解耦，`boundingRect()` 改为「杆身 ∪ 标签」并集；树状数组下标行改为独立文本置于方块上方，指针 `i` 自下而上指向目标块底边、标签落在层间空隙；新增 `tests/OverlapAuditTest.cpp` 做全模块几何级自动审计（BUG-141） |
+| BUG-142 | 链式前向星四组数组竖排并置，指针 k 与 head[u] 压住单元格与下标行 | 已修复 | 四组数组重构为「四行横排」（`head/to/nxt/weight` 各占一行），指针 `k` 与 `head[u]` 均自下向上指，标题移入左侧独立列，图节点右移避开数组区（BUG-142） |
+| BUG-143 | 堆调整 / 堆排序的数组标题压住完全二叉树根节点，树结构标题压住根节点 | 已修复 | `HeapTreeBase::layoutHeap()` 中数组标题上移到 `arrY - 54`、树标题上移到 `treeTop - 92`，与节点包围盒彻底分离（BUG-143） |
+| BUG-144 | 线段树指针 node 锚定在节点包围盒内部 | 已修复 | 锚点偏移由 `0,46` 调整为 `0,80`，指针杆身与标签完全脱离节点包围盒（BUG-144） |
+| BUG-145 | 拓扑排序 H/T 指针压住队列单元格与下标行，结点层与标题重叠 | 已修复 | 结点层布局由 `80 + j*90` 下移到 `150 + j*90`；输出序列行由 `degreeY+200` 下移到 `degreeY+270`；`playPointerArrange` 偏移改为 40（BUG-145） |
+| BUG-146 | 双击数组单元格改值时数字键 1-7 被画布快捷键抢占，无法输入 | 已修复 | 新增 `src/core/TextEditGuard.h`：检测 `QApplication::focusWidget()` 或 `QGraphicsScene::focusItem()` 处于文本编辑态时，`CanvasView` 与 `MainWindow` 跳过快捷键拦截（BUG-146） |
+| BUG-147 | 表格被关闭或删除后，上方调整工具栏仍悬浮在画布上 | 已修复 | `TableToolBar` 增加表格对象有效性校验，表格删除 / 取消选中即刻隐藏（BUG-147） |
+| BUG-148 | 框选多个元素删除后仍有残留批注与活动表格态 | 已修复 | `ToolController::deleteSelected()` 同步清空 `m_activeTable`、发 `tableActivated(nullptr)` 并取消全部选中（BUG-148） |
+| BUG-149 | 箭头笔尖不在直线最尖端，鼠标停点与箭头位置有偏差 | 已修复 | `ShapeItem` 箭头多边形顶点严格落在 `m_end`，杆身截至 `m_end - (ux,uy) * head`，不再穿出箭头（BUG-149） |
+| BUG-150 | 文本框与 Markdown 输入后必须点击别处才刷新预览 | 已修复 | `TextBoxItem::notifyContentChanged()` 每次按键即触发重绘；`MarkdownItem` 拆分为 `m_editor` + `m_preview` 双文档，输入时实时重排预览（BUG-150） |
+| BUG-151 | 全项目中文与西文字体混杂，中文未使用微软雅黑、西文未使用 Consolas | 已修复 | 新增 `src/ui/UiFonts.h` 字体引擎：`cjk()` / `mono()` / `mixed()` 三档，全项目改用该引擎（BUG-151） |
+| BUG-152 | 算法模块下拉弹层瓦片廉价生硬，缺少悬停 / 点击动效 | 已修复 | `ComboOption` 重做为圆角 11px 渐变瓦片 + hover 柔光扫掠 + 按下收缩，新增 `hoverProgress` / `pressProgress` 属性驱动 `QPropertyAnimation`；分组瓦片继承分类主色；弹层开合加透明度过渡（BUG-152） |
+| BUG-131 | 并查集路径压缩模块 pa 数组下标越界导致崩溃 | 已修复 | pa/sz 改 1-based；liveValue 兜底值 -1 先校验再写入；无覆盖值时回落到 buildLayout 解析的 m_parents（BUG-131） |
+| BUG-132 | 树的直径第二轮 DFS 只沿子节点方向遍历，直径算短 | 已修复 | 两轮 DFS 统一走无向邻接表；第二轮记录 parent2[] 回溯真实路径；TD_PATH 帧区分汇总与逐段点亮（BUG-132） |
+| BUG-133 | 快速幂模块 qmul 内层循环未展开，竖式乘法面板信息缺失 | 已修复 | qmul 展开为逐帧录制，新增 FP_QMUL_INIT/ROW/ACC/DONE 四个动作类型（BUG-133） |
+| BUG-134 | 埃氏筛把被划掉的数字整格清空，学生看不到原值 | 已修复 | ArrayBlock 新增 `m_struck` 划除标记；`applyCross()` 保留数字、置灰底色、叠加删除线并缩放至 0.82（BUG-134） |
+| BUG-135 | 自动播放时右下角帧滑块与帧计数徽标不跟随动画前进 | 已修复 | `MainWindow::advanceFrame()` 增加 `syncFrameSlider()` 调用，播放中实时同步滑块位置与 "N / M" 徽标（BUG-135） |
+| BUG-136 | 埃氏筛每个倍数单独占一帧，帧数爆炸且缺少流动感 | 已修复 | 新增 `SV_CROSS_BATCH` 动作；同一素数的全部倍数合并为一帧，用 `QVariantAnimation` 按顺序流动划掉并逐格发出涟漪（BUG-136） |
+| BUG-137 | 快速幂字与下标重叠、含 qmul 面板、帧数过多，且 `a` 在精确模式下整型溢出显示为 0 | 已修复 | 删除 qmul 与 `FP_QMUL_*`/`FP_SQUARE`/`FP_SHIFT` 动作；新增 `AnimFrame::big1~big4` 承载 64 位数值；二进制位条右端为第 0 位，每位合并为一帧；精确值超出 64 位范围时提示改用取模分支（BUG-137） |
+| BUG-138 | 树的直径节点标签 `dep=...` 过长，被相邻节点遮挡 | 已修复 | `layoutTreeScene()` 叶子间距由 104.0 放宽到 178.0，节点标签互不重叠（BUG-138） |
+| BUG-139 | 堆优化 Dijkstra 左侧画二叉堆树，元素无法完整显示，且入堆没有推移过程 | 已修复 | 删除堆树节点与连线，改为数组化 `pq (堆)`；单元格加宽到 98.0 并用 11 号字显示 `pair(dis, u)`；入堆时 `k` 之后元素整体右移一格（BUG-139） |
+| BUG-140 | 链式前向星指针 k 与 to[] 单元格重叠，且染色瞬间完成无反馈 | 已修复 | 四列 X 间距放宽到 150；指针 k 改用 `PointerBlock::Right` 从 to 列左侧指向；`highlightCell()` 增加 `playScalePulse` 高亮脉冲（BUG-140） |
 | BUG-001 | TarjanModule::runAlgorithm 调用 initGraph 清空了 buildLayout 录入的 head/to/nxt 邻接表，图被当成无边图处理 | 已修复 | 抽出 resetTraversalState，只重置 dfn、low、ins、stk、scc 和计数器；算法开始时保留邻接表 |
 | BUG-002 | 多个派生模块重复声明 m_scene，遮蔽 IModule 的基类场景指针 | 已修复 | 删除 modules 下派生模块头文件的同名成员，并移除 HeapBasicsModule 旧构造函数初始化项，所有 buildLayout 赋值现在指向基类成员 |
 | BUG-003 | 撤销重建布局后才关闭动画锁，布局动画和帧重放动画可能继续运行 | 已修复 | MainWindow 在重建和帧重放期间关闭 m_animated；Tarjan 布局初始化也遵守动画锁 |
@@ -326,6 +424,165 @@
   - 「插入 k 行 / k 列」使用 `MyTextInput` 输入数量（自绘控件，未引入原生 `QTextEdit`）。
 - **验证**：`SmartGroundSmartCanvas` 断言「单元格对齐被记录」「插入行 / 列后行列数增长」「删除行 / 列生效」「尺寸回落正确」。
 
+## BUG-127 矩形选中后拖动时元素在原地疯狂震动
+
+- **现象**：用矩形框选一批元素后，按住左键拖动，元素不跟随鼠标，而是在原地高频来回抖动。
+- **根因**：`ToolController::updateMoveSelection()` 把**增量位移**与**按下时的初始位置**混用——`delta = pos - m_moveLastPos` 是相邻两次鼠标事件之间的步长，却直接加到按下瞬间记录的 `m_moveOrigins`（绝对初始坐标）上。元素因此只会停在「初始位置 + 最后一步步长」这个固定点附近，反复移动鼠标就在该点周围抖动，永远跟不上下游标。
+- **修复**：`beginMoveSelection()` 额外记录按下点 `m_movePressPos`；`updateMoveSelection()` 改为按**累计位移** `total = pos - m_movePressPos` 计算目标位置 `origin + total`，位置只与光标相对按下点的偏移有关，与事件步长无关。鼠标未移动（步长为零）时直接跳过重绘，避免无效刷新。
+- **验证**：新增 `SmartGroundSmartCanvas` 用例「拖动累计位移等于整段光标行程」，断言 9 段移动后总偏移精确等于 `(90, 45)`。
+
+## BUG-128 编辑态下全局快捷键未隔离，数字键触发画笔颜色
+
+- **现象**：落下文本框 / Markdown 笔记后开始输入，按数字键 `1`–`7`，左下角状态栏仍显示「画笔颜色 #…」，按字母键还会切换工具。
+- **根因**：两层问题叠加。
+  1. 画布的键盘焦点在**算法下拉框**（`MyComboBox`）上，事件沿 `MyComboBox → QWidget → MainWindow` 冒泡，`MainWindow::keyPressEvent()` 无条件执行 `applyColorShortcut()` 与工具切换分支，完全不知道画布正处于行内编辑状态。
+  2. 画布 `viewport()` 上虽装了 `ToolController` 事件过滤器，但焦点在 view 上时按键根本不会送到 viewport，过滤器形同虚设。
+- **修复**：
+  - `ToolController` 新增 `isInlineEditing()`，行内编辑期间 `onKeyPress()` 只把按键交给 `m_editingItem->handleEditKey()` 并吞掉事件，不落入任何全局快捷键分支；`applyColorShortcut()` 在编辑态直接返回 `false`。
+  - `MainWindow::keyPressEvent()` 在 `Ctrl` 组合键与普通键两段入口都先判断 `isInlineEditing()`，命中即 `accept()` 并返回。
+  - `ToolController::beginInlineEdit()` 主动把焦点交给 `m_view->viewport()`，使按键稳定落在画布而非下拉框。
+  - 新增 `ToolController::handleKeyPress()`（返回是否处理）与 `CanvasView::keyPressEvent()`，让落在 view 上的按键也能进入控制器；同时 `onKeyPress()` 改为返回布尔值，未处理的普通按键仍交回 `QGraphicsView`，不吞掉空格平移等既有交互。
+- **验证**：`SmartGroundSmartCanvas` 断言「编辑态下数字快捷键不改变画笔颜色」「字母快捷键不切换工具」「输入字符仍能进入文本框」。
+
+## BUG-129 颜色选择器顶部预览只显示黑色，取色条不连续
+
+- **现象**：画笔 / 荧光笔设置面板顶部的预览框始终是一片黑色；「渐变预设」标签语义不准；色相条两端不是纯黑到纯白，取色无法连续调节。
+- **根因**：`MyColorPicker` 用一个普通 `QWidget` 当预览容器并给它写了不透明样式 `background:#1f2733`，该子控件完全覆盖了父控件 `paintEvent()` 里绘制的渐变条，父控件的绘制根本看不见；同时色相条用 `QColor::fromHsv(360, …)` 作渐变端点，而 360 不是合法色相（合法范围 0–359），端点退化成了黑色。
+- **修复**：重写 `MyColorPicker`。
+  - 预览改为自绘 `ColorPreview`，纯色填充 + 圆角描边，颜色跟随当前取值。
+  - 新增自绘 `ColorField`：上半部分是**饱和度 × 明度**二维取色区（白→纯色横向渐变叠加黑色纵向渐变），下半部分是**连续色相条**（0–359° 循环渐变 + 可拖拽指示圈）。两处都支持按下即定位与拖动实时取色。
+  - 色相渐变端点改用 359°，并对无彩色（灰色）单独做色相归一化，避免 `QColor::hue()` 返回 -1 造成取色跳变。
+  - 「渐变预设」标签改为「预设」；色相滑条量程改为 0–359。
+  - 色值、RGB 数字、滑条与预览通过 `syncInputs()` 双向同步，并加 `m_syncing` 标志防止信号回环。
+- **验证**：新增 `SmartGroundColorPickerTest`，逐像素采样色相条断言「左端偏红 / 中段偏绿 / 经过品红 / 右端回绕到红」且不是纯色；断言预览显示当前色而非黑色；断言「预设」标签存在、「渐变预设」已移除；模拟拖动色相条断言确实选出了新颜色。
+
+## BUG-130 表格插入多列时行列数与数据长度不同步，导致渲染越界闪退
+
+- **现象**：在表格上下文工具栏执行「插入 2 列」后再删除行列，画布重绘时崩溃（`QList::operator[]: index out of range`，栈在 `CanvasTableItem::paint()`）。
+- **根因**：`CanvasTableItem::insertColumns(at, count)` 的循环体只插入**一列**（`m_data[i].insert(at, …)` 写在外层 for 内层没有按 `count` 展开），却把 `m_cols` 直接加了 `count`。数据行长度从此少于 `m_cols`，`paint()` 遍历 `j < m_cols` 时访问 `m_data[i][j]` 越界。
+- **修复**：`insertColumns()` 改为按 `count` 循环插入；`insertRows()` / `removeRows()` / `removeColumns()` 统一走 `rebuildCells()` 归一化数据维度；`paint()`、`cellAt()`、`setCell()`、`setCellAlign()`、`cellAlign()` 全部补齐越界保护。
+- **验证**：`SmartGroundSmartCanvas` 既有用例覆盖插入 / 删除行列后尺寸回落；本轮全量 54 个测试目标全部通过。
+
+## BUG-131 并查集路径压缩模块的 pa 数组下标越界导致崩溃
+
+- **现象**：`并查集 路径压缩` 模块一构建就崩溃（`0xC0000005`），无头测试直接触发访问违例。
+- **根因**：`DSUPathCompressionModule::runAlgorithm()` 用 `liveValue("pa", i + 1, -1)` 读取父节点覆盖值，而 `liveValue()` 在**没有覆盖值**时返回传入的兜底值 `-1`。代码把这个 `-1` 直接写进 `pa[x - 1]`，随后 `while (pa[x - 1] != x)` 循环用 `-1` 下标访问数组，越界读；同时 `pa` 数组本身按 0-based 分配却用 1-based 结点编号访问，整体错位一格。
+- **修复**：`pa` / `sz` 改为 1-based（`std::vector<int> pa(m_n + 1)`）；`liveValue` 的兜底值改用 `-1` 判断后再做边界校验才写入；未提供覆盖值时回落到 `buildLayout()` 解析出的 `m_parents`（同样做范围钳制）。
+- **验证**：`SmartGroundBatch8` 新增 `并查集 路径压缩` 用例，断言 `DP_FIND` / `DP_COMPRESS` / `DP_DONE` 帧存在、场景非空、非法输入降级为空帧。
+
+## BUG-132 树的直径第二轮 DFS 只沿子节点方向遍历，导致直径算短
+
+- **现象**：`树的直径` 模块算出的直径长度恒小于真实值（测试树 `1 2 3 / 2 4 5 / 3 6 / 4 7` 期望 5，实测 4）。
+- **根因**：两轮 DFS 都只遍历 `m_children[u]`（父→子方向）。第一轮从根出发尚可，但第二轮**从 A 出发**时，A 往往是叶子节点，其出边方向在 `m_children` 中不存在，导致搜索无法展开。
+- **修复**：两轮 DFS 统一改为遍历**无向邻接表**（由 `m_children` 双向展开得到）；第二轮额外记录 `parent2[]` 以便回溯出真实路径；`TD_PATH` 帧改用 `group[0]` 区分「汇总帧」与「逐段点亮帧」，逐段帧携带前一结点编号用于精准点亮对应树边。
+- **验证**：`SmartGroundBatch8` 断言直径长度为 5、端点为 7 与 6。
+
+## BUG-133 快速幂模块 qmul 内层循环未展开，竖式乘法面板信息缺失
+
+- **现象**：`快速幂` 模块右侧 `qmul` 面板只有标题没有过程，学员看不出竖式乘法的逐位推进。
+- **根因**：`runAlgorithm()` 里的 `qmul` lambda 直接用算术表达式完成乘法，没有把 `while (b) { if (b & 1) res += a; b >>= 1; a += a; }` 的每一步录成动画帧。
+- **修复**：把 `qmul` 展开为逐帧录制：新增 `FP_QMUL_INIT` / `FP_QMUL_ROW` / `FP_QMUL_ACC` / `FP_QMUL_DONE` 四个动作类型，面板实时显示「当前底数 a / 乘数 b / 累加 res」以及 `b >>= 1`、`a = (a + a) mod p` 的公式；`qpow` 外层的取位、平方、移位也各自独立成帧。
+- **验证**：`SmartGroundBatch8` 断言 `3^13 mod 1000000007 = 1594323` 且 `FP_QMUL_ROW` 帧数大于 10。
+
+## BUG-134 橡皮工具面板沿用画笔面板高度，导致设置卡片过高且无法选择橡皮形状
+
+- **现象**：点开橡皮工具后弹出面板高度与画笔 / 荧光笔面板几乎一致（因为 `QStackedWidget` 的 `sizeHint()` 取所有页面最大值），实际橡皮只有一行大小滑块却撑出大片空白；同时橡皮只能圆形擦除，无法切换方块。
+- **根因**：`CanvasToolBar::buildToolPanel()` 用 `QStackedWidget` 承载全部工具页，`QStackedLayout` 的 `sizeHint` 会返回所有页面的最大尺寸，于是矮页面（橡皮、马赛克）也被迫按最高页（画笔 + 取色器）定高；`ToolStyle` 里也没有记录橡皮形状的字段。
+- **修复**：新增 `CanvasToolBar::applyToolPageSize()`，在切换 / 重建工具页时按当前页 `sizeHint` 固定 `m_toolPages` 尺寸，使每个工具面板高度独立贴合内容；`ToolStyle` 增加 `eraserSquare`，`ToolController` 增加 `eraserSquare()` / `setEraserSquare()`；`eraseAt()` 依形状分别走圆形 `hitTest` 与方形区域求交；画布橡皮光标同步绘制圆形或方框。
+- **验证**：新增 `SmartGroundEraserPanel`，断言橡皮面板高度 103px（< 130px）且明显低于画笔面板；`eraser_panel.png` 可见「圆形 / 方形」分段选择器。
+
+## BUG-135 算法模块下拉气泡线条杂乱、配色发白且带锯齿状阴影边框，观感廉价
+
+- **现象**：算法模块下拉弹层的每组瓦片都带左侧色条 + 顶部高光 + 斜向扫光三层叠加，弹层外圈还套了 16 层同心圆环模拟阴影，形成明显的椭圆锯齿边框，整体偏灰偏白、棱角过多，与画笔弹出面板的现代风格割裂。
+- **根因**：`ComboOption::paintTile()` 同时绘制渐变底、白色高光遮罩、左色条与斜扫光四种叠加；`ComboPopupFrame::paintEvent()` 用 16 层递增圆角矩形手工堆阴影，边缘必然出现台阶状锯齿。
+- **修复**：`MyComboBox` 引入 `ComboVisualStyle`（`VueLight` / `SoftGlass` / `MinimalLine`）三套风格；`VueLight` 改为 Vue 式扁平瓦片（无色条、无扫光、悬停时仅 160ms 强调色淡入、选中项用强调色 34 透明底 + 左侧 3px 圆角指示条）；弹层阴影改用 `QGraphicsDropShadowEffect` 真投影；弹层卡片改 16px 圆角 + 极淡描边；分组标题由「色条 + 渐变尾线」简化为「6px 圆点 + 文字 + 渐隐细线」；下拉箭头加入开合旋转动画；下拉框文字按中西文自动切换 Consolas / 微软雅黑。
+- **验证**：新增 `SmartGroundComboStyleShot` 生成 `style_vue_light.png` / `style_soft_glass.png` / `style_minimal_line.png` 三张对照图；`SmartGroundAppCombo` 断言真实主窗口下拉弹层仍渲染出分类标题（dark pixels = 16368）。
+
+## BUG-136 左侧新增风格切换器后，启动面板像素审计误报「左栏存在强调色块」
+
+- **现象**：`SmartGroundStartupPanelTest` 报 `FAIL: no accent-tinted block in left column at startup`（accent=1570）。
+- **根因**：该测试用固定像素带 `y ∈ [110, 300)` 扫描左栏有无「图结构选项」面板残留；风格切换器 `MySegmentedControl` 的选中指示条正好使用强调色渐变（`m_accent.lighter(118) → m_accent`），落在该像素带内被误计入。断言本身没错，但扫描区域与新增控件重叠了。
+- **修复**：测试改为按控件几何动态定位扫描带 —— 取 `comboStylePicker` 底边 +6px 作为起始，再向下取 190px 作为图表面板区，避免与风格指示器重叠。
+- **验证**：修正后启动态 `accent=0`、选中图论模块后 `panelSurface=33730`，两条断言均通过；全量 62 个测试目标全绿。
+
+## BUG-137 下拉气泡缺少全局风格切换入口，用户选定风格后无法运行时切换
+
+- **现象**：`ComboVisualStyle` 三套风格虽已在 `MyComboBox` 内实现，但没有对外的切换入口，风格写死在 `MainWindow` 构造里。
+- **根因**：`setVisualStyle()` 只作用于单个实例，且缺少全局状态同步机制。
+- **修复**：`MyComboBox` 新增静态实例表 `g_instances` 与 `setGlobalVisualStyle()`，切换时同步刷新所有已存在实例；新增 `styleNames()` / `styleName()` / `styleIndex()` 供 UI 绑定；`MainWindow` 左侧面板在「算法模块」下方加入「界面风格」标签 + `MySegmentedControl`（Vue 扁平 / 柔光玻璃 / 极简描边），切换即时生效。
+- **验证**：新增 `SmartGroundStylePicker`，断言三段选项存在、默认为 VueLight、三次切换分别落到 SoftGlass / MinimalLine / VueLight 且切回后弹层仍能正常打开。
+
+## BUG-159 下拉弹层窗口右/下边缘残留贯穿式深灰硬线
+
+- **现象**：打开算法模块下拉列表时，弹层**最右侧**与**最下方**各有一条贯穿整个弹层高度的深灰竖线（用户截图红框内），位于卡片外侧的空白区，与卡片之间有明显间隔。
+- **像素实测（修复前，3840×2160 物理像素）**：弹层逻辑位置 (136,174)，尺寸 677×394，缩放 1.5 后窗口右边界在物理 x=1220。该列像素恒为 `140,140,141`（深灰），向下贯穿全部 591 行；底边 y=852 处同理 `140,140,141`。而卡片自身右边缘在 x=1191（`226,232,242`，浅蓝灰），二者相距 29px。
+- **根因**：**Windows 桌面窗口管理器（DWM）给 `Qt::Popup` 顶层窗口绘制的原生 1px 描边**。`Qt::FramelessWindowHint` 只移除标题栏与系统按钮，并不影响 DWM 的窗口描边，因此即使 `WA_TranslucentBackground` 全透明渲染，窗口最外一圈仍会出现一圈深色硬边。在浅色画布上这条边非常显眼。
+  - 自绘阴影并非元凶：`ComboPopupFrame::paintEvent` 原用 `spread = i * 2.2`（最外层 26.4px）而右边距仅 27px，理论上会被窗口边界裁切成折线，但 A/B 对照显示裁切处落在窗口**内部**（x=1191 卡片边框处），并非用户看到的 x=1220。
+- **修复**：
+  1. `ComboPopupFrame` 构造时追加 `setWindowFlags(windowFlags() | Qt::NoDropShadowWindowHint)`，`MyComboBox::openPopup()` 中改用 `frame->setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint)`，关闭系统阴影与 DWM 原生描边；阴影完全交由 `paintEvent` 自绘。
+  2. `ComboPopupFrame::paintEvent` 的同心圆角矩形扩散半径由 `i * 2.2` 收敛为 `maxSpreadX = 11` / `maxSpreadY = 6`，并改为线性衰减 alpha，确保阴影层完全落在窗口边界内、不会产生任何折角。
+  3. 弹层外边距由 (27,18,27,20) 调整为 (18,12,18,14)，窗口宽度由 `popupWidth + 54` 收窄为 `popupWidth + 36`。
+- **验证**：新增回归测试 `SmartGroundPopupEdgeVerify`（真实屏幕像素级）。修复后窗口右边界 x=1220 列变为纯净 `251,252,254`，右/下边缘均为平滑渐变；A/B 对照确认移除 `Qt::NoDropShadowWindowHint` 后硬线立刻复现。
+
+## BUG-160 切换算法模块时侧栏崩溃（悬空指针）
+
+- **现象**：`SmartGroundUiBehaviorTest` 在切换到图论模块时 SIGSEGV 崩溃，栈顶为 `QObject::blockSignals(bool)` ← `MainWindow::updateGraphOptionPanel`（`MainWindow.cpp:738`）← `MainWindow::onModuleChanged`。
+- **根因**：`MainWindow::rebuildModulePanel()` 清空 `modulePanelContent` 时对每个子控件调用 `deleteLater()`，其中包含**跨模块复用的成员控件** `toggleDirected`（`MyToggleSwitch`）与 `checkBidirectional`（`MyCheckBox`）；重建时又把这两个**已被析构**的成员指针重新加入新面板，形成悬空指针。同时 `updateGraphOptionPanel()` 与 `animateSubOptionVisibility()` 中因语句粘连（`if (!supported) return;` 与下一语句写在同一行）造成后续语句不可达。
+- **修复**：
+  1. `rebuildModulePanel()` 清空前先 `toggleDirected->setParent(modulePanelHost)` / `checkBidirectional->setParent(modulePanelHost)` 把复用控件移出待删集合，并在 `deleteLater()` 判断中显式跳过二者。
+  2. 非图模块分支显式 `setVisible(false)` 隐藏这两个复用控件，图模块分支恢复 `setVisible(true)`。
+  3. 拆开粘连语句：`updateGraphOptionPanel()` 的 `if (!supported) { ...; return; }` 独立成块；`animateSubOptionVisibility()` 的函数体首行独立成行。
+- **验证**：`SmartGroundUiBehaviorTest` 恢复为 0 失败，21 轮模块/选项切换崩溃回归通过。
+
+## BUG-161 UiBehavior 测试断言与「特化设置」单面板设计冲突
+
+- **现象**：`SmartGroundUiBehaviorTest` 报 2 条失败：`graph panel VISIBLE for graph module` 与 `graph panel VISIBLE again after switching back`。
+- **根因**：BUG-158 已把图结构选项合并进唯一的「特化设置」面板（`modulePanel`），`graphPanel`（`MyCollapsible`，标题「图结构选项」）成为不再显示的历史控件；而测试用 `findChild<MyCollapsible*>()` 取到的是**第一个**折叠面板，恰好是历史 `graphPanel`，断言对象错位。
+- **修复**：测试改为按标题查找 —— `MyCollapsible` 新增 `headerText()` 访问器，测试遍历 `findChildren<MyCollapsible*>()` 匹配标题「特化设置」后再断言可见性；断言文案由「graph panel」改为「settings panel」。
+- **验证**：`SmartGroundUiBehaviorTest` 全绿；全量 54 个测试套件零失败。
+
+## BUG-162 指针首次出现时从原点 (0,0) 飞入，产生贯穿全图的连线
+
+- **现象**：循环队列 `head`/`tail`、字符串哈希 `i`、LCS `i`/`j` 等模块在指针首次出现时，箭头从画布左上角 (0,0) 一路飞到目标单元格，视觉上像是被一根斜线"拽"过来。
+- **根因**：`IModule::playPointerMove()` 直接以 `ptr->pos()` 作为动画起点，而这些指针在 `buildLayout()` 中创建后从未设置过位置，其 `pos()` 仍为默认的 (0,0)。首次调用时动画便从 (0,0) 开始插值。
+- **修复**：`playPointerMove()` 增加起点判定 —— 若 `ptr->pos()` 为 `QPointF()`（默认未放置），则直接 `setPos(targetPos)` 瞬移到位，不启动动画；其余情况照常播放移动动画。
+- **验证**：`SmartGroundBatch9Visual` 的指针审计项（cq / stringhash / lcs / bucket / radix / mq / trie / hash）全部转绿，`fail=0`。
+
+## BUG-163 树状数组指针 i 落在被指向单元格内部并压住相邻格子
+
+- **现象**：树状数组模块中红色指针 `i` 的箭头尖端插进目标 `t[i]` 方格内部，并与左右相邻的方格重叠；箭头方向也从水平（Right）中途变为竖直（Up），视觉上像是"躺"在格子里。
+- **根因**：`FenwickTreeModule::movePointerTo()` 计算落点时用了 `t->pos() + QPointF(t->cellWidth() / 2.0, originY)`，其中 `originY` 已经是"格顶 + 格高"的绝对纵坐标，却又作为**相对偏移**加到 `t->pos().y()` 上，导致落点被整体下移一个 `t->pos().y()`；同时水平方向用了整块 `t` 的宽度求中点，而 `t[i]` 的方格实际只占该宽度的一部分（`t` 块按 lowbit 区间合并渲染），所以水平中心也偏了。
+- **修复**：
+  1. 落点改为 `t->pos() + QPointF(cellX, t->cellHeight())`，纵坐标使用**相对格高**的偏移，箭头尖端恰好落在方格下沿之外。
+  2. 水平位置按所属 level 的区间换算：`cellX = (index - slot.left) * m_cellW + m_cellW / 2.0`，即落在 `t[i]` 实际占据的那一格正中。
+  3. 指针方向统一为 `Up`（箭头从下方指向方格），标签偏移设为 `(-30, 0)` 避免压住相邻格。
+- **验证**：`SmartGroundOverlapAudit` 的 `fenwick: no text/pointer overlap` 由 3 处冲突降为 0。
+
+## BUG-164 链式前向星四列数组的行标题、下标与图区相互重叠
+
+- **现象**：`head[u]` / `to[k]` / `nxt[k]` / `weight[k]` 四个行标题与第一列方格叠在一起；下标数字与相邻行的方格压边；右侧图区结点的下标数字与图结点叠在一起；`k` 指针的尾部标签压住 `nxt` 行的下标。
+- **根因**：行标题放在 `m_arraysX - 104`，而 `weight[k]` 标签本身宽约 110px，实际右边界已经越过第一列方格（x=250）；下标行紧贴方格上沿（`rowY - 22`），文字实际高度 26px，底边越界 4px 压进方格；图区中心 x=1010、半径 130，与最右侧数组列（x≈978）仅差 32px，圆形布局的外圈结点正好落在下标数字上；`k` 指针用默认的"尾部标签"布局，标签落在箭头正下方 26+8px 处，正处于 `nxt` 行下标带内。
+- **修复**：
+  1. 行标题整体左移到 `m_arraysX - 178`，与第一列方格保持 48px 净距。
+  2. 下标行上移到 `rowY - 32`，与自身方格留 10px、与上一行方格留 28px；各方块统一 `setShowLabel(false)`，避免与独立下标行重复。
+  3. 图区中心右移到 x=1120，与数组区拉开距离。
+  4. `k` 指针改用 `setLabelOffset(-38, 0)` 把标签放到箭头左侧，箭杆长度收短到 22。
+- **验证**：`SmartGroundOverlapAudit` 的 `forwardstar: no text/pointer overlap` 由 16 处冲突降为 0；`SmartGroundLayoutFit` 的 `k pointer sits at the to row bottom edge` 由失败转通过（同时把该断言中写死的行号 248 改为按行序动态定位，不再随布局常量漂移）。
+
+## BUG-165 堆模块的 heap[] 标题与下标行、二叉树标题与结点标签重叠
+
+- **现象**：`heap[]（数组存储）` 标题压在数组第一列的下标数字上；`完全二叉树结构（...）` 标题压在根结点的下标标签上。
+- **根因**：两个标题分别放在 `centerX - (n*cellW)/2 - 10`（紧贴第一列左侧）与 `treeTop - 54`（正好落在根结点 subLabel 的 y 带内）。
+- **修复**：`heap[]（数组存储）` 下移到数组行下方（`arrY + 48`），关系文本同步下移到 `arrY + 92`；树结构标题上移到 `treeTop - 96`，与根结点标签带保持 26px 净距。
+- **验证**：`SmartGroundOverlapAudit` 的 `heapadjust` 与 `heapsort` 两项各由 5 处冲突降为 0。
+
+## BUG-166 GroupAUi 测试断言使用了过时的模块名
+
+- **现象**：`SmartGroundGroupAUi` 报 6 条失败：`has complete knapsack`、`has hungarian`、`has heap adjust` 以及对应的 3 条 `selectable:` 断言。
+- **根因**：模块在本轮升级中已更名为「完全背包 DP」「二分图匹配 - 匈牙利算法」「堆调整 up / down」，但 `tests/GroupAUiTest.cpp` 仍按旧名断言，导致 `QStringList::contains()` 全部落空。
+- **修复**：同步测试断言与 `targets` 选择列表为新模块名。
+- **验证**：`SmartGroundGroupAUi` 恢复 0 失败。
+
 ## 测试运行方式
 
 ```powershell
@@ -337,3 +594,86 @@ $env:QT_QPA_PLATFORM = "offscreen"
 .\build\tests\SmartGroundAnimStress.exe
 .\build\tests\SmartGroundWeightTest.exe
 ```
+
+## 2026-11-20 三个模块的深度重构（LCS / 匈牙利 / 树堆）
+
+- **现象**：这三类模块的动作已具备，但缺少「视觉主角与空间编排」——LCS 的回溯是逐格闪现而非一条连续路径；匈牙利缺少左右分栏的版式与一条贯穿的增广路；树与堆的下沉过程没有一条可跟随的轨迹线。
+- **根因**：`IModule` 缺少「多段折线轨迹」这一表达能力，`GraphElements` 也没有对应的图形元素。
+- **修复**：
+  - `src/render/GraphElements.{h,cpp}` 新增 `PathTrail`：可设置任意折线点集，按 `progress` 沿路径**渐进绘制**（de Casteljau 风格的逐段插值），末端带光晕 + 内核 + 白环的「行进头」，并叠一层低透明度加粗辉光；`setPoints` / `appendPoint` / `clearPoints` / `setProgress` / `setTrailWidth` / `setHeadRadius` 全部可动画；
+  - `src/modules/IModule.{h,cpp}` 新增 `playPathTrail(trail, points, color, duration)`（整条路径一次性绘制）与 `playPathTrailAppend(trail, point, color, duration)`（追加一段并从上次进度续画），均遵守 `m_animated == false` 的瞬时生效约束；
+  - **LCS**：`runAlgorithm()` 的回溯段改为记录**完整走位** `walk`（含每一步退让的落点），`LC_TRACE` 帧携带已走过的路径点序列；`renderFrame` 把这些点连成折线交给 `PathTrail`，形成一条沿对角线不断延伸、头亮点跟着回溯位置走的**连续路径**；匹配到的格子另走 `playCellLanding` 与涟漪，未匹配的退让步只更新路径不惊动格子；
+  - **匈牙利算法**：`buildLayout()` 新增左右两条虚线分栏带（左部浅蓝 / 右部浅橙，`Z = -2`）把两列结点明确分区；新增 `PathTrail` 作为**增广路主角**——`HN_START` 从当前左部顶点起笔，`HN_TRY` 追加右部顶点，`HN_OCCUPIED` 追加被占用的持有者（转红），`HN_ASSIGN` 追加最终配对点（转绿），`HN_DONE` 冻结为绿色并对全部匹配顶点做收束缩放；
+  - **树与堆**：`HeapTreeBase` 新增 `ensureDescentTrail` / `clearDescentTrail` / `appendDescent` / `freezeDescentTrail` 四个助手与 `m_descentTrail` 成员；`HeapSortModule` / `HeapAdjustModule` 在比较与交换帧把当前结点位置追加进轨迹，形成**逐层下沉**的可见路径，终帧冻结为有序色；`SegmentTreeBuildModule` / `SegmentTreeQueryModule` / `SegmentTreeTagModule` 同样接入（`SegmentTreeEditBase` 提供共享实现），下降帧同时播放 `playEdgeTravel` 边行进与轨迹延伸，形成「树往下走」的连贯主线。
+- **验证**：`SmartGround` 主程序零编译错误；`build/tests/` 下 **79 个测试可执行文件全部零失败**。
+
+## 2026-11-20 全局动画美学升级（以哈夫曼树为基准）
+
+- **现象**：哈夫曼树的动画成为项目美学基准后，全场模块的动效密度、色彩语义与「路径感」不统一；部分模块只有静态换色，没有飞入、涟漪、边行进等可读的动作链。
+- **根因**：`IModule` 早期只提供 `playSwapAnim` / `playScalePulse` / `playValueFlight` 等少量基础助手，各模块各自零散实现，缺少统一的「边行进 / 发现涟漪 / 落位脉冲」词汇表。
+- **修复**：
+  - `src/render/GraphElements.h` / `.cpp` 新增 `TracerDot`（带光晕与内核的移动光点，用于边行进轨迹）；
+  - `src/modules/IModule.h` / `.cpp` 新增共享编排助手：`playEdgeTravel`（沿边飞行的 tracer）、`playDiscover`（结点发现涟漪）、`playEdgeDiscover`（边先到、结点后醒）、`playNodeWake`（结点苏醒脉冲）、`playFocusRing`（焦点环）、`playValueArcFlight`（数值弧线飞行）、`playCellSweep`（逐格错峰扫描）、`playCellLanding`（落位脉冲）；
+  - 按族批量落地：图算法（BFS / DFS / Dijkstra×2 / 拓扑排序 / Prim / Kruskal / Tarjan×2 / 二分图 / 欧拉 / 匈牙利）、树与堆（堆排序 / 堆调整 / Trie / 哈希表 / 链式前向星 / 线段树×3）、排序（快排 / 希尔 / 冒泡 / 选择 / 插入 / 归并 / 计数 / 基数 / 桶）、查与算（二分×2 / 快速幂 / 树状数组 / LIS / 区间调度 / GCD / 单调队列 / 单调栈 / 并查集×2 / 树直径 / 树子树大小 / 背包×2 / 字符串哈希 / 筛法）、矩阵与数论（LCS / 扩展欧几里得）、数据结构（栈 / 队列 / 循环队列 / KMP pi 数组）；
+  - 语义统一为 idle / scanning / active / matched / terminal 五态色，扫描与匹配一律带涟漪或落位脉冲，终态一律带收束缩放。
+- **验证**：`SmartGround` 主程序零编译错误；`tests/TmpSliderAudit.cpp` 进度条同步审计 `ALL PASS fail=0`（滑块值与帧号逐帧一致）。
+
+## 2026-11-20 画笔换色不生效 / 画笔菜单不自关闭
+
+- **现象**：在画笔菜单里改颜色，颜色块变了但画笔实际画出的颜色不变；同时打开画笔菜单后点击画布，菜单不会自动收起。
+- **根因（换色）**：`CanvasToolBar` 的取色回调先调 `ToolController::setStyleFor(tool, s)`（已把新颜色写进 `m_styles`），再调 `ToolController::setPenColor(c)`；而 `setPenColor` 的实现是「若当前样式颜色已等于新颜色则直接 return」，于是它**总是提前返回**，`applySelectionStyle()` 从未执行，已选中元素不会被重新上色。更根本的是，正在绘制中的笔迹（`m_activeStroke`）与正在拖拽中的图形（`m_activeShape`）根本不在这条更新链路里，换色对它们完全无效。
+- **修复**：
+  - `src/canvas/ToolController.cpp` 新增 `applyActiveStyle()`：把当前笔迹的 `m_activeStroke` 与当前图形的 `m_activeShape` 的 `setPenColor` / `setPenWidth` / `setFillOpacity` 一并刷新；
+  - `setPenColor` / `setPenWidth` / `setOpacity` 改为「样式写入」与「样式应用」两段分离：写入部分只在值真的变化时才执行并 `emit styleChanged()`，**应用部分无条件执行** `applySelectionStyle()` + `applyActiveStyle()`；原先的提前 return 一并移除；
+  - `setStyleFor` 在 `tool == m_tool` 时同样补上 `applyActiveStyle()`，保证从工具面板改样式与从取色器改颜色两条路径行为一致。
+- **根因（菜单）**：画笔飞出面板原本没有「点击面板外自动收起」的机制。修复：`CanvasToolBar` 挂 `qApp->installEventFilter(this)`，在 `eventFilter` 中对 `QEvent::MouseButtonPress` 判定按下点是否落在工具面板 / 更多面板 / 工具条本身之内；落在之外则调用 `closeFlyouts()` 收起全部浮层。
+- **验证**：新增 `tests/TmpBrushDiag.cpp`（`SmartGroundTmpBrushDiag`）三段断言全绿 —— 取色器改色后笔迹使用新颜色、已选中元素随换色重绘、飞出菜单点击画布后收起且点击面板内部不收起、三角形内部像素采样 **0 / 625 不透明**（确认无背景填充）。
+
+## 2026-11-20 图论激光拖影 / 碎片残留 / 编辑器崩溃 / Tarjan 数组重叠 四项修复
+
+- **现象（激光拖影与碎片波纹）**：所有图论算法在 `u -> v` 的边延伸动画中，画面上出现多条残留的动画碎片、扇贝状波纹与卡死的光束。
+- **根因（几何）**：`GraphEdge::paint` 把光束当作**直线**绘制 —— 用 `drawLine(beamStart, beamEnd)` 连接二次贝塞尔曲线上参数 `tail` 与 `head` 两点。弦与曲线之间存在最大可达数十像素的偏离，直线段因此既不贴合路径，又在每个动画帧切换时留下断裂的短线段碎片。此外原实现用 26 段离散折线近似曲线，制造出「串珠 / 波纹」观感。
+- **修复（几何）**：`src/render/GraphElements.{h,cpp}` 新增 `GraphEdge::splitQuad`（de Casteljau 二次曲线二分）与 `GraphEdge::quadSubPath`（按参数区间 `from..to` 抽取子曲线生成 `QPainterPath`），光束改为**沿子曲线 `drawPath` 描边**；辉光层（9.0px）与内核层（3.4px）均使用沿路径首尾的 `QLinearGradient`，末端亮点用 `beamPath.pointAtPercent(1.0)` 精确落在曲线终点。
+- **修复（残留）**：`IModule::startBeam` 用 `m_beamAnims` 注册表保证**每条边同一时刻只有一条活跃光束**；`purgeTransientItems()` 与析构统一 `stop()` + `clearBeam()`；光束动画 `finished` 时主动 `clearBeam()`。
+- **现象（编辑器崩溃）**：`SmartGroundGraphInteraction` 间歇性段错误（退出码 `0xC0000005`），30 次连跑失败 5 次。
+- **根因（崩溃）**：`GraphEdge` / `GraphNode` / `ArrayBlock` 析构时，其子项编辑器 `QGraphicsTextItem` 随之析构；Qt 在 `QGraphicsItem` 基类析构中发出 `FocusOut` 事件，被 `EditorWatcher` 事件过滤器拦截后回调 `commitEdit()`，而此时 `QTextDocument` 已开始释放 —— `toPlainText()` 访问已释放内存导致崩溃。栈回溯确认于 `QTextDocument::toPlainText() <- GraphEdge::commitEdit() <- EditorWatcher::eventFilter() <- ~QGraphicsItem`。
+- **修复（崩溃）**：`src/render/GraphElements.{h,cpp}` 新增 `EditorTextItem`（`QGraphicsTextItem` 子类）与共享 `EditorGuard` 标志位：析构时置位 `tearingDown`，`EditorWatcher` 收到 `FocusOut` 时若标志已置位则直接吞掉事件、绝不回调 `commitEdit()`；三个可编辑图元的析构函数均先置位标志再主动 `delete` 编辑器子项，从根上杜绝析构期回调。
+- **现象（Tarjan 数组重叠）**：`Tarjan 割点与桥` 的 `dfn[]` / `low[]` 两组数组与文字标签明显重叠。
+- **根因（重叠）**：原始布局 `dfnX = 120`、`dfnY = 500`，而 `low[]` 标签被放在 `(114, 530)` —— 恰好压在 `dfn[]` 数组行（y 500~540）的窗格上，重叠面积约 620px²。
+- **修复（重叠）**：`src/modules/TarjanCutVertexBridgeModule.cpp` 的 `buildLayout()` 重排版式 —— 数组行下移至 `dfnY = 545`、行距 `rowGap = 100`、起点 `dfnX = 170`，`dfn[]` / `low[]` 标签左移到 `x = 48` 的独立列，与首列窗格保持 49px 净距。
+- **验证**：
+  - 新增 `tests/BeamCurveTest.cpp`（`SmartGroundBeamCurve`）：光束端点与原曲线偏差 **0.00000000 px**；
+  - 新增 `tests/BeamRenderTest.cpp`（`SmartGroundBeamRender`）：19 个进度档位共 **1159 个弧线采样点零断裂**、**351 个超出光束头部的采样点零残留**；
+  - `SmartGroundStrictAudit` 覆盖 58 个模块的每一动画帧（脚本文字可见 / 隐藏两轮）：`TOTAL OVERLAP CONFLICTS = 0`、`TOTAL TIP FAILURES = 0`；
+  - `SmartGroundGraphInteraction` 连跑 **30 次零失败**（修复前 30 次失败 5 次）；
+  - `build/tests/` 下全部测试可执行文件零失败；`SmartGround.exe` Release 构建成功。
+
+## 2026-11-20 数组下标位置 / 指针指向 / 图形空心实心 三项回归修复
+
+- **现象（数组下标）**：所有数组的下标被从单元格**上方**挪进了**格子内部左上角**，且格内的值随之整体上移、偏离单元格中心。
+- **根因（下标）**：`src/render/GraphElements.cpp` 的 `ArrayBlock::paint()` 在上一轮为规避「下标与窗格重叠」的审计告警，把下标改成 `drawText(QRectF(3, 0, m_cellW - 6, indexH), Qt::AlignLeft | Qt::AlignVCenter, topText)` —— 绘制在窗格矩形内部左上角；同时把值区改成 `QRectF(0, indexH, m_cellW, m_cellH - indexH)`，导致值在剩余区域居中而非整格居中。这是一次擅自决断，违背了「下标必须在单元格上方、值必须水平垂直居中」的既定要求。
+- **修复（下标）**：
+  - `ArrayBlock::paint()` 恢复为**下标在格子正上方**：绘制矩形 `QRectF(0, -kIndexGap - kIndexHeight, m_cellW, kIndexHeight)`，用 `Qt::AlignHCenter | Qt::AlignBottom` 水平居中并贴住底边，与顶边框保持 `kIndexGap = 6.0` 的净距，不重合；
+  - 单元格值恢复为在**整个窗格** `QRectF(0, 0, m_cellW, m_cellH)` 内 `Qt::AlignCenter` 绘制，水平垂直双向居中；
+  - `ArrayBlock` 新增 `kIndexGap` / `kIndexHeight` 常量与 `indexRect()` 访问器；`boundingRect()` 上边界相应上移到 `-(kIndexGap + kIndexHeight)`，保证下标不被裁剪。
+- **现象（指针指向）**：二分查找等模块的指针不再指向目标格子，提示变量（`i` / `j` / `L` / `R`）与对应指针也对不上号。
+- **根因（指针）**：`IModule::layoutPointerSlots()` 在同一格挂多个指针时执行 `tips[idx] += QPointF(offset, 0.0)`，**直接横向平移了箭头尖端**，使尖端偏离单元格宽度中心；同时 `resolveVisualCollisions()` 的避让策略以**横向平移标签**为主（`bestShift = QPointF(dx, 0.0)`），标签被推离自己的指针轴线，`i` / `j` / `L` / `R` 与指针的对应关系随之错乱。
+- **修复（指针）**：
+  - `layoutPointerSlots()` 删除尖端横向偏移，同格多指针改为**沿轴线分行**（`setLabelRow`），箭头尖端始终精确落在单元格宽度中心 / 竖直中点；
+  - `resolveVisualCollisions()` 重写为**轴向优先**求解：垂直指针（Up / Down）候选位置沿轴线由近及远堆叠（最多 8 行，步长 22px），水平指针（Left / Right）沿轴向左右让位；横向平移只作为水平指针的兜底，不再用于垂直指针，因此垂直指针的标签始终落在自己的轴线上；
+  - `separatePointerLabels()` 垂直指针改为**纵向分离**（沿轴线推远 22px），不再横向平移；
+  - `PointerBlock::paint()` 修正水平箭头方向：`Right` 的箭头尖由原来的朝左改为**朝右**（`drawLine(0, 0, 9 * sign, ±7)`），`Left` 朝左 —— 此前两者箭头尖同朝左，「从左往右指向单元格」的语义是错的；
+  - `PointerBlock::defaultLabelOffset()` / `tailLabelOffset()` / `setLabelToRight()` 同步修正：`Left` 的标签放在杆的右外侧、`Right` 放在杆的左外侧，与修正后的箭头方向一致。
+- **现象（图形空心 / 实心）**：画板上的矩形 / 圆 / 三角形在「空心」态画成**虚线边框 + 灰色填充**，与需求相反。
+- **根因（图形）**：`src/canvas/ShapeItem.cpp` 把「空心」实现为 `Qt::DashLine` 虚线笔 + `#EEF0F4` 灰填充，把「实心」实现为实线笔 + 同色灰填充；同时把「虚线 / 实线」这个**图标语言**误用到了**画布绘制结果**上。需求是：空心 = 只有完整边框、内部无填充；实心 = 边框与填充同色、整体实心；虚线 / 实线**只用于工具栏图标**。
+- **修复（图形）**：
+  - `ShapeItem::paint()` 画布绘制改为：笔一律 `Qt::SolidLine`；空心时 `setBrush(Qt::NoBrush)`（内部完全透明），实心时 `setBrush(QBrush(m_penColor))`（边框色即填充色，整体实心），填充透明度沿用 `m_fillOpacity`；
+  - `MySegmentedControl` 新增 `ShapeIcon`（`RectIcon` / `CircleIcon` / `TriangleIcon`）与 `setShapeIcon()` / `setShapeIcons()`，绘制时按当前形状画小图标，并与文字并排居中；
+  - 图标语义：第 0 段「空心」画**虚线边框 + 无填充**图标，第 1 段「实心」画**实线边框 + 同色实心**图标；
+  - `CanvasToolBar` 按当前工具（矩形 / 圆 / 三角形）给 `canvasToolShapeFill` 切换对应形状图标。
+- **连带修复（链式前向星）**：该模块用手工 `QGraphicsTextItem` 画下标（`rowY - 32`，字号 11 但包围盒高 26），位置不准且与 `k` 指针标签打架。改为直接使用 `ArrayBlock` 内建下标（自动居中于格子上方、留 6px 净距），`k` 指针标签改用 `setLabelAtTail()` 落在轴线上，行距 `kFsRowGap` 由 96 放宽到 116 让开相邻行下标。
+- **验证**：
+  - `SmartGroundStrictAudit` 新增 `[AXIS-FAIL]` 断言（标签中心必须与指针轴线对齐、尖端必须落在格心 / 节点圆心延长线上），最终 `TOTAL OVERLAP CONFLICTS = 0`、`TOTAL TIP FAILURES = 0`、`TOTAL AXIS FAILURES = 0`；
+  - `SmartGroundOverlapAudit` 的下标包围盒改用 `ArrayBlock::indexRect()`，与实际绘制一致；`forwardstar` 用例归零，全套 `ALL PASS`；
+  - `SmartGroundLayoutFit` 的 `forwardstar: k pointer sits at the to row bottom edge` 恢复通过；
+  - `build/tests/` 下 **97 个测试可执行文件全部零失败**；`SmartGround.exe` Release 构建成功。

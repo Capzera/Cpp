@@ -2,6 +2,7 @@
 #include "AnnotationScene.h"
 #include "ToolController.h"
 #include "SelectionOverlay.h"
+#include "core/TextEditGuard.h"
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
@@ -25,6 +26,18 @@ CanvasView::CanvasView(QGraphicsScene* scene, QWidget* parent) : QGraphicsView(s
 void CanvasView::focusInEvent(QFocusEvent* event) {
     viewport()->setFocus();
     QGraphicsView::focusInEvent(event);
+}
+
+void CanvasView::keyPressEvent(QKeyEvent* event) {
+    if (TextEditGuard::active(scene())) {
+        QGraphicsView::keyPressEvent(event);
+        return;
+    }
+    if (m_toolController && m_toolController->handleKeyPress(event)) {
+        event->accept();
+        return;
+    }
+    QGraphicsView::keyPressEvent(event);
 }
 
 void CanvasView::setAnnotationScene(AnnotationScene* scene) {
@@ -120,7 +133,11 @@ void CanvasView::drawForeground(QPainter* painter, const QRectF& rect) {
             ring.setCosmetic(true);
             painter->setPen(ring);
             painter->setBrush(QColor(229, 72, 77, 36));
-            painter->drawEllipse(c, r, r);
+            if (m_toolController->eraserSquare()) {
+                painter->drawRect(QRectF(c.x() - r, c.y() - r, r * 2.0, r * 2.0));
+            } else {
+                painter->drawEllipse(c, r, r);
+            }
             painter->restore();
         }
         if (m_toolController) {
@@ -149,7 +166,8 @@ bool CanvasView::eventFilter(QObject* obj, QEvent* event) {
 
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-        if (m_toolController && m_toolController->eventFilter(obj, event)) return true;
+        if (TextEditGuard::active(scene())) return false;
+        if (m_toolController && m_toolController->handleKeyPress(keyEvent)) return true;
         if (keyEvent->key() == Qt::Key_Space && !keyEvent->isAutoRepeat()) {
             m_panning = true;
             setCursor(Qt::ClosedHandCursor);

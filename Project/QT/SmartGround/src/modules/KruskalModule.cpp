@@ -34,7 +34,7 @@ void KruskalModule::buildLayout(QGraphicsScene* scene, const QString& inputData)
     GraphModuleUtils::GraphOptions options = m_options;
     options.directed = false;
     m_valid = GraphModuleUtils::parse(inputData, false, options, input);
-    m_mathText = scene->addText(m_valid ? "Kruskal：按边权从小到大扫描，用并查集避免成环" : "输入格式：n m，随后输入 m 条无向边 u v w");
+    m_mathText = createScriptText(scene, m_valid ? "Kruskal：按边权从小到大扫描，用并查集避免成环" : "输入格式：n m，随后输入 m 条无向边 u v w");
     m_mathText->setFont(QFont("Consolas", 14, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
     m_mathText->setPos(140, 18);
@@ -123,7 +123,7 @@ std::vector<AnimFrame> KruskalModule::runAlgorithm() {
 
 void KruskalModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     if (frame.type == ActionType::KR_RESET) {
         m_componentColors.clear();
         for (int i = 1; i <= m_n; ++i) {
@@ -154,10 +154,23 @@ void KruskalModule::renderFrame(const AnimFrame& frame) {
             m_nodes[frame.group[1]]->color = QColor(155, 210, 245);
             m_nodes[frame.group[0]]->update();
             m_nodes[frame.group[1]]->update();
+            GraphEdge* probe = GraphRenderHelper::findEdge(m_edges, frame.group[0], frame.group[1]);
+            if (probe) {
+                probe->setColor(QColor(255, 205, 125));
+                playEdgeTravel(probe, QColor(255, 205, 125), 420);
+            }
+            playNodeWake(m_nodes[frame.group[0]], QColor(255, 205, 125), 30.0, 440);
         }
     } else if (frame.type == ActionType::KR_ACCEPT) {
         GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v);
-        if (edge) edge->setColor(QColor(55, 175, 115));
+        if (edge) {
+            edge->setColor(QColor(55, 175, 115));
+            if (m_nodes.count(frame.u) && m_nodes.count(frame.v)) {
+                playEdgeDiscover(edge, m_nodes[frame.v], QColor(55, 175, 115), 560);
+            } else {
+                playEdgeTravel(edge, QColor(55, 175, 115), 560);
+            }
+        }
         if (frame.group.size() >= 4) {
             int child = frame.group[2], root = frame.group[3];
             m_parentBlocks[child]->value = root;
@@ -168,16 +181,21 @@ void KruskalModule::renderFrame(const AnimFrame& frame) {
                 m_nodes[frame.group[i]]->color = componentColor;
                 m_componentColors[frame.group[i]] = componentColor;
                 m_nodes[frame.group[i]]->update();
+                playNodePop(m_nodes[frame.group[i]], 1.14, 300);
             }
         }
         int index = frame.val2;
         if (index >= 0 && index < static_cast<int>(m_edgeBlocks.size())) {
             m_edgeBlocks[index]->color = QColor(155, 220, 175);
             m_edgeBlocks[index]->update();
+            playScalePulse(m_edgeBlocks[index], 1.20, 260);
         }
     } else if (frame.type == ActionType::KR_REJECT) {
         GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v);
-        if (edge && edge->color != QColor(55, 175, 115)) edge->setColor(QColor(195, 200, 208));
+        if (edge && edge->color != QColor(55, 175, 115)) {
+            edge->setColor(QColor(195, 200, 208));
+            playEdgeSweep(edge, QColor(195, 200, 208), 320);
+        }
         for (int i = 1; i <= m_n; ++i) {
             m_nodes[i]->color = m_componentColors.count(i) ? m_componentColors[i] : Qt::white;
             m_nodes[i]->update();
@@ -186,9 +204,11 @@ void KruskalModule::renderFrame(const AnimFrame& frame) {
         if (index >= 0 && index < static_cast<int>(m_edgeBlocks.size())) {
             m_edgeBlocks[index]->color = QColor(215, 218, 222);
             m_edgeBlocks[index]->update();
+            playScalePulse(m_edgeBlocks[index], 0.92, 260);
         }
     } else if (frame.type == ActionType::KR_FINISH) {
         m_edgePointer->setOpacity(0);
+        for (auto& kv : m_nodes) playNodePop(kv.second, 1.10, 260);
     } else if (frame.type == ActionType::KR_DISCONNECTED) {
         m_edgePointer->setOpacity(0);
         for (auto& pair : m_nodes) if (pair.second->color == Qt::white) pair.second->color = QColor(225, 205, 205);

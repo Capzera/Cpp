@@ -1,5 +1,5 @@
 #include "TableToolBar.h"
-#include "MyButton.h"
+#include "TableIconButton.h"
 #include "MyTextInput.h"
 #include "ui/UiTheme.h"
 #include "canvas/CanvasTableItem.h"
@@ -50,42 +50,56 @@ void TableToolBar::buildUi() {
     m_bar->setObjectName("tableToolBarCard");
 
     QHBoxLayout* layout = new QHBoxLayout(m_bar);
-    layout->setContentsMargins(8, 6, 8, 6);
-    layout->setSpacing(3);
+    layout->setContentsMargins(7, 5, 7, 5);
+    layout->setSpacing(2);
 
-    auto addButton = [this, layout](const QString& text, const QString& name,
+    auto addButton = [this, layout](TableIconButton::Icon icon, const QString& tip, const QString& name,
                                     const std::function<void()>& sink) {
-        MyButton* button = new MyButton(text, m_bar);
+        TableIconButton* button = new TableIconButton(icon, tip, m_bar);
         button->setObjectName(name);
-        button->setVariant(MyButton::Ghost);
-        button->setCompact(true);
-        button->setFixedWidth(qMax(30, text.size() * 13 + 12));
-        connect(button, &MyButton::clicked, this, [sink]() { sink(); });
+        connect(button, &QAbstractButton::clicked, this, [sink]() { sink(); });
         layout->addWidget(button);
         return button;
     };
 
-    m_alignCenter = addButton("居中", "tableAlignCenter", [this]() { applyAlign(0); });
-    m_alignLeft = addButton("左中", "tableAlignLeft", [this]() { applyAlign(1); });
-    m_alignRight = addButton("右中", "tableAlignRight", [this]() { applyAlign(2); });
-    m_alignTop = addButton("顶端", "tableAlignTop", [this]() { applyAlign(3); });
+    auto addSeparator = [layout]() {
+        QFrame* line = new QFrame();
+        line->setFrameShape(QFrame::VLine);
+        line->setFrameShadow(QFrame::Plain);
+        line->setFixedHeight(16);
+        line->setStyleSheet("color: rgba(150,162,180,90);");
+        layout->addWidget(line);
+        layout->addSpacing(3);
+    };
 
-    layout->addSpacing(6);
+    m_alignLeft = addButton(TableIconButton::AlignLeft, "左对齐", "tableAlignLeft", [this]() { applyAlign(1); });
+    m_alignCenter = addButton(TableIconButton::AlignCenter, "居中对齐", "tableAlignCenter", [this]() { applyAlign(0); });
+    m_alignRight = addButton(TableIconButton::AlignRight, "右对齐", "tableAlignRight", [this]() { applyAlign(2); });
+    m_alignTop = addButton(TableIconButton::AlignTop, "顶端对齐", "tableAlignTop", [this]() { applyAlign(3); });
 
-    m_cell = addButton("选中单元格", "tableSelectCell", [this]() { selectCell(); });
-    m_row = addButton("选中行", "tableSelectRow", [this]() { selectRow(); });
-    m_col = addButton("选中列", "tableSelectCol", [this]() { selectColumn(); });
+    addSeparator();
 
-    layout->addSpacing(6);
+    m_cell = addButton(TableIconButton::SelectCell, "选中单元格", "tableSelectCell", [this]() { selectCell(); });
+    m_row = addButton(TableIconButton::SelectRow, "选中行", "tableSelectRow", [this]() { selectRow(); });
+    m_col = addButton(TableIconButton::SelectColumn, "选中列", "tableSelectCol", [this]() { selectColumn(); });
 
-    m_insert = addButton("增行/列", "tableInsert", [this]() {
+    addSeparator();
+
+    m_insertRow = addButton(TableIconButton::InsertRow, "插入行", "tableInsertRow", [this]() {
         rebuildMenus();
-        if (m_insertMenu) m_insertMenu->popup(m_insert->mapToGlobal(QPoint(0, m_insert->height())));
+        if (m_insertMenu) m_insertMenu->popup(m_insertRow->mapToGlobal(QPoint(0, m_insertRow->height())));
     });
-
-    m_delete = addButton("删行/列", "tableDelete", [this]() {
+    m_insertCol = addButton(TableIconButton::InsertColumn, "插入列", "tableInsertCol", [this]() {
         rebuildMenus();
-        if (m_deleteMenu) m_deleteMenu->popup(m_delete->mapToGlobal(QPoint(0, m_delete->height())));
+        if (m_insertMenu) m_insertMenu->popup(m_insertCol->mapToGlobal(QPoint(0, m_insertCol->height())));
+    });
+    m_deleteRow = addButton(TableIconButton::DeleteRow, "删除行", "tableDeleteRow", [this]() {
+        rebuildMenus();
+        if (m_deleteMenu) m_deleteMenu->popup(m_deleteRow->mapToGlobal(QPoint(0, m_deleteRow->height())));
+    });
+    m_deleteCol = addButton(TableIconButton::DeleteColumn, "删除列", "tableDeleteCol", [this]() {
+        rebuildMenus();
+        if (m_deleteMenu) m_deleteMenu->popup(m_deleteCol->mapToGlobal(QPoint(0, m_deleteCol->height())));
     });
 
     QHBoxLayout* outer = new QHBoxLayout(this);
@@ -98,6 +112,8 @@ void TableToolBar::setTable(CanvasTableItem* table) {
     m_table = table;
     if (!m_table) {
         hide();
+        m_insertMenu = nullptr;
+        m_deleteMenu = nullptr;
         return;
     }
     show();
@@ -362,8 +378,10 @@ void TableToolBar::refreshButtons() {
     m_row->setEnabled(r >= 0);
     m_col->setEnabled(c >= 0);
     m_cell->setEnabled(r >= 0 && c >= 0);
-    m_insert->setEnabled(true);
-    m_delete->setEnabled(r >= 0 || c >= 0);
+    m_insertRow->setEnabled(true);
+    m_insertCol->setEnabled(true);
+    m_deleteRow->setEnabled(r >= 0);
+    m_deleteCol->setEnabled(c >= 0);
 }
 
 void TableToolBar::paintEvent(QPaintEvent* event) {

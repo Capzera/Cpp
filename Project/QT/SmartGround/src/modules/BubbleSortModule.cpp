@@ -86,6 +86,8 @@ void BubbleSortModule::renderFrame(const AnimFrame& step) {
         if (m_animated) {
             playScalePulse(m_blocks[step.u], 1.15, 200);
             playScalePulse(m_blocks[step.v], 1.15, 200);
+            playCellRipple(m_blocks[step.u], QColor(255, 190, 90), 0.85, 440);
+            playCellRipple(m_blocks[step.v], QColor(255, 190, 90), 0.85, 440);
         }
     } else if (step.type == ActionType::AR_SWAP) {
         ArrayBlock* b1 = m_blocks[step.u];
@@ -146,6 +148,7 @@ void BubbleSortModule::renderFrame(const AnimFrame& step) {
         m_blocks[step.u]->update();
         if (m_animated) {
             playScalePulse(m_blocks[step.u], 1.2, 300);
+            playCellRipple(m_blocks[step.u], QColor(120, 220, 140), 1.05, 520);
         }
     }
 }

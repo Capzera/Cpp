@@ -4,6 +4,7 @@
 #include <QPainterPath>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
+#include <QEvent>
 
 MyCollapsible::MyCollapsible(QWidget* parent) : QWidget(parent), m_accent(UiTheme::accent()) {
     setAttribute(Qt::WA_TranslucentBackground, true);
@@ -72,10 +73,26 @@ QSize MyCollapsible::sizeHint() const {
     return QSize(220, headerH + contentH);
 }
 
+void MyCollapsible::refreshContentHeight() {
+    if (!m_content) return;
+    const int previous = m_contentHeight;
+    m_content->updateGeometry();
+    m_content->adjustSize();
+    const QSize hint = m_content->sizeHint();
+    int height = hint.height();
+    if (height <= 0) height = m_content->height();
+    if (height <= 0) height = previous;
+    m_contentHeight = height;
+    m_content->setMaximumHeight(static_cast<int>(m_contentHeight * m_ratio));
+    m_content->setMinimumHeight(static_cast<int>(m_contentHeight * m_ratio));
+    updateGeometry();
+    m_content->updateGeometry();
+}
+
 void MyCollapsible::updateGeometryAnimated() {
     if (!m_content) return;
     m_contentHeight = m_content->sizeHint().height();
-    if (m_contentHeight <= 0) m_contentHeight = m_content->sizeHint().height();
+    if (m_contentHeight <= 0) m_contentHeight = m_content->height();
     m_content->setMaximumHeight(static_cast<int>(m_contentHeight * m_ratio));
     m_content->setMinimumHeight(static_cast<int>(m_contentHeight * m_ratio));
     updateGeometry();
@@ -86,6 +103,13 @@ void MyCollapsible::resizeEvent(QResizeEvent* event) {
         m_content->setGeometry(0, 34, width(), static_cast<int>(m_contentHeight * m_ratio));
     }
     QWidget::resizeEvent(event);
+}
+
+bool MyCollapsible::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == m_content && event->type() == QEvent::LayoutRequest) {
+        refreshContentHeight();
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void MyCollapsible::paintEvent(QPaintEvent*) {

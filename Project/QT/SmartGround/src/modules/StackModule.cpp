@@ -24,8 +24,8 @@ void StackModule::buildLayout(QGraphicsScene* scene, const QString& inputData) {
     }
     m_startX = 400 - ((m_capacity + 1) * 60) / 2;
     QGraphicsTextItem *label = scene->addText("栈 stk[N]");
-    label->setFont(QFont("Microsoft YaHei", 12, QFont::Bold)); label->setPos(m_startX - 120, 300);
-    m_mathText = scene->addText("");
+    label->setFont(QFont("Microsoft YaHei", 12, QFont::Bold)); label->setPos(m_startX, 234);
+    m_mathText = createScriptText(scene, "");
     m_mathText->setFont(QFont("Consolas", 18, QFont::Bold)); m_mathText->setDefaultTextColor(QColor(180, 50, 50));
     m_mathText->setPos(300, 100);
     for (int i = 0; i <= m_capacity; ++i) {
@@ -62,7 +62,7 @@ std::vector<AnimFrame> StackModule::runAlgorithm() {
 }
 ArrayBlock* StackModule::getBlock(int id) { return m_blocks.count(id) ? m_blocks[id] : nullptr; }
 void StackModule::renderFrame(const AnimFrame& step) {
-    if (!step.mathText.isEmpty()) m_mathText->setPlainText(step.mathText);
+    if (!step.mathText.isEmpty()) setScriptText(m_mathText, step.mathText);
     if (step.type == ActionType::SQ_POINTER_MOVE) {
         if (m_ptrTop) {
             QPointF targetPos(m_startX + step.v * 60, 340);
@@ -80,12 +80,14 @@ void StackModule::renderFrame(const AnimFrame& step) {
         if (b) {
             b->value = step.val1; b->showValue = true; b->update();
             playScalePulse(b, 1.3, 300);
+            playCellLanding(b, QColor(255, 190, 130), 400);
         }
     } else if (step.type == ActionType::SQ_CLEAR_VAL) {
         ArrayBlock* b = getBlock(step.u);
         if (b) {
             b->showValue = false; b->update();
             playScalePulse(b, 0.7, 300);
+            playCellRipple(b, QColor(230, 150, 120), 1.5, 460);
         }
     }
 }

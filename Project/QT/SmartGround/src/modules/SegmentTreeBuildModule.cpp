@@ -12,7 +12,7 @@ static const QColor kSegPale = QColor(250, 250, 252);
 
 SegmentTreeBuildModule::SegmentTreeBuildModule() {}
 
-QString SegmentTreeBuildModule::getModuleName() const { return "线段树 (建树)"; }
+QString SegmentTreeBuildModule::getModuleName() const { return "线段树 - 建树"; }
 QString SegmentTreeBuildModule::getDefaultInput() const { return "4\n1 2 3 4"; }
 QString SegmentTreeBuildModule::getInputHint() const {
     return "第一行输入 n：元素个数 n\n"
@@ -27,7 +27,7 @@ void SegmentTreeBuildModule::buildLayout(QGraphicsScene* scene, const QString& i
     m_scene = scene;
     QString error;
     m_valid = SegmentTreeCommon::parseInput(inputData, m_arr, error);
-    m_mathText = scene->addText(m_valid ? "build(1, 1, n, a)：自顶向下递归建树，自底向上 push_up 合并"
+    m_mathText = createScriptText(scene, m_valid ? "build(1, 1, n, a)：自顶向下递归建树，自底向上 push_up 合并"
                                         : ("输入错误：" + error));
     m_mathText->setFont(QFont("Consolas", 14, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
@@ -77,10 +77,12 @@ void SegmentTreeBuildModule::buildLayout(QGraphicsScene* scene, const QString& i
         scene->addItem(e1);
         self->addEdge(e1);
         left->addEdge(e1);
+        m_treeEdges[{info.node, SegmentTreeCommon::ls(info.node)}] = e1;
         GraphEdge* e2 = new GraphEdge(self, right, false, false);
         scene->addItem(e2);
         self->addEdge(e2);
         right->addEdge(e2);
+        m_treeEdges[{info.node, SegmentTreeCommon::rs(info.node)}] = e2;
     }
 
     const double slotW = layout.slotW;
@@ -147,6 +149,43 @@ void SegmentTreeBuildModule::movePointerTo(int node) {
     playPointerMove(m_ptrNode, item->pos() + QPointF(0, 46));
 }
 
+void SegmentTreeBuildModule::ensureDescentTrail(QColor color) {
+    if (m_descentTrail) return;
+    m_descentTrail = new PathTrail(color);
+    m_descentTrail->setTrailWidth(4.5);
+    m_descentTrail->setHeadRadius(7.0);
+    m_scene->addItem(m_descentTrail);
+    m_descentPoints.clear();
+}
+
+void SegmentTreeBuildModule::clearDescentTrail() {
+    if (!m_descentTrail) return;
+    m_descentTrail->clearPoints();
+    m_descentTrail->setProgress(0.0);
+    m_descentPoints.clear();
+}
+
+void SegmentTreeBuildModule::appendDescent(int node, QColor color) {
+    if (node <= 0) return;
+    GraphNode* item = treeNode(node);
+    if (!item) return;
+    ensureDescentTrail(color);
+    m_descentPoints.append(item->pos());
+    if (m_descentPoints.size() >= 2) {
+        playPathTrail(m_descentTrail, m_descentPoints, color, 420);
+    } else {
+        m_descentTrail->setPoints(m_descentPoints);
+        m_descentTrail->setColor(color);
+        m_descentTrail->setProgress(1.0);
+    }
+}
+
+void SegmentTreeBuildModule::freezeDescentTrail(QColor color) {
+    if (!m_descentTrail) return;
+    m_descentTrail->setColor(color);
+    m_descentTrail->setProgress(1.0);
+}
+
 std::vector<AnimFrame> SegmentTreeBuildModule::runAlgorithm() {
     m_frames.clear();
     if (!m_valid) return m_frames;
@@ -201,7 +240,7 @@ std::vector<AnimFrame> SegmentTreeBuildModule::runAlgorithm() {
 
 void SegmentTreeBuildModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     if (frame.type == ActionType::SEG_RESET) {
         for (auto& kv : m_treeNodes) {
             kv.second->setHighlightColor(Qt::transparent);
@@ -244,13 +283,20 @@ void SegmentTreeBuildModule::renderFrame(const AnimFrame& frame) {
             node->setHighlightColor(kSegOrange);
             node->color = QColor(255, 248, 232);
         }
+        auto edgeIt = m_treeEdges.find({frame.u, frame.val1});
+        if (edgeIt != m_treeEdges.end()) playEdgeTravel(edgeIt->second, kSegOrange, 420);
+        appendDescent(frame.u, kSegOrange);
+        appendDescent(frame.val1, kSegOrange);
         if (left) {
             left->setHighlightColor(kSegOrange);
             left->color = QColor(255, 248, 232);
+            left->update();
+            playNodeRipple(left, kSegOrange, 34.0, 480);
         }
         if (right) {
             right->color = kSegPale;
             right->setHighlightColor(Qt::transparent);
+            right->update();
         }
         movePointerTo(frame.u);
     } else if (frame.type == ActionType::SEG_LEAF) {
@@ -264,6 +310,8 @@ void SegmentTreeBuildModule::renderFrame(const AnimFrame& frame) {
             node->setValueText(QString("tr=%1").arg(frame.val1));
             node->color = QColor(240, 252, 242);
             node->setHighlightColor(kSegGreen);
+            playCellLanding(blk, kSegGreen, 420);
+            playNodeRipple(node, kSegGreen, 42.0, 560);
         }
         movePointerTo(frame.u);
     } else if (frame.type == ActionType::SEG_PUSHUP) {
@@ -280,12 +328,14 @@ void SegmentTreeBuildModule::renderFrame(const AnimFrame& frame) {
             node->setValueText(QString("tr=%1").arg(sum));
             node->color = QColor(240, 252, 242);
             node->setHighlightColor(kSegGreen);
+            playNodeRipple(node, kSegGreen, 46.0, 600);
         }
         movePointerTo(frame.u);
     } else if (frame.type == ActionType::SEG_DONE) {
         for (auto& kv : m_treeNodes) {
             kv.second->setHighlightColor(Qt::transparent);
             kv.second->color = QColor(240, 252, 242);
+            playNodePop(kv.second, 1.10, 260);
         }
         for (auto& kv : m_trBlocks) {
             if (kv.second->showValue) {
@@ -336,6 +386,8 @@ void SegmentTreeBuildModule::releaseSceneItems() {
     m_lzBlocks.clear();
     m_aCells.clear();
     m_aBlocks.clear();
+    m_descentTrail = nullptr;
+    m_descentPoints.clear();
     m_ptrNode = nullptr;
     m_mathText = nullptr;
 }

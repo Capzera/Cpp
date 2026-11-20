@@ -8,6 +8,15 @@
 #include <utility>
 
 namespace GraphRenderHelper {
+inline const QColor kAnimIdle = QColor(255, 255, 255);
+inline const QColor kAnimScan = QColor(255, 214, 138);
+inline const QColor kAnimActive = QColor(255, 176, 92);
+inline const QColor kAnimDone = QColor(146, 220, 178);
+inline const QColor kAnimPath = QColor(72, 178, 128);
+inline const QColor kAnimReject = QColor(198, 204, 214);
+inline const QColor kAnimDead = QColor(212, 214, 220);
+inline const QColor kAnimBase = QColor(24, 30, 44);
+
 inline void buildNodes(QGraphicsScene* scene, std::map<int, GraphNode*>& nodes, int n, QPointF center, qreal radius, IModule* module = nullptr) {
     for (int i = 1; i <= n; ++i) {
         GraphNode* node = new GraphNode(i);

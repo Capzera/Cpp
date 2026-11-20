@@ -85,3 +85,6 @@ CMakeLists.txt.user*
 
 # 项目根目录下的调试截图（测试产物，运行时生成）
 /*.png
+
+# 测试运行期在 build/tests 下生成的截图
+/build/tests/*.png

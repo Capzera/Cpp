@@ -3,6 +3,7 @@
 #include <QColor>
 #include <QFont>
 #include <QString>
+#include "ui/UiFonts.h"
 
 namespace UiTheme {
 
@@ -49,22 +50,11 @@ inline int spaceLg() { return 18; }
 inline int spaceXl() { return 26; }
 
 inline QFont uiFont(int pointSize = 10, bool bold = false) {
-    QFont f("Microsoft YaHei UI");
-    if (f.family().isEmpty() || f.family().contains("Sans")) f = QFont("Segoe UI");
-    f.setPointSize(pointSize);
-    f.setWeight(bold ? QFont::DemiBold : QFont::Normal);
-    f.setHintingPreference(QFont::PreferFullHinting);
-    f.setStyleStrategy(QFont::PreferQuality);
-    return f;
+    return UiFonts::cjk(pointSize, bold);
 }
 
 inline QFont monoFont(int pointSize = 10, bool bold = false) {
-    QFont f("Cascadia Mono");
-    if (f.family().isEmpty() || f.family().contains("Sans")) f = QFont("Consolas");
-    f.setPointSize(pointSize);
-    f.setWeight(bold ? QFont::DemiBold : QFont::Normal);
-    f.setStyleStrategy(QFont::PreferQuality);
-    return f;
+    return UiFonts::mono(pointSize, bold);
 }
 
 }

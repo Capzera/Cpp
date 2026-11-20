@@ -27,6 +27,7 @@ public:
 protected:
     void drawForeground(QPainter* painter, const QRectF& rect) override;
     bool eventFilter(QObject* obj, QEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
     void focusInEvent(QFocusEvent* event) override;
 

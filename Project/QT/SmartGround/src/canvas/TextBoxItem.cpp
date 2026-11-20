@@ -187,6 +187,7 @@ bool TextBoxItem::handleEditKey(QKeyEvent* event) {
 
     if (m_textItem) m_textItem->setTextCursor(m_cursor);
     rebuildDocument();
+    notifyContentChanged();
     update();
     return true;
 }
@@ -245,9 +246,27 @@ QRectF TextBoxItem::caretRect() const {
     const int offset = m_cursor.position() - block.position();
     const QTextLine line = layout->lineForTextPosition(offset);
     if (!line.isValid()) return QRectF();
-    const qreal x = line.x() + line.cursorToX(offset);
+    const qreal x = line.x() + line.cursorToX(offset) + kCaretGap;
     const QRectF lineRect = line.rect();
     return QRectF(x, lineRect.top(), 1.4, lineRect.height());
+}
+
+bool TextBoxItem::prefersCaretPlacement(const QPointF& scenePos) const {
+    const QPointF local = mapFromScene(scenePos);
+    return contentBounds().contains(local);
+}
+
+bool TextBoxItem::placeCaretAt(const QPointF& scenePos) {
+    if (!m_editing || !m_textItem) return false;
+    const QPointF local = mapFromScene(scenePos);
+    const QPointF inner = m_textItem->mapFromParent(local);
+    const int position = InlineTextEdit::positionByLineScan(m_textItem, inner);
+    if (position < 0) return false;
+    m_cursor.setPosition(position);
+    m_textItem->setTextCursor(m_cursor);
+    rebuildDocument();
+    update();
+    return true;
 }
 
 AnnotationItem* TextBoxItem::cloneItem() const {

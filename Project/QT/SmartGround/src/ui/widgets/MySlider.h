@@ -24,6 +24,7 @@ public:
 signals:
     void valueChanged(int value);
     void sliderReleased(int value);
+    void sliderPressed(int value);
 
 protected:
     void paintEvent(QPaintEvent*) override;

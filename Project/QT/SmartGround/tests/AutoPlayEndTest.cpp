@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
     }
     check(status != nullptr, "status label found");
 
-    for (int i = 0; i < 600; ++i) {
+    for (int i = 0; i < 4000; ++i) {
         pump(120);
         if (autoBtn->text() == "自动播放") break;
     }

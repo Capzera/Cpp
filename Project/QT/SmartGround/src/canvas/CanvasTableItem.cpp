@@ -1,4 +1,4 @@
-﻿#include "CanvasTableItem.h"
+#include "CanvasTableItem.h"
 #include <QPainter>
 #include <QFontMetrics>
 #include <QGraphicsTextItem>
@@ -6,6 +6,7 @@
 #include <QTextCursor>
 #include <QJsonArray>
 #include <QJsonObject>
+#include "ui/UiFonts.h"
 
 CanvasTableItem::CanvasTableItem(int rows, int cols, QGraphicsItem* parent) : AnnotationItem(parent) {
     m_rows = qMax(1, rows);
@@ -42,11 +43,13 @@ void CanvasTableItem::setDimensions(int rows, int cols) {
 
 QString CanvasTableItem::cellAt(int r, int c) const {
     if (r < 0 || r >= m_rows || c < 0 || c >= m_cols) return QString();
+    if (r >= m_data.size() || c >= m_data[r].size()) return QString();
     return m_data[r][c];
 }
 
 void CanvasTableItem::setCell(int r, int c, const QString& text) {
     if (r < 0 || r >= m_rows || c < 0 || c >= m_cols) return;
+    if (r >= m_data.size() || c >= m_data[r].size()) return;
     if (m_data[r][c] == text) return;
     m_data[r][c] = text;
     update();
@@ -86,7 +89,7 @@ bool CanvasTableItem::beginEditCell(int r, int c) {
     m_editingCell = true;
     if (!m_editor) {
         m_editor = new QGraphicsTextItem();
-        m_editor->setFont(QFont("Consolas", 12, QFont::Bold));
+        m_editor->setFont(UiFonts::mono(12, true));
         m_editor->setDefaultTextColor(QColor(35, 45, 60));
         m_editor->setTextInteractionFlags(Qt::TextEditorInteraction);
         m_editor->setZValue(30);
@@ -137,6 +140,7 @@ TableAlign CanvasTableItem::contentAlign() const {
 
 void CanvasTableItem::setCellAlign(int r, int c, TableAlign align) {
     if (r < 0 || r >= m_rows || c < 0 || c >= m_cols) return;
+    if (r >= m_aligns.size() || c >= m_aligns[r].size()) return;
     if (m_aligns[r][c] == align) return;
     m_aligns[r][c] = align;
     update();
@@ -144,6 +148,7 @@ void CanvasTableItem::setCellAlign(int r, int c, TableAlign align) {
 
 TableAlign CanvasTableItem::cellAlign(int r, int c) const {
     if (r < 0 || r >= m_rows || c < 0 || c >= m_cols) return TableAlign::Unset;
+    if (r >= m_aligns.size() || c >= m_aligns[r].size()) return TableAlign::Unset;
     if (m_aligns[r][c] != TableAlign::Unset) return m_aligns[r][c];
     return m_align;
 }
@@ -192,13 +197,14 @@ bool CanvasTableItem::insertRows(int at, int count) {
 bool CanvasTableItem::insertColumns(int at, int count) {
     if (count <= 0) return false;
     at = qBound(0, at, m_cols);
-    for (int i = 0; i < m_rows; ++i) {
-        m_data[i].insert(at, QString());
-        m_aligns[i].insert(at, TableAlign::Unset);
+    for (int i = 0; i < m_data.size(); ++i) {
+        for (int k = 0; k < count; ++k) {
+            m_data[i].insert(at + k, QString());
+            m_aligns[i].insert(at + k, TableAlign::Unset);
+        }
     }
     m_cols += count;
-    prepareGeometryChange();
-    update();
+    rebuildCells();
     return true;
 }
 
@@ -210,23 +216,21 @@ bool CanvasTableItem::removeRows(int at, int count) {
         m_aligns.removeAt(at);
     }
     m_rows -= count;
-    prepareGeometryChange();
-    update();
+    rebuildCells();
     return true;
 }
 
 bool CanvasTableItem::removeColumns(int at, int count) {
     if (count <= 0 || at < 0 || at >= m_cols) return false;
     count = qMin(count, m_cols - at);
-    for (int i = 0; i < m_rows; ++i) {
+    for (int i = 0; i < m_data.size(); ++i) {
         for (int k = 0; k < count; ++k) {
             m_data[i].removeAt(at);
             m_aligns[i].removeAt(at);
         }
     }
     m_cols -= count;
-    prepareGeometryChange();
-    update();
+    rebuildCells();
     return true;
 }
 
@@ -257,7 +261,7 @@ void CanvasTableItem::applyStyle() {
 }
 
 void CanvasTableItem::drawCellText(QPainter* painter, const QRectF& r, const QString& text, TableAlign align) const {
-    painter->setFont(QFont("Consolas", 12, QFont::Bold));
+    painter->setFont(UiFonts::mono(12, true));
     painter->setPen(QColor(35, 45, 60));
     if (align == TableAlign::Left) {
         painter->drawText(r.adjusted(6, 0, -6, 0), Qt::AlignLeft | Qt::AlignVCenter, text);
@@ -280,13 +284,15 @@ void CanvasTableItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, 
     const qreal h = headerHeight();
 
     if (!m_title.isEmpty()) {
-        painter->setFont(QFont("Microsoft YaHei UI", 9, QFont::Bold));
+        painter->setFont(UiFonts::cjk(9, true));
         painter->setPen(QColor(40, 70, 110));
         painter->drawText(QRectF(0, -h, m_cols * m_cell, h), Qt::AlignLeft | Qt::AlignVCenter, m_title);
     }
 
     for (int i = 0; i < m_rows; ++i) {
+        if (i >= m_data.size() || i >= m_aligns.size()) break;
         for (int j = 0; j < m_cols; ++j) {
+            if (j >= m_data[i].size() || j >= m_aligns[i].size()) break;
             const QRectF r(j * m_cell, h + i * m_cell, m_cell, m_cell);
             const bool editing = (m_editingCell && i == m_editRow && j == m_editCol);
             const bool selected = m_selectedCells.contains(i * m_cols + j);

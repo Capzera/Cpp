@@ -24,7 +24,7 @@ void SelectionSortModule::buildLayout(QGraphicsScene* scene, const QString& inpu
     for (int i = 1; i <= n && i < items.size(); ++i) m_data.push_back(items[i].toInt());
     n = m_data.size();
     m_startX = 400 - (n * 60) / 2;
-    m_mathText = m_scene->addText("");
+    m_mathText = createScriptText(m_scene, "");
     m_mathText->setFont(QFont("Consolas", 18, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(180, 50, 50));
     m_mathText->setPos(300, 30);
@@ -84,7 +84,7 @@ std::vector<AnimFrame> SelectionSortModule::runAlgorithm() {
 }
 
 void SelectionSortModule::renderFrame(const AnimFrame& step) {
-    if (!step.mathText.isEmpty()) m_mathText->setPlainText(step.mathText);
+    if (!step.mathText.isEmpty()) setScriptText(m_mathText, step.mathText);
     if (step.type == ActionType::SQ_POINTER_MOVE) {
         if (m_ptrI) {
             QPointF targetPos(m_startX + step.v * 60 + 30, 350);
@@ -94,6 +94,8 @@ void SelectionSortModule::renderFrame(const AnimFrame& step) {
         if (m_blocks.count(step.u)) {
             m_blocks[step.u]->color = QColor(255, 200, 100);
             m_blocks[step.u]->update();
+            playNodePop(m_blocks[step.u], 1.14, 240);
+            playCellRipple(m_blocks[step.u], QColor(255, 190, 90), 0.9, 460);
         }
     } else if (step.type == ActionType::AR_SCAN_MIN) {
         ArrayBlock* src = m_blocks.count(step.u) ? m_blocks[step.u] : nullptr;
@@ -166,6 +168,7 @@ void SelectionSortModule::renderFrame(const AnimFrame& step) {
             m_blocks[step.u]->color = QColor(150, 255, 150);
             m_blocks[step.u]->update();
             playScaleAnim(m_blocks[step.u]);
+            playCellRipple(m_blocks[step.u], QColor(120, 220, 140), 1.15, 560);
         }
     }
 }

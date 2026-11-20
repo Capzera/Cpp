@@ -31,13 +31,13 @@ void HeapBasicsModule::buildLayout(QGraphicsScene* scene, const QString& inputDa
     for (int i = 1; i <= n; ++i) m_heap.push_back(items[i].toInt());
     m_arrayStartX = 200 - (n * 60) / 2;
     m_treeRootX = 400;
-    m_mathText = m_scene->addText("");
+    m_mathText = createScriptText(m_scene, "");
     m_mathText->setFont(QFont("Consolas", 14, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(180, 50, 50));
     m_mathText->setPos(50, 50);
     QGraphicsTextItem* arrLabel = m_scene->addText("Array View (Index 0~N-1)");
     arrLabel->setFont(QFont("Arial", 11, QFont::Bold));
-    arrLabel->setPos(m_arrayStartX - 50, 200);
+    arrLabel->setPos(40, 168);
     for (int i = 0; i < n; ++i) {
         ArrayBlock* block = new ArrayBlock(i + 1, m_heap[i], QString::number(i));
         m_scene->addItem(block);
@@ -46,7 +46,7 @@ void HeapBasicsModule::buildLayout(QGraphicsScene* scene, const QString& inputDa
     }
     QGraphicsTextItem* treeLabel = m_scene->addText("Binary Tree Structure");
     treeLabel->setFont(QFont("Arial", 11, QFont::Bold));
-    treeLabel->setPos(m_treeRootX - 50, 200);
+    treeLabel->setPos(430, 168);
     std::function<void(int, int, int)> buildTree = [&](int idx, int x, int y) {
         if (idx > n) return;
         GraphNode* node = new GraphNode(m_heap[idx - 1], m_heap[idx - 1]);
@@ -88,30 +88,35 @@ std::vector<AnimFrame> HeapBasicsModule::runAlgorithm() {
     return m_frames;
 }
 void HeapBasicsModule::renderFrame(const AnimFrame& step) {
-    if (!step.mathText.isEmpty()) m_mathText->setPlainText(step.mathText);
+    if (!step.mathText.isEmpty()) setScriptText(m_mathText, step.mathText);
     if (step.type == ActionType::HP_HIGHLIGHT_RELATION) {
         if (m_arrayBlocks.count(step.u)) {
             m_arrayBlocks[step.u]->color = QColor(255, 200, 100);
             playScalePulse(m_arrayBlocks[step.u], 1.15, 200);
+            playCellRipple(m_arrayBlocks[step.u], QColor(255, 190, 90), 0.9, 460);
             m_arrayBlocks[step.u]->update();
         }
         if (m_treeNodes.count(step.u)) {
             m_treeNodes[step.u]->highlightColor = QColor(255, 200, 100);
             playScalePulse(m_treeNodes[step.u], 1.15, 200);
+            playNodeRipple(m_treeNodes[step.u], QColor(255, 190, 90), 34.0, 480);
             m_treeNodes[step.u]->update();
         }
         if (step.v > 0) {
             if (m_arrayBlocks.count(step.v)) {
                 m_arrayBlocks[step.v]->color = QColor(100, 200, 255);
                 m_arrayBlocks[step.v]->update();
+                playNodePop(m_arrayBlocks[step.v], 1.12, 240);
             }
             if (m_treeNodes.count(step.v)) {
                 m_treeNodes[step.v]->highlightColor = QColor(100, 200, 255);
                 m_treeNodes[step.v]->update();
+                playNodePop(m_treeNodes[step.v], 1.12, 240);
             }
             if (m_treeEdges.count({step.u, step.v})) {
                 m_treeEdges[ {step.u, step.v}]->color = QColor(100, 200, 255);
                 m_treeEdges[ {step.u, step.v}]->update();
+                playEdgeTravel(m_treeEdges[ {step.u, step.v}], QColor(100, 200, 255), 460);
             }
         }
     } else if (step.type == ActionType::HP_SYNC_ARRAY_TREE) {

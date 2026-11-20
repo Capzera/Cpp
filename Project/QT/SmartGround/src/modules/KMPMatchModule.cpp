@@ -10,7 +10,7 @@ static const QColor kKmpGreen = QColor(140, 205, 150);
 
 KMPMatchModule::KMPMatchModule() {}
 
-QString KMPMatchModule::getModuleName() const { return "KMP (匹配)"; }
+QString KMPMatchModule::getModuleName() const { return "KMP 匹配过程"; }
 QString KMPMatchModule::getDefaultInput() const { return "ABABCABAA\nABAB"; }
 QString KMPMatchModule::getInputHint() const {
     return "第一行输入主串 s，第二行输入模式串 p\n"
@@ -27,7 +27,7 @@ void KMPMatchModule::buildLayout(QGraphicsScene* scene, const QString& inputData
     m_valid = !m_s.isEmpty() && !m_p.isEmpty() &&
               m_s.size() <= 14 && m_p.size() <= 10 &&
               !m_s.contains(QRegularExpression("\\s")) && !m_p.contains(QRegularExpression("\\s"));
-    m_mathText = scene->addText(m_valid ? "先求 pi[]，再匹配：主串指针 i 永不回退，模式串靠 pi[] 整体右跳"
+    m_mathText = createScriptText(scene, m_valid ? "先求 pi[]，再匹配：主串指针 i 永不回退，模式串靠 pi[] 整体右跳"
                                         : "输入错误：需要两行非空字符串（主串 ≤ 14 字符，模式串 ≤ 10 字符）");
     m_mathText->setFont(QFont("Consolas", 14, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
@@ -188,10 +188,9 @@ std::vector<AnimFrame> KMPMatchModule::runAlgorithm() {
 
 void KMPMatchModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     const int n = m_n;
     const int m = m_m;
-    bool buildPhase = frame.group.size() && frame.group[0] == -1;
     if (frame.type == ActionType::KMPM_RESET) {
         refreshPatternHighlight();
         for (int i = 0; i <= n; ++i) m_sCells[i]->setBrush(QBrush(i == 0 ? QColor(238, 240, 244) : Qt::white));
@@ -204,20 +203,6 @@ void KMPMatchModule::renderFrame(const AnimFrame& frame) {
         int j = frame.v;
         for (int k = 1; k <= n; ++k) m_sCells[k]->setBrush(QBrush(Qt::white));
         for (int k = 1; k <= m; ++k) m_pCells[k]->setBrush(QBrush(Qt::white));
-        if (buildPhase) {
-            if (i >= 1 && i <= m) m_pCells[i]->setBrush(QBrush(QColor(255, 224, 216)));
-            if (j + 1 >= 1 && j + 1 <= m) m_pCells[j + 1]->setBrush(QBrush(QColor(255, 236, 200)));
-            layoutPatternRow(0);
-            if (m_ptrI) {
-                m_ptrI->setOpacity(1);
-                m_ptrI->setPos(m_sX + i * m_cellW + 23, m_pY + 44);
-            }
-            if (m_ptrJ) {
-                m_ptrJ->setOpacity(1);
-                m_ptrJ->setPos(m_sX + (j + 1) * m_cellW + 23, m_pY + 44);
-            }
-            return;
-        }
         if (i >= 1 && i <= n) m_sCells[i]->setBrush(QBrush(QColor(255, 224, 216)));
         if (j + 1 >= 1 && j + 1 <= m) m_pCells[j + 1]->setBrush(QBrush(QColor(255, 236, 200)));
         syncPatternRow(i, j);
@@ -239,18 +224,6 @@ void KMPMatchModule::renderFrame(const AnimFrame& frame) {
             pi->color = QColor(190, 216, 248);
             pi->update();
         }
-        if (buildPhase) {
-            layoutPatternRow(0);
-            if (m_ptrI) {
-                m_ptrI->setOpacity(1);
-                m_ptrI->setPos(m_sX + i * m_cellW + 23, m_pY + 44);
-            }
-            if (m_ptrJ && j <= m) {
-                m_ptrJ->setOpacity(1);
-                m_ptrJ->setPos(m_sX + j * m_cellW + 23, m_pY + 44);
-            }
-            return;
-        }
         syncPatternRow(i, j);
         if (m_ptrI) {
             m_ptrI->setOpacity(1);
@@ -265,61 +238,43 @@ void KMPMatchModule::renderFrame(const AnimFrame& frame) {
         int j = frame.val2;
         refreshPatternHighlight();
         if (j >= 1 && j <= m) m_pCells[j]->setBrush(QBrush(QColor(220, 240, 220)));
-        if (buildPhase) {
-            layoutPatternRow(0);
-            if (m_ptrI) {
-                m_ptrI->setOpacity(1);
-                m_ptrI->setPos(m_sX + i * m_cellW + 23, m_pY + 44);
-            }
-            if (m_ptrJ && j <= m) {
-                m_ptrJ->setOpacity(1);
-                m_ptrJ->setPos(m_sX + j * m_cellW + 23, m_pY + 44);
-            }
-            return;
-        }
         syncPatternRow(i, j);
         if (m_ptrI) {
             m_ptrI->setOpacity(1);
-            playPointerMove(m_ptrI, QPointF(m_sX + i * m_cellW + m_cellW / 2 - 8, m_sY + 44));
+            m_ptrI->setPos(m_sX + i * m_cellW + 23, m_sY + 44);
         }
         if (m_ptrJ && j <= m) {
             m_ptrJ->setOpacity(1);
-            playPointerMove(m_ptrJ, QPointF(m_pCells[j]->pos().x() + m_cellW / 2 - 8, m_pY + 44), 460, QEasingCurve::InOutCubic);
+            m_ptrJ->setPos(m_pCells[j]->pos() + QPointF(23, 44));
         }
-    } else if (frame.type == ActionType::KMPM_PI_SET) {
-        int i = frame.u;
-        ArrayBlock* pi = m_piBlocks[i];
-        if (pi) {
-            pi->value = frame.val1;
-            pi->showValue = true;
-            pi->color = QColor(200, 235, 205);
-            pi->update();
-        }
-        for (int k = 1; k <= m; ++k) m_pCells[k]->setBrush(QBrush(Qt::white));
-        if (i >= 1 && i <= m) m_pCells[i]->setBrush(QBrush(QColor(220, 240, 220)));
-        layoutPatternRow(0);
-        if (m_ptrI) {
-            m_ptrI->setOpacity(1);
-            m_ptrI->setPos(m_sX + i * m_cellW + 23, m_pY + 44);
+        if (j >= 1 && j <= m && m_pCells[j]) {
+            playCellRippleAt(m_pCells[j]->pos() + QPointF(m_cellW / 2.0, m_cellW / 2.0),
+                             QSizeF(m_cellW, m_cellW), QColor(150, 215, 165), m_cellW * 0.3, 460);
         }
     } else if (frame.type == ActionType::KMPM_HIT) {
         int i = frame.u;
         int start = frame.val1;
         for (int k = start; k < start + m && k <= n; ++k) m_sCells[k]->setBrush(QBrush(kKmpGreen));
         ArrayBlock* blk = new ArrayBlock(m_resultCount, start, QString("pos%1").arg(m_resultCount));
-        blk->setPos(700, 140 + m_resultCount * 56);
+        blk->setPos(700, m_piY + 96 + m_resultCount * 56);
         blk->color = QColor(200, 235, 205);
         m_scene->addItem(blk);
         m_resultBlocks.push_back(blk);
+        playCellLanding(blk, QColor(200, 235, 205), 460);
+        if (start >= 1 && start + m - 1 <= n) {
+            playCellRippleAt(m_sCells[start]->pos() + QPointF(m_cellW / 2.0, m_cellW / 2.0),
+                             QSizeF(m_cellW, m_cellW), kKmpGreen, m_cellW * 0.4, 700);
+        }
         syncPatternRow(i, m);
         if (m_ptrI) {
             m_ptrI->setOpacity(1);
-            m_ptrI->setPos(m_sX + i * m_cellW + 23, m_sY + 44);
+            playPointerMove(m_ptrI, QPointF(m_sX + i * m_cellW + 23, m_sY + 44));
         }
     } else if (frame.type == ActionType::KMPM_DONE) {
         for (auto& kv : m_piBlocks) {
             kv.second->color = kKmpGreen;
             kv.second->update();
+            playNodePop(kv.second, 1.12, 240);
         }
     }
 }

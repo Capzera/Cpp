@@ -130,6 +130,15 @@ bool AnnotationItem::hitTest(const QPointF& scenePos, qreal radius) const {
     const QRectF b = boundingRect();
     return b.adjusted(-radius, -radius, radius, radius).contains(local);
 }
+
+bool AnnotationItem::borderHitTest(const QPointF& scenePos, qreal tolerance) const {
+    const QRectF area = mapRectToScene(contentBounds());
+    if (area.isEmpty()) return false;
+    const QRectF outer = area.adjusted(-tolerance, -tolerance, tolerance, tolerance);
+    if (!outer.contains(scenePos)) return false;
+    const QRectF inner = area.adjusted(tolerance, tolerance, -tolerance, -tolerance);
+    return inner.isEmpty() || !inner.contains(scenePos);
+}
 void AnnotationItem::drawSelectionFrame(QPainter* painter) const {
     if (!m_selected) return;
     painter->save();

@@ -33,7 +33,7 @@ void BFSModule::buildLayout(QGraphicsScene* scene, const QString& inputData) {
     m_scene = scene;
     GraphModuleUtils::GraphInput input;
     m_valid = GraphModuleUtils::parse(inputData, true, m_options, input);
-    m_mathText = scene->addText(m_valid ? "BFS：按层扩展，节点在入队时标记访问" : "输入格式：n m src，随后输入 m 条边 u v");
+    m_mathText = createScriptText(scene, m_valid ? "BFS：按层扩展，节点在入队时标记访问" : "输入格式：n m src，随后输入 m 条边 u v");
     m_mathText->setFont(QFont("Consolas", 15, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
     m_mathText->setPos(180, 18);
@@ -127,7 +127,7 @@ std::vector<AnimFrame> BFSModule::runAlgorithm() {
 
 void BFSModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     if (frame.type == ActionType::BF_RESET) {
         for (int i = 1; i <= m_n; ++i) {
             m_nodes[i]->color = Qt::white;
@@ -157,10 +157,16 @@ void BFSModule::renderFrame(const AnimFrame& frame) {
             m_parentBlocks[nodeId]->color = QColor(205, 220, 240);
             m_parentBlocks[nodeId]->update();
             GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v);
-            if (edge) edge->setColor(QColor(80, 175, 120));
+            if (edge) {
+                edge->setColor(QColor(80, 175, 120));
+                playEdgeDiscover(edge, m_nodes[nodeId], QColor(80, 175, 120), 520);
+            }
+        } else {
+            playDiscover(m_nodes[nodeId], QColor(120, 200, 255), 52.0, 700);
         }
     } else if (frame.type == ActionType::BF_ENQUEUE) {
         playValueFlight(m_nodes[frame.u]->pos(), m_queueBlocks[frame.v], frame.u, QColor(175, 220, 240), true);
+        playNodePop(m_nodes[frame.u], 1.16, 300);
         if (frame.v == 0) m_headPointer->setOpacity(1);
         int next = frame.v + 1;
         if (next < m_n) m_tailPointer->setOpacity(1);
@@ -179,6 +185,7 @@ void BFSModule::renderFrame(const AnimFrame& frame) {
         m_queueBlocks[frame.v]->update();
         m_nodes[frame.u]->color = QColor(255, 190, 105);
         m_nodes[frame.u]->update();
+        playNodeWake(m_nodes[frame.u], QColor(255, 190, 105), 44.0, 560);
         if (frame.val1 < m_n) {
             int tailIndex = (m_tailPointer->opacity() > 0.05) ? frame.val1 + 1 : frame.val1;
             if (tailIndex >= m_n) tailIndex = frame.val1;
@@ -196,8 +203,15 @@ void BFSModule::renderFrame(const AnimFrame& frame) {
         }
         auto key = std::make_pair(std::min(frame.u, frame.v), std::max(frame.u, frame.v));
         GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v);
-        if (edge && edge->color != QColor(80, 175, 120)) edge->setColor(QColor(235, 155, 55));
-        if (frame.val1 < 0) { m_nodes[frame.v]->color = QColor(255, 225, 165); m_nodes[frame.v]->update(); }
+        if (edge && edge->color != QColor(80, 175, 120)) {
+            edge->setColor(QColor(235, 155, 55));
+            playEdgeTravel(edge, QColor(235, 155, 55), 460);
+        }
+        if (frame.val1 < 0) {
+            m_nodes[frame.v]->color = QColor(255, 225, 165);
+            m_nodes[frame.v]->update();
+            playNodeWake(m_nodes[frame.v], QColor(255, 205, 120), 30.0, 440);
+        }
     } else if (frame.type == ActionType::BF_FINISH) {
         for (int i = 1; i <= m_n; ++i) {
             if (m_nodes[i]->color == QColor(255, 190, 105)) {
@@ -207,6 +221,7 @@ void BFSModule::renderFrame(const AnimFrame& frame) {
             }
         }
         for (auto& pair : m_queueBlocks) pair.second->update();
+        for (auto& kv : m_nodes) playNodePop(kv.second, 1.10, 260);
     }
 }
 

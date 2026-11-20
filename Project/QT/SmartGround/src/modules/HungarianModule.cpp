@@ -13,8 +13,16 @@ static const QColor kHnPale = QColor(250, 250, 252);
 
 HungarianModule::HungarianModule() {}
 
-QString HungarianModule::getModuleName() const { return "匈牙利算法"; }
-QString HungarianModule::getDefaultInput() const { return "3 3\n1 1\n1 2\n2 2\n3 3"; }
+QString HungarianModule::getModuleName() const { return "二分图匹配 - 匈牙利算法"; }
+QString HungarianModule::getDefaultInput() const {
+    return "3 3\n"
+           "1 1\n"
+           "1 2\n"
+           "2 1\n"
+           "3 1\n"
+           "3 2\n"
+           "3 3";
+}
 
 bool HungarianModule::supportsGraphOptions() const { return true; }
 bool HungarianModule::supportsDirected() const { return false; }
@@ -27,7 +35,9 @@ void HungarianModule::setGraphOptions(const GraphModuleUtils::GraphOptions& opti
 QString HungarianModule::getInputHint() const {
     return "第一行输入两个正整数：左部顶点数 nL、右部顶点数 nR\n"
            "接下来若干行，每行两个整数 u, v，表示左部 u 与右部 v 之间存在边\n"
-           "算法按左部顶点依次尝试匹配，遇到已占用的右部顶点就沿增广路递归让位";
+           "算法按左部顶点依次尝试匹配，遇到已占用的右部顶点就沿增广路递归让位\n"
+           "默认数据特意构造了「分手」场景：L1 先占住 R1，L2 到来时被迫与 L1 分手，\n"
+           "L1 改配 R2、L2 接盘 R1，随后 L3 同时冲击 R1/R2/R3 触发多级让位";
 }
 
 std::map<int, QPointF> HungarianModule::captureNodePositions() const {
@@ -49,22 +59,22 @@ void HungarianModule::buildLayout(QGraphicsScene* scene, const QString& inputDat
     QStringList lines = inputData.split(QRegularExpression("[\\r\\n]"), Qt::SkipEmptyParts);
     bool ok = false;
     if (lines.isEmpty()) {
-        m_mathText = scene->addText("输入为空");
+        m_mathText = createScriptText(scene, "输入为空");
         return;
     }
     QStringList head = lines[0].split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
     if (head.size() < 2) {
-        m_mathText = scene->addText("第一行需要 nL 与 nR");
+        m_mathText = createScriptText(scene, "第一行需要 nL 与 nR");
         return;
     }
     m_leftCount = head[0].toInt(&ok);
     if (!ok || m_leftCount < 1 || m_leftCount > 8) {
-        m_mathText = scene->addText("nL 需为 1–8 的整数");
+        m_mathText = createScriptText(scene, "nL 需为 1–8 的整数");
         return;
     }
     m_rightCount = head[1].toInt(&ok);
     if (!ok || m_rightCount < 1 || m_rightCount > 8) {
-        m_mathText = scene->addText("nR 需为 1–8 的整数");
+        m_mathText = createScriptText(scene, "nR 需为 1–8 的整数");
         return;
     }
     std::vector<std::pair<int, int>> edgeList;
@@ -79,14 +89,34 @@ void HungarianModule::buildLayout(QGraphicsScene* scene, const QString& inputDat
     }
     m_valid = true;
 
-    m_mathText = scene->addText("");
+    m_mathText = createScriptText(scene, "");
     m_mathText->setFont(QFont("Consolas", 14, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
     m_mathText->setPos(50, 22);
-    m_mathText->setPlainText("匈牙利算法：为每个左部顶点寻找增广路，匹配数逐个增加");
+    setScriptText(m_mathText, "匈牙利算法：为每个左部顶点寻找增广路，匹配数逐个增加");
 
     GraphRenderHelper::addLabel(scene, "左部 L", QPointF(m_leftX - 26, m_topY - 52));
     GraphRenderHelper::addLabel(scene, "右部 R", QPointF(m_rightX - 26, m_topY - 52));
+
+    const double bandW = m_rightX - m_leftX;
+    const double bandH = m_rowGap * std::max(m_leftCount, m_rightCount) + 24.0;
+    QGraphicsRectItem* leftBand = scene->addRect(QRectF(m_leftX - 78.0, m_topY - 34.0, 156.0, bandH),
+                                                QPen(QColor(150, 185, 235, 90), 1.6, Qt::DashLine),
+                                                QBrush(QColor(150, 185, 235, 16)));
+    leftBand->setZValue(-2);
+    leftBand->setAcceptedMouseButtons(Qt::NoButton);
+    QGraphicsRectItem* rightBand = scene->addRect(QRectF(m_rightX - 78.0, m_topY - 34.0, 156.0, bandH),
+                                                 QPen(QColor(250, 200, 150, 90), 1.6, Qt::DashLine),
+                                                 QBrush(QColor(250, 200, 150, 16)));
+    rightBand->setZValue(-2);
+    rightBand->setAcceptedMouseButtons(Qt::NoButton);
+    Q_UNUSED(bandW);
+
+    m_augmentTrail = new PathTrail(kHnTry);
+    m_augmentTrail->setTrailWidth(4.5);
+    m_augmentTrail->setHeadRadius(7.0);
+    scene->addItem(m_augmentTrail);
+    m_augmentPoints.clear();
 
     std::vector<int> leftY, rightY;
     for (int i = 1; i <= m_leftCount; ++i) {
@@ -117,7 +147,7 @@ void HungarianModule::buildLayout(QGraphicsScene* scene, const QString& inputDat
         m_edges[{e.first, e.second}] = edge;
     }
 
-    m_resultText = scene->addText("");
+    m_resultText = createScriptText(scene, "");
     m_resultText->setFont(QFont("Consolas", 13, QFont::Bold));
     m_resultText->setDefaultTextColor(QColor(40, 140, 70));
     m_resultText->setPos(m_leftX - 40, m_topY + m_rowGap * m_leftCount + 20);
@@ -199,7 +229,7 @@ std::vector<AnimFrame> HungarianModule::runAlgorithm() {
 
 void HungarianModule::renderFrame(const AnimFrame& frame) {
     if (m_mathText) {
-        m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+        setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     }
     if (frame.type == ActionType::HN_RESET) {
         for (auto& kv : m_nodes) {
@@ -208,7 +238,14 @@ void HungarianModule::renderFrame(const AnimFrame& frame) {
             kv.second->update();
         }
         for (auto& kv : m_edges) { kv.second->color = QColor(190, 198, 210); kv.second->update(); }
-        if (m_resultText) m_resultText->setPlainText("");
+        if (m_augmentTrail) {
+            m_augmentTrail->clearPoints();
+            m_augmentTrail->setProgress(0.0);
+        }
+        m_augmentPoints.clear();
+        m_matchedEdges.clear();
+        if (m_resultText) setScriptText(m_resultText, "");
+        if (m_relationText) setScriptText(m_relationText, "");
     } else if (frame.type == ActionType::HN_START) {
         GraphNode* node = m_nodes[frame.u];
         if (node) {
@@ -216,6 +253,20 @@ void HungarianModule::renderFrame(const AnimFrame& frame) {
             node->color = kHnTry;
             node->update();
             playScalePulse(node, 1.25, 260);
+            playNodeRipple(node, kHnTry, 46.0, 620);
+        }
+        if (m_augmentTrail) {
+            m_augmentTrail->clearPoints();
+            m_augmentTrail->setProgress(0.0);
+        }
+        m_augmentPoints.clear();
+        if (node) {
+            m_augmentPoints.append(node->pos());
+            if (m_augmentTrail) {
+                m_augmentTrail->setPoints(m_augmentPoints);
+                m_augmentTrail->setColor(kHnTry);
+                m_augmentTrail->setProgress(1.0);
+            }
         }
     } else if (frame.type == ActionType::HN_TRY) {
         GraphNode* left = m_nodes[frame.u];
@@ -226,6 +277,12 @@ void HungarianModule::renderFrame(const AnimFrame& frame) {
         if (it != m_edges.end()) {
             it->second->color = kHnTry;
             it->second->update();
+            playEdgeTravel(it->second, kHnTry, 480);
+        }
+        if (m_augmentTrail && right) {
+            if (m_augmentPoints.isEmpty() && left) m_augmentPoints.append(left->pos());
+            m_augmentPoints.append(right->pos());
+            playPathTrail(m_augmentTrail, m_augmentPoints, kHnTry, 460);
         }
     } else if (frame.type == ActionType::HN_OCCUPIED) {
         GraphNode* right = m_nodes[100 + frame.v];
@@ -235,7 +292,22 @@ void HungarianModule::renderFrame(const AnimFrame& frame) {
         auto it = m_edges.find({frame.val1, frame.v});
         if (it != m_edges.end()) {
             it->second->color = kHnFailed;
+            it->second->setPenWidth(4.0);
             it->second->update();
+            playEdgeTravel(it->second, kHnFailed, 460);
+        }
+        if (m_augmentTrail && holder) {
+            if (m_augmentPoints.isEmpty() && right) m_augmentPoints.append(right->pos());
+            m_augmentPoints.append(holder->pos());
+            playPathTrail(m_augmentTrail, m_augmentPoints, kHnFailed, 520);
+        }
+        if (right) playNodeRipple(right, kHnFailed, 44.0, 600);
+        if (holder) playNodeRipple(holder, kHnFailed, 44.0, 600);
+        if (m_relationText) {
+            setScriptText(m_relationText, 
+                QString("R%1 已与 L%2 配对 → L%2 必须分手另找对象")
+                    .arg(frame.v).arg(frame.val1));
+            m_relationText->setDefaultTextColor(kHnFailed.darker(115));
         }
     } else if (frame.type == ActionType::HN_BACKTRACK) {
         auto it = m_edges.find({frame.u, frame.v});
@@ -243,11 +315,20 @@ void HungarianModule::renderFrame(const AnimFrame& frame) {
             it->second->color = kHnMatched;
             it->second->setPenWidth(4.0);
             it->second->update();
+            playEdgeDiscover(it->second, m_nodes.count(100 + frame.v) ? m_nodes[100 + frame.v] : nullptr,
+                             kHnMatched, 540);
         }
         GraphNode* left = m_nodes[frame.u];
         GraphNode* right = m_nodes[100 + frame.v];
         if (left) { left->color = kHnMatched; left->setHighlightColor(kHnMatched); left->update(); }
         if (right) { right->color = kHnMatched; right->setHighlightColor(kHnMatched); right->update(); }
+        if (left) playNodeRipple(left, kHnMatched, 44.0, 580);
+        if (right) playNodeRipple(right, kHnMatched, 44.0, 580);
+        if (m_relationText) {
+            setScriptText(m_relationText, 
+                QString("分手完成：L%1 让出 R%2，改配 R%3").arg(frame.val1).arg(frame.v).arg(frame.u));
+            m_relationText->setDefaultTextColor(kHnMatched.darker(115));
+        }
     } else if (frame.type == ActionType::HN_ASSIGN) {
         if (frame.v > 0) {
             auto it = m_edges.find({frame.u, frame.v});
@@ -255,14 +336,25 @@ void HungarianModule::renderFrame(const AnimFrame& frame) {
                 it->second->color = kHnMatched;
                 it->second->setPenWidth(4.0);
                 it->second->update();
+                playEdgeDiscover(it->second, m_nodes.count(100 + frame.v) ? m_nodes[100 + frame.v] : nullptr,
+                                 kHnMatched, 560);
             }
             GraphNode* left = m_nodes[frame.u];
             GraphNode* right = m_nodes[100 + frame.v];
             if (left) { left->color = kHnMatched; left->setHighlightColor(kHnMatched); left->update(); }
             if (right) { right->color = kHnMatched; right->setHighlightColor(kHnMatched); right->update(); }
+            if (right) playNodeRipple(right, kHnMatched, 48.0, 640);
+            const std::pair<int, int> pairKey(frame.u, frame.v);
+            if (std::find(m_matchedEdges.begin(), m_matchedEdges.end(), pairKey) == m_matchedEdges.end()) {
+                m_matchedEdges.push_back(pairKey);
+            }
+            if (m_augmentTrail && left && right) {
+                m_augmentPoints.append(right->pos());
+                playPathTrail(m_augmentTrail, m_augmentPoints, kHnMatched, 520);
+            }
         }
         if (m_resultText) {
-            m_resultText->setPlainText(QString("当前匹配数 = %1").arg(frame.val1));
+            setScriptText(m_resultText, QString("当前匹配数 = %1").arg(frame.val1));
             m_resultText->setDefaultTextColor(QColor(40, 140, 70));
         }
     } else if (frame.type == ActionType::HN_FAIL) {
@@ -283,8 +375,18 @@ void HungarianModule::renderFrame(const AnimFrame& frame) {
         for (auto& kv : m_edges) {
             if (kv.second->color != kHnMatched) { kv.second->color = QColor(190, 198, 210); kv.second->update(); }
         }
+        if (m_augmentTrail) {
+            m_augmentTrail->setColor(kHnMatched);
+            m_augmentTrail->setProgress(1.0);
+        }
+        for (const auto& pairKey : m_matchedEdges) {
+            GraphNode* left = m_nodes.count(pairKey.first) ? m_nodes[pairKey.first] : nullptr;
+            GraphNode* right = m_nodes.count(100 + pairKey.second) ? m_nodes[100 + pairKey.second] : nullptr;
+            if (left) playNodePop(left, 1.16, 300);
+            if (right) playNodePop(right, 1.16, 300);
+        }
         if (m_resultText) {
-            m_resultText->setPlainText(QString("最大匹配数 = %1").arg(frame.val1));
+            setScriptText(m_resultText, QString("最大匹配数 = %1").arg(frame.val1));
             m_resultText->setDefaultTextColor(QColor(40, 140, 70));
         }
     }
@@ -296,8 +398,12 @@ void HungarianModule::reset() {
     m_edges.clear();
     m_matchLeft.clear();
     m_matchRight.clear();
+    m_matchedEdges.clear();
+    m_augmentTrail = nullptr;
+    m_augmentPoints.clear();
     m_mathText = nullptr;
     m_resultText = nullptr;
+    m_relationText = nullptr;
     m_leftCount = 0;
     m_rightCount = 0;
     m_valid = false;
@@ -306,6 +412,10 @@ void HungarianModule::reset() {
 void HungarianModule::releaseSceneItems() {
     m_nodes.clear();
     m_edges.clear();
+    m_matchedEdges.clear();
+    m_augmentTrail = nullptr;
+    m_augmentPoints.clear();
     m_mathText = nullptr;
     m_resultText = nullptr;
+    m_relationText = nullptr;
 }

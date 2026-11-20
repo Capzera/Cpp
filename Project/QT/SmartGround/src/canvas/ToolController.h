@@ -49,10 +49,12 @@ public:
         qreal width = 3.0;
         qreal opacity = 1.0;
         qreal eraserRadius = 14.0;
+        bool eraserSquare = false;
         int mosaicCell = 14;
         int tableRows = 3;
         int tableCols = 3;
         int textSize = 12;
+        bool filled = false;
     };
 
     ToolController(AnnotationScene* scene, CanvasView* view, QObject* parent = nullptr);
@@ -70,6 +72,14 @@ public:
     void setOpacity(qreal v);
     qreal eraserRadius() const { return m_styles.value(m_tool).eraserRadius; }
     void setEraserRadius(qreal r);
+    bool eraserSquare() const { return m_styles.value(m_tool).eraserSquare; }
+    void setEraserSquare(bool on);
+    bool shapeFilled() const { return m_styles.value(m_tool).filled; }
+    void setShapeFilled(bool on);
+    bool rightClickEraseEnabled() const { return m_rightClickErase; }
+    void setRightClickEraseEnabled(bool on);
+    static bool rightClickErasePreference();
+    static void setRightClickErasePreference(bool on);
     int mosaicCellSize() const { return m_styles.value(m_tool).mosaicCell; }
     void setMosaicCellSize(int px);
     int tableRows() const { return m_styles.value(m_tool).tableRows; }
@@ -120,7 +130,10 @@ public:
 
     SelectionOverlay* selectionOverlay() const { return m_selectionOverlay; }
     AnnotationItem* editingItem() const { return m_editingItem; }
+    bool isInlineEditing() const { return m_editingItem && m_editingItem->isInlineEditing(); }
     CanvasTableItem* activeTable() const { return m_activeTable; }
+
+    bool handleKeyPress(QKeyEvent* event);
 
     bool applyColorShortcut(QKeyEvent* event);
 
@@ -146,11 +159,14 @@ private:
     void onMousePress(QMouseEvent* event);
     void onMouseMove(QMouseEvent* event);
     void onMouseRelease(QMouseEvent* event);
-    void onKeyPress(QKeyEvent* event);
+    bool onKeyPress(QKeyEvent* event);
 
     void beginStroke(const QPointF& pos, bool highlighter = false);
     void updateStroke(const QPointF& pos);
     void finishStroke();
+    bool beginRightErase(const QPointF& pos);
+    void updateRightErase(const QPointF& pos);
+    void finishRightErase();
     void beginShape(const QPointF& pos);
     void updateShape(const QPointF& pos);
     void finishShape();
@@ -170,8 +186,10 @@ private:
     void updateMoveSelection(const QPointF& pos);
     void finishMoveSelection();
     void applySelectionStyle();
+    void applyActiveStyle();
     void setSelectedFlag(AnnotationItem* item, bool on);
     AnnotationItem* itemAt(const QPointF& pos);
+    AnnotationItem* borderItemAt(const QPointF& pos);
     bool pointInsideSelection(const QPointF& pos) const;
     void captureMosaic(const QRectF& region);
     void openEditorFor(AnnotationItem* item);
@@ -215,14 +233,17 @@ public:
     QPointF m_marqueeEnd;
     QRectF m_marqueeRect;
     bool m_marqueeActive = false;
+    QPointF m_movePressPos;
     QPointF m_moveLastPos;
     QHash<const AnnotationItem*, QPointF> m_moveOrigins;
 
     bool m_eraseDragging = false;
+    bool m_rightEraseDragging = false;
     QPointF m_eraseLastPos;
     QVector<AnnotationItem*> m_eraseRemoved;
     QPointF m_eraserCursorPos;
     bool m_eraserActive = false;
+    bool m_rightClickErase = true;
 
     QVector<Command> m_undoStack;
     QVector<Command> m_redoStack;

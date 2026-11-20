@@ -139,17 +139,20 @@ void TarjanModule::renderFrame(const AnimFrame& step) {
     if (step.type == ActionType::GN_HIGHLIGHT_NODE) {
         nu->color = QColor(255, 230, 180); nu->updateData(step.val1, step.val2);
         playScalePulse(nu, 1.3, 300);
+        playNodeWake(nu, QColor(255, 200, 110), 34.0, 480);
     } else if (step.type == ActionType::GN_TRAVERSE_EDGE) {
         for (auto e : edges) if (e->source->id == step.u && e->dest->id == step.v) {
                 if (m_animated) {
                     e->color = Qt::red; e->update();
+                    playEdgeTravel(e, QColor(225, 80, 80), 460);
                     QPointer<GraphEdge> safeEdge = e;
-                    QTimer::singleShot(400, [safeEdge](){ if (safeEdge) { safeEdge->color = Qt::black; safeEdge->update(); } });
+                    QTimer::singleShot(520, [safeEdge](){ if (safeEdge) { safeEdge->color = Qt::black; safeEdge->update(); } });
                 } else { e->color = Qt::black; e->update(); }
             }
     } else if (step.type == ActionType::GN_UPDATE_LOW) {
         nu->updateData(step.val1, step.val2);
         playScalePulse(nu, 1.2, 200);
+        playNodeRipple(nu, QColor(120, 190, 240), 30.0, 440);
     } else if (step.type == ActionType::GN_PUSH_STACK) {
         nu->in_stack = true; nu->update();
         StackBlock *blk = new StackBlock(step.u); blk->setPos(nu->pos());
@@ -160,6 +163,7 @@ void TarjanModule::renderFrame(const AnimFrame& step) {
             mv->setEndValue(stack_base_pos - QPointF(0, stack_ui.size() * 35)); mv->setDuration(400);
             QPropertyAnimation *fd = new QPropertyAnimation(blk, "opacity"); fd->setEndValue(1.0); fd->setDuration(400);
             grp->addAnimation(mv); grp->addAnimation(fd); grp->start(QAbstractAnimation::DeleteWhenStopped);
+            playNodeRipple(nu, QColor(150, 210, 255), 38.0, 520);
         } else {
             blk->setPos(stack_base_pos - QPointF(0, stack_ui.size() * 35)); blk->setOpacity(1.0);
         }
@@ -187,7 +191,11 @@ void TarjanModule::renderFrame(const AnimFrame& step) {
         QColor sccColor = QColor::fromHsv((step.val1 * 60) % 360, 150, 255);
         for (int vid : step.group) {
             GraphNode *nv = nodes[vid]; nv->color = sccColor; nv->update();
+            playNodePop(nv, 1.18, 320);
             if (vid != step.u) {
+                nv->updateData(0, 0);
+                nv->setSubLabel("");
+                nv->setValueText("");
                 if (m_animated) {
                     QPropertyAnimation *mv = acquireAnim(nv, "pos", 600, QEasingCurve::InCubic);
                     if (mv) {
@@ -195,7 +203,13 @@ void TarjanModule::renderFrame(const AnimFrame& step) {
                         mv->setEndValue(nu->pos());
                         mv->start();
                     }
-                } else { nv->setPos(nu->pos()); }
+                    QPropertyAnimation *fd = acquireAnim(nv, "opacity", 600, QEasingCurve::InCubic);
+                    if (fd) {
+                        fd->setStartValue(nv->opacity());
+                        fd->setEndValue(0.0);
+                        fd->start();
+                    }
+                } else { nv->setPos(nu->pos()); nv->setOpacity(0.0); }
             }
         }
     }

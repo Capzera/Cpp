@@ -28,6 +28,9 @@ public:
     QImage mosaicImage() const { return m_mosaicImage; }
     QRectF mosaicRegion() const { return m_mosaicRegion; }
 
+    bool isFilled() const { return m_filled; }
+    void setFilled(bool on);
+
     QRectF boundingRect() const override;
     QPainterPath shape() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override;
@@ -48,6 +51,7 @@ private:
     QVector<QPolygonF> m_cells;
     QImage m_mosaicImage;
     QRectF m_mosaicRegion;
+    bool m_filled = false;
 };
 
 #endif

@@ -3,7 +3,9 @@
 #include "MyButton.h"
 #include "MyColorPicker.h"
 #include "MySlider.h"
+#include "MySegmentedControl.h"
 #include "MyTextInput.h"
+#include "MyToggleSwitch.h"
 #include "ui/UiTheme.h"
 #include "canvas/ToolController.h"
 #include <QHBoxLayout>
@@ -13,6 +15,8 @@
 #include <QPainterPath>
 #include <QEvent>
 #include <QStackedWidget>
+#include <QApplication>
+#include <QMouseEvent>
 #include <functional>
 
 namespace {
@@ -80,6 +84,11 @@ CanvasToolBar::CanvasToolBar(ToolController* controller, QWidget* parent)
     setObjectName("canvasToolSuite");
     setAttribute(Qt::WA_TranslucentBackground, true);
     buildMainBar();
+    qApp->installEventFilter(this);
+}
+
+CanvasToolBar::~CanvasToolBar() {
+    if (qApp) qApp->removeEventFilter(this);
 }
 
 int CanvasToolBar::mainBarWidth() const {
@@ -337,6 +346,27 @@ QWidget* CanvasToolBar::createToolPage(int toolIndex) {
     case ToolController::Arrow:
     case ToolController::Triangle: {
         layout->addWidget(makePanelTitle("形状设置", page));
+        if (tool == ToolController::Rect || tool == ToolController::Circle || tool == ToolController::Triangle) {
+            QHBoxLayout* fillRow = new QHBoxLayout();
+            fillRow->setSpacing(8);
+            QLabel* fillLabel = makePanelLabel("样式", page);
+            fillLabel->setFixedWidth(46);
+            fillRow->addWidget(fillLabel);
+            MySegmentedControl* fillPicker = new MySegmentedControl({"空心", "实心"}, page);
+            fillPicker->setObjectName("canvasToolShapeFill");
+            if (tool == ToolController::Rect) fillPicker->setShapeIcon(MySegmentedControl::RectIcon);
+            else if (tool == ToolController::Circle) fillPicker->setShapeIcon(MySegmentedControl::CircleIcon);
+            else fillPicker->setShapeIcon(MySegmentedControl::TriangleIcon);
+            fillPicker->setCurrentIndex(style.filled ? 1 : 0);
+            connect(fillPicker, &MySegmentedControl::currentIndexChanged, this, [this, tool](int idx) {
+                ToolController::ToolStyle s = m_controller->styleFor(tool);
+                s.filled = (idx == 1);
+                m_controller->setStyleFor(tool, s);
+                m_controller->setShapeFilled(idx == 1);
+            });
+            fillRow->addWidget(fillPicker, 1);
+            layout->addLayout(fillRow);
+        }
         addColorRow(style.color);
         addSliderRow("粗细", 1, 40, static_cast<int>(style.width),
                      "canvasToolWidth", [this, tool](int v) {
@@ -363,6 +393,37 @@ QWidget* CanvasToolBar::createToolPage(int toolIndex) {
                          m_controller->setStyleFor(tool, s);
                          m_controller->setEraserRadius(v);
                      });
+        QHBoxLayout* shapeRow = new QHBoxLayout();
+        shapeRow->setSpacing(8);
+        QLabel* shapeLabel = makePanelLabel("形状", page);
+        shapeLabel->setFixedWidth(46);
+        shapeRow->addWidget(shapeLabel);
+        MySegmentedControl* shapePicker = new MySegmentedControl({"圆形", "方形"}, page);
+        shapePicker->setObjectName("canvasToolEraserShape");
+        shapePicker->setCurrentIndex(style.eraserSquare ? 1 : 0);
+        connect(shapePicker, &MySegmentedControl::currentIndexChanged, this, [this, tool](int idx) {
+            ToolController::ToolStyle s = m_controller->styleFor(tool);
+            s.eraserSquare = (idx == 1);
+            m_controller->setStyleFor(tool, s);
+            m_controller->setEraserSquare(idx == 1);
+        });
+        shapeRow->addWidget(shapePicker, 1);
+        layout->addLayout(shapeRow);
+        QHBoxLayout* rightRow = new QHBoxLayout();
+        rightRow->setSpacing(8);
+        QLabel* rightLabel = makePanelLabel("右键擦除", page);
+        rightLabel->setFixedWidth(46);
+        rightRow->addWidget(rightLabel);
+        MyToggleSwitch* rightSwitch = new MyToggleSwitch(page);
+        rightSwitch->setObjectName("canvasToolRightClickErase");
+        rightSwitch->setChecked(m_controller->rightClickEraseEnabled());
+        rightSwitch->setToolTip("画笔 / 荧光笔按住右键即为橡皮擦除");
+        connect(rightSwitch, &MyToggleSwitch::toggled, this, [this](bool on) {
+            m_controller->setRightClickEraseEnabled(on);
+        });
+        rightRow->addWidget(rightSwitch);
+        rightRow->addStretch(1);
+        layout->addLayout(rightRow);
         break;
     }
     case ToolController::Mosaic: {
@@ -428,6 +489,22 @@ QWidget* CanvasToolBar::createToolPage(int toolIndex) {
     return page;
 }
 
+void CanvasToolBar::applyToolPageSize() {
+    if (!m_toolPages) return;
+    QWidget* page = m_toolPages->currentWidget();
+    if (!page) return;
+    if (page->layout()) page->layout()->activate();
+    page->adjustSize();
+    const QSize hint = page->sizeHint();
+    if (hint.width() > 0 && hint.height() > 0) {
+        m_toolPages->setFixedSize(hint);
+    }
+    if (m_toolPanel) {
+        m_toolPanel->adjustSize();
+        m_toolPanel->layout()->activate();
+    }
+}
+
 void CanvasToolBar::showToolPage(int toolIndex) {
     if (!m_toolPages) return;
     const int count = m_toolPages->count();
@@ -436,6 +513,7 @@ void CanvasToolBar::showToolPage(int toolIndex) {
         if (!page) continue;
         if (page->objectName() == QString("canvasToolPage_%1").arg(toolIndex)) {
             m_toolPages->setCurrentIndex(i);
+            applyToolPageSize();
             return;
         }
     }
@@ -456,6 +534,7 @@ void CanvasToolBar::refreshToolPage(int toolIndex) {
     page->deleteLater();
     m_toolPages->insertWidget(index, fresh);
     m_toolPages->setCurrentIndex(index);
+    applyToolPageSize();
 }
 
 void CanvasToolBar::toggleMorePanel() {
@@ -513,6 +592,31 @@ void CanvasToolBar::setHostWidget(QWidget* host) {
         if (m_toolPanel) m_toolPanel->hide();
     }
     reposition();
+}
+
+bool CanvasToolBar::isInsidePanel(QWidget* panel, const QPoint& globalPos) const {
+    if (!panel || !panel->isVisible()) return false;
+    return panel->geometry().contains(panel->parentWidget()
+                                         ? panel->parentWidget()->mapFromGlobal(globalPos)
+                                         : panel->mapFromGlobal(globalPos));
+}
+
+bool CanvasToolBar::isInsideToolbar(const QPoint& globalPos) const {
+    if (!isVisible()) return false;
+    QWidget* parent = parentWidget();
+    if (!parent) return false;
+    return geometry().contains(parent->mapFromGlobal(globalPos));
+}
+
+bool CanvasToolBar::shouldCloseOnPress(QObject* obj, QEvent* event) const {
+    if (!m_toolPanelOpen && !m_moreOpen) return false;
+    QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+    if (mouseEvent->button() != Qt::LeftButton) return false;
+    const QPoint globalPos = mouseEvent->globalPosition().toPoint();
+    if (isInsidePanel(m_toolPanel, globalPos)) return false;
+    if (isInsidePanel(m_morePanel, globalPos)) return false;
+    if (isInsideToolbar(globalPos)) return false;
+    return true;
 }
 
 void CanvasToolBar::placePanel(QWidget* panel, int barX, int barW, int barY, int barH) {
@@ -577,6 +681,10 @@ void CanvasToolBar::reposition() {
 bool CanvasToolBar::eventFilter(QObject* obj, QEvent* event) {
     if (obj == m_host && event->type() == QEvent::Resize) {
         reposition();
+        return false;
+    }
+    if (event->type() == QEvent::MouseButtonPress && shouldCloseOnPress(obj, event)) {
+        closeFlyouts();
         return false;
     }
     return QWidget::eventFilter(obj, event);

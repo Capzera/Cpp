@@ -45,7 +45,7 @@ void BinarySearchClosedModule::buildLayout(QGraphicsScene* scene, const QString&
     QGraphicsTextItem *label = scene->addText("[L, R]  ( L <= R, R = mid - 1 )");
     label->setFont(QFont("Microsoft YaHei", 12, QFont::Bold));
     label->setPos(m_startX - 120, 250);
-    m_mathText = scene->addText("");
+    m_mathText = createScriptText(scene, "");
     m_mathText->setFont(QFont("Consolas", 18, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(180, 50, 50));
     m_mathText->setPos(300, 100);
@@ -99,7 +99,7 @@ ArrayBlock* BinarySearchClosedModule::getBlock(int id) {
 	return m_blocks.count(id) ? m_blocks[id] : nullptr;
 }
 void BinarySearchClosedModule::renderFrame(const AnimFrame& step) {
-    if (!step.mathText.isEmpty()) m_mathText->setPlainText(step.mathText);
+    if (!step.mathText.isEmpty()) setScriptText(m_mathText, step.mathText);
     if (step.type == ActionType::BS_POINTER_MOVE) {
         if (step.u == 0) m_ptrL->setProperty("slot", step.v);
         else if (step.u == 1) m_ptrR->setProperty("slot", step.v);
@@ -124,16 +124,19 @@ void BinarySearchClosedModule::renderFrame(const AnimFrame& step) {
             b->color = QColor(255, 255, 100);
             b->update();
             playScalePulse(b, 1.3, 300);
+            playCellRipple(b, QColor(250, 225, 90), 0.95, 500);
         }
     } else if (step.type == ActionType::BS_DISCARD_RANGE) {
+        std::vector<ArrayBlock*> discarded;
         for (int i = step.u; i <= step.v; ++i) {
             ArrayBlock* b = getBlock(i);
             if (!b) continue;
             b->color = QColor(200, 200, 200);
             b->update();
+            discarded.push_back(b);
             if (!m_animated) {
                 b->setOpacity(0.3);
-                b->setPos(b->pos() + QPointF(0, 30));
+                b->setPos(b->pos() + QPointF(0, 82));
                 continue;
             }
             QPropertyAnimation* opa = acquireAnim(b, "opacity", 400, QEasingCurve::InOutQuad);
@@ -145,9 +148,12 @@ void BinarySearchClosedModule::renderFrame(const AnimFrame& step) {
             QPropertyAnimation* mv = acquireAnim(b, "pos", 400, QEasingCurve::InOutQuad);
             if (mv) {
                 mv->setStartValue(b->pos());
-                mv->setEndValue(b->pos() + QPointF(0, 30));
+                mv->setEndValue(b->pos() + QPointF(0, 82));
                 mv->start();
             }
+        }
+        if (!discarded.empty()) {
+            playCellSweep(discarded, QColor(200, 200, 200), 45, 280);
         }
     } else if (step.type == ActionType::BS_FOUND) {
         ArrayBlock* b = getBlock(step.u);
@@ -155,6 +161,7 @@ void BinarySearchClosedModule::renderFrame(const AnimFrame& step) {
             b->color = QColor(100, 255, 100);
             b->update();
             playScalePulse(b, 1.4, 400);
+            playCellRipple(b, QColor(110, 230, 130), 1.35, 720);
         }
     } else if (step.type == ActionType::BS_NOT_FOUND) {
         if (m_ptrMid) m_ptrMid->setOpacity(0);

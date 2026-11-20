@@ -4,6 +4,7 @@
 #include <QTextDocument>
 #include <QTextCharFormat>
 #include <QTextCursor>
+#include "InlineTextEdit.h"
 
 class TextBoxItem : public AnnotationItem {
     Q_OBJECT
@@ -40,6 +41,9 @@ public:
     void commitInlineEdit() override;
     void cancelInlineEdit() override;
     bool handleEditKey(QKeyEvent* event) override;
+    bool placeCaretAt(const QPointF& scenePos) override;
+    bool prefersCaretPlacement(const QPointF& scenePos) const override;
+    int cursorPositionForTest() const { return m_cursor.position(); }
 
     QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override;
@@ -53,6 +57,8 @@ protected:
     void mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event) override;
 
 private:
+    static constexpr qreal kCaretGap = 4.0;
+
     void rebuildDocument();
     void syncCursorToItem();
     QRectF caretRect() const;

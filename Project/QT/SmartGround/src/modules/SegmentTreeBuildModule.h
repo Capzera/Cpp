@@ -7,6 +7,8 @@
 #include <QObject>
 #include <QGraphicsTextItem>
 #include <QGraphicsRectItem>
+#include <QPointer>
+#include <QVector>
 
 class SegmentTreeBuildModule : public QObject, public IModule {
     Q_OBJECT
@@ -28,10 +30,17 @@ private:
     ArrayBlock* trBlock(int nodeId) const;
     ArrayBlock* lzBlock(int nodeId) const;
     GraphNode* treeNode(int nodeId) const;
+    void ensureDescentTrail(QColor color);
+    void clearDescentTrail();
+    void appendDescent(int node, QColor color);
+    void freezeDescentTrail(QColor color);
 
     std::vector<AnimFrame> m_frames;
     std::vector<SegmentTreeCommon::NodeInfo> m_nodes;
     std::map<int, GraphNode*> m_treeNodes;
+    std::map<std::pair<int, int>, GraphEdge*> m_treeEdges;
+    QPointer<PathTrail> m_descentTrail;
+    QVector<QPointF> m_descentPoints;
     std::map<int, ArrayBlock*> m_trBlocks;
     std::map<int, ArrayBlock*> m_lzBlocks;
     std::map<int, QGraphicsRectItem*> m_aCells;

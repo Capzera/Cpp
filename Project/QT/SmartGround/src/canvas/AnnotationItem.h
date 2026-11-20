@@ -49,6 +49,8 @@ public:
     virtual void commitInlineEdit() {}
     virtual void cancelInlineEdit() {}
     virtual bool handleEditKey(QKeyEvent* event) { return false; }
+    virtual bool placeCaretAt(const QPointF& scenePos) { Q_UNUSED(scenePos); return false; }
+    virtual bool prefersCaretPlacement(const QPointF& scenePos) const { Q_UNUSED(scenePos); return false; }
 
     using Frame = AnnotationFrame;
 
@@ -62,7 +64,9 @@ public:
 
     virtual bool isHighlighter() const { return false; }
     virtual QPainterPath inkPath() const { return QPainterPath(); }
+    QPainterPath sceneShape() const { return mapToScene(shape()); }
     virtual bool hitTest(const QPointF& scenePos, qreal radius) const;
+    virtual bool borderHitTest(const QPointF& scenePos, qreal tolerance) const;
     void drawSelectionFrame(QPainter* painter) const;
 
     static QJsonObject colorToJson(const QColor& c);

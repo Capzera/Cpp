@@ -6,10 +6,28 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 find_package(Qt6 COMPONENTS Widgets Gui Core Svg REQUIRED)
 
+set(SG_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
+file(MAKE_DIRECTORY ${SG_GENERATED_DIR})
+set(SG_BUILD_STAMP "0")
+find_package(Git QUIET)
+if(GIT_FOUND)
+    execute_process(COMMAND ${GIT_EXECUTABLE} rev-list --count HEAD -- .
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
+                    OUTPUT_VARIABLE SG_GIT_COUNT
+                    OUTPUT_STRIP_TRAILING_WHITESPACE
+                    ERROR_QUIET)
+    if(SG_GIT_COUNT)
+        set(SG_BUILD_STAMP "${SG_GIT_COUNT}")
+    endif()
+endif()
+file(WRITE ${SG_GENERATED_DIR}/AppVersionGenerated.h
+"#ifndef APPVERSIONGENERATED_H\n#define APPVERSIONGENERATED_H\nnamespace AppVersionBuild {\ninline const char* kStamp = \"${SG_BUILD_STAMP}\";\n}\n#endif\n")
+
 set(SG_MODULE_SOURCES
     ../src/render/GraphElements.cpp
     ../src/render/SceneGrid.cpp
     ../src/render/MatrixBlock.cpp
+    ../src/modules/ModuleFields.cpp
     ../src/render/LatexBlock.cpp
     ../src/core/ViewportFitter.cpp
     ../src/modules/IModule.cpp
@@ -53,6 +71,33 @@ set(SG_MODULE_SOURCES
     ../src/modules/SandboxTreeModule.cpp
     ../src/modules/SandboxGraphModule.cpp
     ../src/modules/SandboxBlankModule.cpp
+    ../src/modules/ShellSortModule.cpp
+    ../src/modules/FastPowModule.cpp
+    ../src/modules/SieveOfEratosthenesModule.cpp
+    ../src/modules/ForwardStarModule.cpp
+    ../src/modules/DSUPathCompressionModule.cpp
+    ../src/modules/TreeSubtreeSizeModule.cpp
+    ../src/modules/TreeDiameterModule.cpp
+    ../src/modules/DijkstraHeapModule.cpp
+    ../src/modules/GcdModule.cpp
+    ../src/modules/DfsModule.cpp
+    ../src/modules/PrimModule.cpp
+    ../src/modules/CountingSortModule.cpp
+    ../src/modules/BipartiteModule.cpp
+    ../src/modules/EulerModule.cpp
+    ../src/modules/IntervalSchedModule.cpp
+    ../src/modules/TrieModule.cpp
+    ../src/modules/HashTableModule.cpp
+    ../src/modules/BucketSortModule.cpp
+    ../src/modules/RadixSortModule.cpp
+    ../src/modules/CircularQueueModule.cpp
+    ../src/modules/MonotonicQueueModule.cpp
+    ../src/modules/ExgcdModule.cpp
+    ../src/modules/HuffmanTreeModule.cpp
+    ../src/modules/StringHashModule.cpp
+    ../src/modules/LCSModule.cpp
+    ../src/render/ValueBar.cpp
+    ../src/render/SegmentBar.cpp
 )
 
 set(SG_MODULE_HEADERS
@@ -93,6 +138,34 @@ set(SG_MODULE_HEADERS
     ../src/modules/SandboxTreeModule.h
     ../src/modules/SandboxGraphModule.h
     ../src/modules/SandboxBlankModule.h
+    ../src/modules/ShellSortModule.h
+    ../src/modules/FastPowModule.h
+    ../src/modules/SieveOfEratosthenesModule.h
+    ../src/modules/ForwardStarModule.h
+    ../src/modules/DSUPathCompressionModule.h
+    ../src/modules/TreeDpBase.h
+    ../src/modules/TreeSubtreeSizeModule.h
+    ../src/modules/TreeDiameterModule.h
+    ../src/modules/DijkstraHeapModule.h
+    ../src/modules/GcdModule.h
+    ../src/modules/DfsModule.h
+    ../src/modules/PrimModule.h
+    ../src/modules/CountingSortModule.h
+    ../src/modules/BipartiteModule.h
+    ../src/modules/EulerModule.h
+    ../src/modules/IntervalSchedModule.h
+    ../src/modules/TrieModule.h
+    ../src/modules/HashTableModule.h
+    ../src/modules/BucketSortModule.h
+    ../src/modules/RadixSortModule.h
+    ../src/modules/CircularQueueModule.h
+    ../src/modules/MonotonicQueueModule.h
+    ../src/modules/ExgcdModule.h
+    ../src/modules/HuffmanTreeModule.h
+    ../src/modules/StringHashModule.h
+    ../src/modules/LCSModule.h
+    ../src/render/ValueBar.h
+    ../src/render/SegmentBar.h
     ../src/modules/TarjanModule.h
     ../src/modules/BubbleSortModule.h
     ../src/modules/SelectionSortModule.h
@@ -124,6 +197,7 @@ set(SG_WIDGET_SOURCES
     ../src/ui/widgets/AnnotationEditor.cpp
     ../src/canvas/LatexService.cpp
     ../src/ui/widgets/MyColorPicker.cpp
+    ../src/ui/widgets/MySegmentedControl.cpp
     ../src/ui/widgets/MyTextInput.cpp
 )
 
@@ -141,7 +215,9 @@ set(SG_CANVAS_SOURCES
     ../src/canvas/ToolController.cpp
     ../src/canvas/CanvasView.cpp
     ../src/ui/widgets/CanvasToolBar.cpp
+    ../src/ui/widgets/CanvasBrushSlider.cpp
     ../src/ui/widgets/TableToolBar.cpp
+    ../src/ui/widgets/TableIconButton.cpp
     ../src/ui/widgets/ToolIconButton.cpp
 )
 
@@ -159,12 +235,12 @@ target_include_directories(SgCanvas PUBLIC ../src)
 
 add_library(SgUi STATIC ../src/ui/MainWindow.cpp ../src/ui/MainWindow.h)
 target_link_libraries(SgUi PUBLIC SgWidgets SgCanvas SgCore Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Svg)
-target_include_directories(SgUi PUBLIC ../src)
+target_include_directories(SgUi PUBLIC ../src ${SG_GENERATED_DIR})
 
 function(sg_link name lib)
     add_executable(${name} ${ARGN} ../src/resources.qrc)
     target_link_libraries(${name} PRIVATE ${lib} Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Svg)
-    target_include_directories(${name} PRIVATE ../src)
+    target_include_directories(${name} PRIVATE ../src ${SG_GENERATED_DIR})
 endfunction()
 
 function(add_sg_test name source)
@@ -183,30 +259,29 @@ function(add_sg_widget_test name source)
     sg_link(${name} SgWidgets ${source})
 endfunction()
 
+add_sg_test(SmartGroundBatch8 Batch8ModulesTest.cpp)
+add_sg_test(SmartGroundBatch8Visual Batch8VisualTest.cpp)
+add_sg_test(SmartGroundLayoutFit LayoutFitTest.cpp)
+add_sg_test(SmartGroundOverlapAudit OverlapAuditTest.cpp)
+
+
 add_sg_test(SmartGroundStress StressTest.cpp)
 add_sg_test(SmartGroundAnimStress AnimStressTest.cpp)
 add_sg_test(SmartGroundWeightTest WeightFollowTest.cpp)
 add_sg_test(SmartGroundEdgeRenderTest EdgeRenderTest.cpp)
 add_sg_test(SmartGroundArrowPixelTest ArrowPixelTest.cpp)
-add_sg_test(SmartGroundArrowShot ArrowShot.cpp)
 add_sg_ui_test(SmartGroundUiBehaviorTest UiBehaviorTest.cpp)
-add_sg_test(SmartGroundDsuShot DsuShot.cpp)
-add_sg_ui_test(SmartGroundUiShot UiShot.cpp)
 add_sg_ui_test(SmartGroundWidgetPixelTest WidgetPixelTest.cpp)
 add_sg_ui_test(SmartGroundStartupPanelTest StartupPanelTest.cpp)
 add_sg_widget_test(SmartGroundComboPopupTest ComboPopupTest.cpp)
-add_sg_widget_test(SmartGroundComboShot ComboShot.cpp)
 add_sg_widget_test(SmartGroundUiPolish UiPolishTest.cpp)
 add_sg_widget_test(SmartGroundUiPolish2 UiPolish2Test.cpp)
 add_sg_ui_test(SmartGroundModuleReset ModuleResetTest.cpp)
-add_sg_widget_test(SmartGroundToggleShot ToggleShot.cpp)
 add_sg_ui_test(SmartGroundAutoPlayEnd AutoPlayEndTest.cpp)
-add_sg_test(SmartGroundFinalShot FinalShot.cpp)
 add_sg_test(SmartGroundNewModule NewModuleTest.cpp)
 add_sg_test(SmartGroundSandboxVisual SandboxVisualTest.cpp)
 add_sg_ui_test(SmartGroundFrameSlider FrameSliderTest.cpp)
 add_sg_widget_test(SmartGroundTextEditRegression TextEditRegressionTest.cpp)
-add_sg_ui_test(SmartGroundTextEditUiShot TextEditUiShot.cpp)
 add_sg_test(SmartGroundLiveEdit LiveEditTest.cpp)
 add_sg_test(SmartGroundEditCrash EditCrashTest.cpp)
 add_sg_test(SmartGroundBorderDiag BorderDiagTest.cpp)
@@ -220,11 +295,34 @@ add_sg_canvas_test(SmartGroundToolSuite ToolSuiteTest.cpp)
 add_sg_canvas_test(SmartGroundBrushQuality BrushQualityTest.cpp)
 add_sg_canvas_test(SmartGroundCanvasPolish CanvasPolishTest.cpp)
 add_sg_canvas_test(SmartGroundCanvasEditing CanvasEditingTest.cpp)
+add_sg_canvas_test(SmartGroundEraserPanel EraserPanelTest.cpp)
+add_sg_canvas_test(SmartGroundLivePreview LivePreviewTest.cpp)
 add_sg_canvas_test(SmartGroundSmartCanvas SmartCanvasTest.cpp)
+add_sg_widget_test(SmartGroundColorPickerTest ColorPickerTest.cpp)
 
+add_sg_ui_test(SmartGroundStylePicker StylePickerTest.cpp)
 add_sg_ui_test(SmartGroundAppWidth AppWidthTest.cpp)
 add_sg_ui_test(SmartGroundAppCombo AppComboTest.cpp)
 add_sg_ui_test(SmartGroundAppBrush AppBrushTest.cpp)
+add_sg_ui_test(SmartGroundModuleSettingsPanel ModuleSettingsPanelTest.cpp)
+add_sg_test(SmartGroundGraphInlineEdit GraphInlineEditTest.cpp)
+add_sg_canvas_test(SmartGroundCanvasCaret CanvasCaretTest.cpp)
+add_sg_test(SmartGroundSieveStrike SieveStrikeTest.cpp)
+add_sg_test(SmartGroundMatrixShape MatrixShapeTest.cpp)
+add_sg_test(SmartGroundMatrixRebuild MatrixRebuildTest.cpp)
+add_sg_test(SmartGroundMatrixGhost MatrixGhostTest.cpp)
+add_sg_ui_test(SmartGroundMatrixGhostApp MatrixGhostAppTest.cpp)
+add_sg_test(SmartGroundPointerVisual PointerVisualTest.cpp)
+add_sg_test(SmartGroundPointerAlign PointerAlignTest.cpp)
+add_sg_test(SmartGroundPointerDebug PointerDebugTest.cpp)
+add_sg_ui_test(SmartGroundMstGroup MstGroupTest.cpp)
+add_sg_ui_test(SmartGroundPopupEdgeVerify PopupEdgeVerify.cpp)
+add_sg_test(SmartGroundGraphInteraction GraphInteractionTest.cpp)
+add_sg_test(SmartGroundNewModuleBatch NewModuleBatchTest.cpp)
+add_sg_test(SmartGroundRound10Fix Round10FixTest.cpp)
+add_sg_test(SmartGroundRound10Visual Round10VisualTest.cpp)
+add_sg_test(SmartGroundRound10RowDump Round10RowDump.cpp)
+add_sg_ui_test(SmartGroundVersionBadge VersionBadgeTest.cpp)
 
 
 
@@ -233,4 +331,13 @@ add_sg_ui_test(SmartGroundAppBrush AppBrushTest.cpp)
 
 
 
-
+add_sg_test(SmartGroundPointerMotion PointerMotionTest.cpp)
+add_sg_test(SmartGroundBatch9Modules Batch9ModulesTest.cpp)
+add_sg_test(SmartGroundBatch9Visual Batch9VisualTest.cpp)
+add_sg_test(SmartGroundExgcdDebug ExgcdDebug.cpp)
+add_sg_test(SmartGroundHuffmanShot HuffmanShot.cpp)
+add_sg_test(SmartGroundHuffmanLayoutDump HuffmanLayoutDump.cpp)
+add_sg_test(SmartGroundStrictAudit StrictAudit.cpp)
+add_sg_test(SmartGroundBeamCurve BeamCurveTest.cpp)
+add_sg_test(SmartGroundBeamRender BeamRenderTest.cpp)
+add_sg_canvas_test(SmartGroundCanvasFeatures CanvasFeaturesTest.cpp)

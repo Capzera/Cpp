@@ -184,6 +184,52 @@ int main(int argc, char** argv) {
         controller.deselectAll();
     }
 
+    printf("\n--- 6b. drag accumulates the full cursor offset ---\n");
+    {
+        controller.setTool(ToolController::AnnotationSelect);
+        controller.selectAll();
+        AnnotationItem* first = controller.selectedItems().first();
+        const QPointF origin = first->pos();
+        const QPointF anchor = first->mapRectToScene(first->contentBounds()).center();
+        const QPointF target = anchor + QPointF(90, 45);
+        sendMouse(&view, QEvent::MouseButtonPress, anchor);
+        for (int i = 1; i <= 9; ++i) {
+            sendMouse(&view, QEvent::MouseMove, anchor + QPointF(10.0 * i, 5.0 * i));
+        }
+        sendMouse(&view, QEvent::MouseButtonRelease, target);
+        pump(120);
+        const QPointF moved = first->pos() - origin;
+        printf("move offset = (%.2f, %.2f), expected (90.00, 45.00)\n", moved.x(), moved.y());
+        check("move: offset equals the whole cursor travel, no jitter",
+              qAbs(moved.x() - 90.0) < 0.5 && qAbs(moved.y() - 45.0) < 0.5);
+        controller.deselectAll();
+    }
+
+    printf("\n--- 6c. inline editing blocks every global shortcut ---\n");
+    {
+        controller.setTool(ToolController::TextBox);
+        sendMouse(&view, QEvent::MouseButtonPress, QPointF(-420, -420));
+        pump(150);
+        check("edit: textbox entered inline editing", controller.isInlineEditing());
+        const QColor colorBefore = controller.penColor();
+        const ToolController::Tool toolBefore = controller.currentTool();
+        sendKey(&view, Qt::Key_1, QString("1"));
+        sendKey(&view, Qt::Key_B, QString("b"));
+        pump(120);
+        check("edit: the digit shortcut does not change the pen color",
+              controller.penColor() == colorBefore);
+        check("edit: the letter shortcut does not switch tools",
+              controller.currentTool() == toolBefore);
+        TextBoxItem* edited = dynamic_cast<TextBoxItem*>(controller.editingItem());
+        check("edit: the typed characters still reach the text box",
+              edited && edited->plainText().contains(QString("1")));
+        controller.setTool(ToolController::AnnotationSelect);
+        controller.selectAll();
+        controller.deleteSelected();
+        pump(100);
+        controller.deselectAll();
+    }
+
     printf("\n--- 7. textbox is transparent and editable in place ---\n");
     {
         controller.setTool(ToolController::TextBox);

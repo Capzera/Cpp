@@ -35,7 +35,7 @@ void Knapsack01Module::buildLayout(QGraphicsScene* scene, const QString& inputDa
             if (!ok || v[i] < 0) m_valid = false;
         }
     }
-    m_mathText = scene->addText(m_valid ? "01 背包：每件物品只可选一次" : "输入格式：n W，随后输入 n 行 wi vi；限制 n≤8，W≤10");
+    m_mathText = createScriptText(scene, m_valid ? "01 背包：每件物品只可选一次" : "输入格式：n W，随后输入 n 行 wi vi；限制 n≤8，W≤10");
     m_mathText->setFont(QFont("Consolas", 15, QFont::Bold));
     m_mathText->setDefaultTextColor(QColor(40, 70, 110));
     m_mathText->setPos(60, 22);
@@ -116,7 +116,7 @@ std::vector<AnimFrame> Knapsack01Module::runAlgorithm() {
 
 void Knapsack01Module::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
+    setScriptText(m_mathText, frame.mathText.isEmpty() ? frame.explanation : frame.mathText);
     if (frame.type == ActionType::KN_RESET) {
         for (int i = 0; i <= n; ++i) for (int j = 0; j <= W; ++j) {
             m_dpGrid[i][j]->value = 0;
@@ -134,15 +134,17 @@ void Knapsack01Module::renderFrame(const AnimFrame& frame) {
         QColor color = frame.val2 == 1 ? QColor(255, 205, 125) : QColor(155, 210, 245);
         m_itemBlocks[targetRow - 1]->color = color;
         m_itemBlocks[targetRow - 1]->update();
+        playNodePop(m_itemBlocks[targetRow - 1], 1.16, 260);
         source->color = color;
         source->update();
-        playValueFlight(source->pos(), target, frame.val1, color, true);
+        playValueFlight(source->centerPos(), target, frame.val1, color, true);
     } else if (frame.type == ActionType::KN_DECIDE) {
         if (frame.val2 == 2) {
             m_dpGrid[frame.u][frame.v]->value = frame.val1;
             m_dpGrid[frame.u][frame.v]->color = QColor(150, 220, 175);
             m_dpGrid[frame.u][frame.v]->showValue = true;
             m_dpGrid[frame.u][frame.v]->update();
+            playCellLanding(m_dpGrid[frame.u][frame.v], QColor(150, 220, 175), 460);
             return;
         }
         ArrayBlock* target = m_dpGrid[frame.u][frame.v];
@@ -150,6 +152,11 @@ void Knapsack01Module::renderFrame(const AnimFrame& frame) {
         target->showValue = true;
         target->color = frame.val2 ? QColor(150, 220, 175) : QColor(205, 225, 245);
         target->update();
+        if (frame.val2) {
+            playCellLanding(target, QColor(150, 220, 175), 420);
+        } else {
+            playNodePop(target, 1.12, 240);
+        }
         if (frame.u > 0) { m_itemBlocks[frame.u - 1]->color = Qt::white; m_itemBlocks[frame.u - 1]->update(); }
     }
 }

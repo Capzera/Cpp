@@ -5,18 +5,34 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPointer>
+#include <QPropertyAnimation>
 #include <QStringList>
 #include <QVector>
 #include <QHash>
 
 class QVBoxLayout;
 
+enum class ComboVisualStyle {
+    VueLight
+};
+
 class ComboOption : public QWidget {
     Q_OBJECT
+    Q_PROPERTY(qreal hoverProgress READ hoverProgress WRITE setHoverProgress)
+    Q_PROPERTY(qreal pressProgress READ pressProgress WRITE setPressProgress)
 public:
     explicit ComboOption(const QString& text, QWidget* parent = nullptr);
     void setSelected(bool on);
     void setTileMode(bool on);
+    void setAccent(const QColor& color);
+    void setVisualStyle(ComboVisualStyle style);
+    ComboVisualStyle visualStyle() const { return m_style; }
+    QString text() const { return m_text; }
+    int preferredWidth() const;
+    qreal hoverProgress() const { return m_hoverProgress; }
+    void setHoverProgress(qreal v);
+    qreal pressProgress() const { return m_pressProgress; }
+    void setPressProgress(qreal v);
 signals:
     void picked();
 protected:
@@ -24,32 +40,47 @@ protected:
     void enterEvent(QEnterEvent*) override;
     void leaveEvent(QEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
+    void mouseReleaseEvent(QMouseEvent*) override;
+    void resizeEvent(QResizeEvent*) override;
 private:
     void paintTile(QPainter& painter, const QRectF& box);
     void paintRow(QPainter& painter, const QRectF& box);
-    QString m_text;
+    void paintVueTile(QPainter& painter, const QRectF& box);
+    void syncAnimations();    QString m_text;
     bool m_selected = false;
     bool m_hover = false;
     bool m_tile = false;
+    bool m_pressed = false;
+    QColor m_accent;
+    ComboVisualStyle m_style = ComboVisualStyle::VueLight;
+    qreal m_hoverProgress = 0.0;
+    qreal m_pressProgress = 0.0;
+    QPropertyAnimation* m_hoverAnim = nullptr;
+    QPropertyAnimation* m_pressAnim = nullptr;
 };
-
 class ComboSectionHeader : public QWidget {
     Q_OBJECT
 public:
     explicit ComboSectionHeader(const QString& text, const QColor& accent, QWidget* parent = nullptr);
+    void setVisualStyle(ComboVisualStyle style);
 protected:
     void paintEvent(QPaintEvent*) override;
 private:
     QString m_text;
     QColor m_accent;
+    ComboVisualStyle m_style = ComboVisualStyle::VueLight;
 };
 
 class ComboCard : public QFrame {
     Q_OBJECT
 public:
     explicit ComboCard(QWidget* parent = nullptr);
+    void setVisualStyle(ComboVisualStyle style);
+    ComboVisualStyle visualStyle() const { return m_style; }
 protected:
     void paintEvent(QPaintEvent*) override;
+private:
+    ComboVisualStyle m_style = ComboVisualStyle::VueLight;
 };
 
 class ComboPopupFrame : public QWidget {
@@ -57,15 +88,18 @@ class ComboPopupFrame : public QWidget {
 public:
     explicit ComboPopupFrame(QWidget* parent = nullptr);
     void setCardWidget(QWidget* card) { m_card = card; }
+    void setVisualStyle(ComboVisualStyle style);
 protected:
     void paintEvent(QPaintEvent*) override;
 private:
     QWidget* m_card = nullptr;
+    ComboVisualStyle m_style = ComboVisualStyle::VueLight;
 };
 
 class MyComboBox : public QAbstractButton {
     Q_OBJECT
     Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex NOTIFY currentIndexChanged)
+    Q_PROPERTY(qreal chevronProgress READ chevronProgress WRITE setChevronProgress)
 public:
     explicit MyComboBox(QWidget* parent = nullptr);
     ~MyComboBox();
@@ -87,6 +121,17 @@ public:
     QStringList groupNames() const;
     QStringList groupItems(int groupIndex) const;
 
+    void setVisualStyle(ComboVisualStyle style);
+    ComboVisualStyle visualStyle() const { return m_style; }
+    static void setGlobalVisualStyle(ComboVisualStyle style);
+    static ComboVisualStyle globalVisualStyle();
+    static QStringList styleNames();
+    static QString styleName(ComboVisualStyle style);
+    static int styleIndex(ComboVisualStyle style);
+
+    qreal chevronProgress() const { return m_chevronProgress; }
+    void setChevronProgress(qreal v);
+
 signals:
     void currentIndexChanged(int index);
 
@@ -107,6 +152,7 @@ private:
     void openPopup();
     void closePopup();
     void rebuildRows();
+    void computeColumnWidth();
     bool isPopupChild(QObject* obj) const;
 
     QStringList m_items;
@@ -119,6 +165,10 @@ private:
     QVBoxLayout* m_popupLayout = nullptr;
     QVector<ComboOption*> m_options;
     QVector<QWidget*> m_popupWidgets;
+    int m_columnWidth = 180;
+    ComboVisualStyle m_style = ComboVisualStyle::VueLight;
+    qreal m_chevronProgress = 0.0;
+    QPropertyAnimation* m_chevronAnim = nullptr;
 };
 
 #endif

@@ -11,9 +11,11 @@ public:
     explicit MyCollapsible(QWidget* parent = nullptr);
 
     void setContentWidget(QWidget* content);
+    void refreshContentHeight();
     void setCollapsed(bool collapsed);
     bool isCollapsed() const { return m_collapsed; }
     void setHeaderText(const QString& text);
+    QString headerText() const { return m_headerText; }
     void setAccentColor(const QColor& c);
     void setDuration(int ms);
 
@@ -27,6 +29,7 @@ protected:
     void paintEvent(QPaintEvent*) override;
     void resizeEvent(QResizeEvent*) override;
     QSize sizeHint() const override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     void updateGeometryAnimated();

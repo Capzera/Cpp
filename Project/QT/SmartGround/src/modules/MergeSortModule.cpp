@@ -44,7 +44,7 @@ void MergeSortModule::buildLayout(QGraphicsScene* scene, const QString& inputDat
         auxBlock->setPos(m_startX + i * 60, 400);
         m_auxBlocks[i] = auxBlock;
     }
-    m_mathText = m_scene->addText("");
+    m_mathText = createScriptText(m_scene, "");
     m_mathText->setPos(100, 50);
     m_mathText->setFont(QFont("Consolas", 12, QFont::Bold));
 }
@@ -105,48 +105,73 @@ void MergeSortModule::merge(std::vector<int>& arr, int l, int mid, int r) {
 
 void MergeSortModule::renderFrame(const AnimFrame& frame) {
     if (!m_mathText) return;
-    m_mathText->setPlainText(frame.mathText);
+    setScriptText(m_mathText, frame.mathText);
     if (frame.type == ActionType::AR_HIGHLIGHT) {
+        std::vector<ArrayBlock*> cells;
         for (int i = frame.u; i <= frame.v; ++i) {
             if (m_blocks.count(i)) {
                 m_blocks[i]->color = QColor(255, 220, 150);
                 m_blocks[i]->update();
+                cells.push_back(m_blocks[i]);
             }
         }
+        if (cells.size() == 1) {
+            playNodePop(cells[0], 1.14, 260);
+            playCellRipple(cells[0], QColor(255, 200, 110), 0.9, 480);
+        } else if (cells.size() > 1) {
+            playCellSweep(cells, QColor(255, 220, 150), 60, 300);
+        }
     } else if (frame.type == ActionType::AR_SCAN_MIN) {
+        std::vector<ArrayBlock*> cells;
         for (int i = frame.u; i <= frame.v; ++i) {
             if (m_blocks.count(i)) {
                 m_blocks[i]->color = QColor(200, 200, 200);
                 m_blocks[i]->update();
+                cells.push_back(m_blocks[i]);
             }
         }
+        if (!cells.empty()) playCellSweep(cells, QColor(200, 200, 200), 50, 280);
     } else if (frame.type == ActionType::AR_COMPARE_SHIFT) {
         if (m_blocks.count(frame.u)) {
             m_blocks[frame.u]->color = QColor(150, 200, 255);
             m_blocks[frame.u]->update();
+            playNodePop(m_blocks[frame.u], 1.14, 240);
+            playCellRipple(m_blocks[frame.u], QColor(130, 190, 250), 0.85, 460);
         }
         if (m_blocks.count(frame.v)) {
             m_blocks[frame.v]->color = QColor(150, 200, 255);
             m_blocks[frame.v]->update();
+            playNodePop(m_blocks[frame.v], 1.14, 240);
+            playCellRipple(m_blocks[frame.v], QColor(130, 190, 250), 0.85, 460);
         }
     } else if (frame.type == ActionType::AR_SWAP) {
         if (m_blocks.count(frame.u)) {
             ArrayBlock* b = m_blocks[frame.u];
             b->color = QColor(200, 255, 150);
             b->update();
+            playCellLanding(b, QColor(200, 255, 150), 400);
         }
     } else if (frame.type == ActionType::AR_EXTRACT) {
         if (m_blocks.count(frame.u)) {
             ArrayBlock* b = m_blocks[frame.u];
             b->color = QColor(255, 200, 100);
             b->update();
+            playNodePop(b, 1.16, 260);
+            playCellRipple(b, QColor(255, 190, 90), 0.95, 500);
         }
     } else if (frame.type == ActionType::AR_DONE) {
+        std::vector<ArrayBlock*> cells;
         for (int i = frame.u; i <= frame.v; ++i) {
             if (m_blocks.count(i)) {
                 m_blocks[i]->color = QColor(150, 255, 150);
                 m_blocks[i]->update();
+                cells.push_back(m_blocks[i]);
             }
+        }
+        if (cells.size() == 1) {
+            playCellLanding(cells[0], QColor(150, 255, 150), 420);
+        } else if (cells.size() > 1) {
+            playCellSweep(cells, QColor(150, 255, 150), 55, 300);
         }
     } else if (frame.type == ActionType::AR_RESET) {
         for (int i = frame.u; i <= frame.v; ++i) {

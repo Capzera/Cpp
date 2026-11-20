@@ -1,6 +1,7 @@
 #include "MarkdownItem.h"
 #include "InlineTextEdit.h"
 #include "ui/widgets/AnnotationEditor.h"
+#include "ui/UiFonts.h"
 #include <QGraphicsTextItem>
 #include <QPainter>
 #include <QTextCursor>
@@ -11,27 +12,37 @@
 #include <QKeyEvent>
 
 MarkdownItem::MarkdownItem(QGraphicsItem* parent) : AnnotationItem(parent) {
-    m_document.setDocumentMargin(6.0);
+    m_preview.setDocumentMargin(6.0);
+    m_editor.setDocumentMargin(6.0);
     m_textItem = new QGraphicsTextItem();
-    m_textItem->setDocument(&m_document);
+    m_textItem->setDocument(&m_preview);
     m_textItem->setTextInteractionFlags(Qt::NoTextInteraction);
     m_textItem->setAcceptedMouseButtons(Qt::NoButton);
     m_textItem->setFlag(QGraphicsItem::ItemIsSelectable, false);
     m_textItem->setZValue(-1);
     m_textItem->setParentItem(this);
     m_textItem->setTextWidth(320.0);
-    m_cursor = QTextCursor(&m_document);
+    m_sourceItem = new QGraphicsTextItem();
+    m_sourceItem->setDocument(&m_editor);
+    m_sourceItem->setTextInteractionFlags(Qt::NoTextInteraction);
+    m_sourceItem->setAcceptedMouseButtons(Qt::NoButton);
+    m_sourceItem->setFlag(QGraphicsItem::ItemIsSelectable, false);
+    m_sourceItem->setZValue(-1);
+    m_sourceItem->setParentItem(this);
+    m_sourceItem->setTextWidth(320.0);
+    m_sourceItem->hide();
+    m_cursor = QTextCursor(&m_editor);
     setMarkdown("# 标题\n\n正文段落。\n\n- 列表项 A\n- 列表项 B");
 }
 
-void MarkdownItem::rebuildDocument() {
-    m_document.setMarkdown(m_source, QTextDocument::MarkdownDialectGitHub);
-    m_document.setDefaultStyleSheet(buildStyleSheet());
+void MarkdownItem::rebuildPreview() {
+    m_preview.setMarkdown(m_source, QTextDocument::MarkdownDialectGitHub);
+    m_preview.setDefaultStyleSheet(buildStyleSheet());
     if (m_textItem) {
         m_textItem->setTextWidth(320.0);
         m_textItem->adjustSize();
     }
-    prepareGeometryChange();
+    relayoutPreview();
     update();
 }
 
@@ -42,8 +53,8 @@ QString MarkdownItem::buildStyleSheet() const {
         "h3 { font-size: 14px; font-weight: 700; color: #2b3547; margin-top: 6px; margin-bottom: 3px; }"
         "p  { font-size: 13px; color: #33405a; }"
         "li { font-size: 13px; color: #33405a; }"
-        "code { font-family: 'Cascadia Mono','Consolas'; font-size: 12px; background-color: #eef2f9; color: #b8465f; }"
-        "pre { font-family: 'Cascadia Mono','Consolas'; font-size: 12px; background-color: #f4f7fc; color: #26344d; margin-top: 4px; margin-bottom: 4px; }"
+        "code { font-family: 'Consolas'; font-size: 12px; background-color: #eef2f9; color: #b8465f; }"
+        "pre { font-family: 'Consolas'; font-size: 12px; background-color: #f4f7fc; color: #26344d; margin-top: 4px; margin-bottom: 4px; }"
         "blockquote { font-size: 12px; color: #5a6b85; margin-top: 4px; margin-bottom: 4px; }"
         "table { font-size: 12px; color: #33405a; }"
         "b, strong { font-weight: 700; color: #1f2733; }"
@@ -54,17 +65,41 @@ QString MarkdownItem::buildStyleSheet() const {
 
 void MarkdownItem::setMarkdown(const QString& md) {
     m_source = md;
-    rebuildDocument();
+    m_editor.setPlainText(md);
+    m_cursor = QTextCursor(&m_editor);
+    m_cursor.movePosition(QTextCursor::End);
+    rebuildPreview();
+}
+
+QString MarkdownItem::editorSource() const {
+    return m_editor.toPlainText();
 }
 
 void MarkdownItem::beginEdit() {
     if (m_editing) return;
     m_editing = true;
-    m_document.setPlainText(m_source);
-    m_cursor = QTextCursor(&m_document);
+    m_editor.setPlainText(m_source);
+    m_cursor = QTextCursor(&m_editor);
     m_cursor.movePosition(QTextCursor::End);
+    m_sourceItem->setPlainText(m_source);
+    m_sourceItem->setTextWidth(320.0);
+    m_sourceItem->adjustSize();
+    m_sourceItem->show();
     syncCursorToItem();
+    relayoutPreview();
     update();
+}
+
+void MarkdownItem::relayoutPreview() {
+    if (!m_sourceItem || !m_textItem) return;
+    const qreal sourceH = m_sourceItem->boundingRect().height();
+    if (m_editing) {
+        m_textItem->setPos(0, sourceH + 10.0);
+        m_textItem->show();
+    } else {
+        m_textItem->setPos(0, 0);
+    }
+    prepareGeometryChange();
 }
 
 bool MarkdownItem::beginInlineEdit() {
@@ -73,9 +108,9 @@ bool MarkdownItem::beginInlineEdit() {
 }
 
 void MarkdownItem::syncCursorToItem() {
-    if (!m_textItem) return;
-    m_textItem->setTextInteractionFlags(Qt::NoTextInteraction);
-    m_textItem->setTextCursor(m_cursor);
+    if (!m_sourceItem) return;
+    m_sourceItem->setTextInteractionFlags(Qt::NoTextInteraction);
+    m_sourceItem->setTextCursor(m_cursor);
 }
 
 void MarkdownItem::commitInlineEdit() {
@@ -89,17 +124,28 @@ void MarkdownItem::cancelInlineEdit() {
 void MarkdownItem::commitEdit() {
     if (!m_editing) return;
     m_editing = false;
-    m_source = m_document.toPlainText();
-    if (m_textItem) m_textItem->setTextInteractionFlags(Qt::NoTextInteraction);
-    rebuildDocument();
+    m_source = m_editor.toPlainText();
+    if (m_sourceItem) {
+        m_sourceItem->hide();
+        m_sourceItem->setTextInteractionFlags(Qt::NoTextInteraction);
+    }
+    rebuildPreview();
+    relayoutPreview();
+    notifyContentChanged();
     update();
 }
 
 void MarkdownItem::cancelEdit() {
     if (!m_editing) return;
     m_editing = false;
-    if (m_textItem) m_textItem->setTextInteractionFlags(Qt::NoTextInteraction);
-    rebuildDocument();
+    m_source = m_editor.toPlainText();
+    if (m_sourceItem) {
+        m_sourceItem->hide();
+        m_sourceItem->setTextInteractionFlags(Qt::NoTextInteraction);
+    }
+    rebuildPreview();
+    relayoutPreview();
+    notifyContentChanged();
     update();
 }
 
@@ -147,7 +193,15 @@ bool MarkdownItem::handleEditKey(QKeyEvent* event) {
         return false;
     }
 
-    if (m_textItem) m_textItem->setTextCursor(m_cursor);
+    m_source = m_editor.toPlainText();
+    if (m_sourceItem) {
+        m_sourceItem->setTextCursor(m_cursor);
+        m_sourceItem->setTextWidth(320.0);
+        m_sourceItem->adjustSize();
+    }
+    rebuildPreview();
+    relayoutPreview();
+    notifyContentChanged();
     update();
     return true;
 }
@@ -163,6 +217,10 @@ void MarkdownItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event) {
 
 QRectF MarkdownItem::contentBounds() const {
     if (!m_textItem) return QRectF();
+    if (m_editing && m_sourceItem && m_sourceItem->isVisible()) {
+        const QRectF src = m_sourceItem->boundingRect();
+        const QRectF prev = m_textItem->boundingRect().translated(m_textItem->pos());
+        return src.united(prev);    }
     return m_textItem->boundingRect();
 }
 
@@ -196,12 +254,39 @@ void MarkdownItem::drawCaret(QPainter* painter) const {
     const int offset = m_cursor.position() - block.position();
     const QTextLine line = layout->lineForTextPosition(offset);
     if (!line.isValid()) return;
-    const qreal x = line.x() + line.cursorToX(offset);
+    const qreal x = line.x() + line.cursorToX(offset) + kCaretGap;
     const QRectF lineRect = line.rect();
     painter->save();
     painter->setPen(QPen(QColor(31, 39, 51), 1.4));
     painter->drawLine(QPointF(x, lineRect.top()), QPointF(x, lineRect.bottom()));
     painter->restore();
+}
+
+bool MarkdownItem::prefersCaretPlacement(const QPointF& scenePos) const {
+    const QPointF local = mapFromScene(scenePos);
+    if (!m_sourceItem || !m_sourceItem->isVisible()) return false;
+    const QRectF src = m_sourceItem->boundingRect();
+    return src.contains(local);
+}
+
+bool MarkdownItem::placeCaretAt(const QPointF& scenePos) {
+    if (!m_editing || !m_sourceItem) return false;
+    const QPointF local = mapFromScene(scenePos);
+    const QPointF inner = m_sourceItem->mapFromParent(local);
+    const int position = InlineTextEdit::positionByLineScan(m_sourceItem, inner);
+    if (position < 0) return false;
+    m_cursor.setPosition(position);
+    if (m_sourceItem) {
+        m_sourceItem->setTextCursor(m_cursor);
+        m_sourceItem->setTextWidth(320.0);
+        m_sourceItem->adjustSize();
+    }
+    m_source = m_editor.toPlainText();
+    rebuildPreview();
+    relayoutPreview();
+    notifyContentChanged();
+    update();
+    return true;
 }
 
 AnnotationItem* MarkdownItem::cloneItem() const {

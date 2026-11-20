@@ -90,8 +90,8 @@ QPolygonF ShapeItem::arrowPolygon(const QPointF& from, const QPointF& to) const 
     if (len < 0.001) return poly;
     const qreal ux = dx / len;
     const qreal uy = dy / len;
-    const qreal head = qMax(9.0, m_penWidth * 3.2);
-    const qreal wing = head * 0.45;
+    const qreal head = qMax(12.0, m_penWidth * 3.6);
+    const qreal wing = head * 0.36;
     const QPointF base = to - QPointF(ux * head, uy * head);
     const QPointF normal(-uy, ux);
     poly << to
@@ -137,6 +137,14 @@ void ShapeItem::applyStyle() {
     setAcceptedMouseButtons(Qt::NoButton);
 }
 
+void ShapeItem::setFilled(bool on) {
+    if (m_filled == on) return;
+    m_filled = on;
+    prepareGeometryChange();
+    update();
+    notifyContentChanged();
+}
+
 void ShapeItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) {
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing);
@@ -161,6 +169,12 @@ void ShapeItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidge
 
     QPen pen(m_penColor, m_penWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
     painter->setPen(pen);
+    QBrush fillBrush(QColor(255, 255, 255, 0));
+    if (m_filled) {
+        QColor fillColor = m_penColor;
+        fillColor.setAlphaF(m_fillOpacity);
+        fillBrush = QBrush(fillColor);
+    }
 
     switch (m_kind) {
     case Line:
@@ -168,12 +182,12 @@ void ShapeItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidge
         painter->drawLine(m_start, m_end);
         break;
     case Rectangle: {
-        painter->setBrush(Qt::NoBrush);
+        painter->setBrush(fillBrush);
         painter->drawRect(QRectF(m_start, m_end).normalized());
         break;
     }
     case Ellipse: {
-        painter->setBrush(Qt::NoBrush);
+        painter->setBrush(fillBrush);
         painter->drawEllipse(QRectF(m_start, m_end).normalized());
         break;
     }
@@ -183,20 +197,29 @@ void ShapeItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidge
         poly << QPointF(r.center().x(), r.top())
              << QPointF(r.right(), r.bottom())
              << QPointF(r.left(), r.bottom());
-        QColor fill = m_penColor;
-        fill.setAlphaF(fill.alphaF() * m_fillOpacity * 0.28);
-        painter->setBrush(fill);
+        painter->setBrush(fillBrush);
         painter->drawPolygon(poly);
         break;
     }
     case Arrow: {
         painter->setBrush(Qt::NoBrush);
-        painter->drawLine(m_start, m_end);
-        const QPolygonF head = arrowPolygon(m_start, m_end);
-        if (!head.isEmpty()) {
-            painter->setPen(Qt::NoPen);
-            painter->setBrush(m_penColor);
-            painter->drawPolygon(head);
+        const qreal dx = m_end.x() - m_start.x();
+        const qreal dy = m_end.y() - m_start.y();
+        const qreal len = std::hypot(dx, dy);
+        if (len > 0.001) {
+            const qreal ux = dx / len;
+            const qreal uy = dy / len;
+            const qreal head = qMax(12.0, m_penWidth * 3.6);
+            const QPointF base = m_end - QPointF(ux * head, uy * head);
+            painter->drawLine(m_start, base);
+            const QPolygonF headPoly = arrowPolygon(m_start, m_end);
+            if (!headPoly.isEmpty()) {
+                painter->setPen(Qt::NoPen);
+                painter->setBrush(m_penColor);
+                painter->drawPolygon(headPoly);
+            }
+        } else {
+            painter->drawLine(m_start, m_end);
         }
         break;
     }
@@ -216,6 +239,7 @@ AnnotationItem* ShapeItem::cloneItem() const {
     copy->setPenColor(m_penColor);
     copy->setPenWidth(m_penWidth);
     copy->setFillOpacity(m_fillOpacity);
+    copy->setFilled(m_filled);
     copy->setLocked(m_locked);
     return copy;
 }
@@ -227,6 +251,7 @@ QJsonObject ShapeItem::toJson() const {
     obj["sy"] = m_start.y();
     obj["ex"] = m_end.x();
     obj["ey"] = m_end.y();
+    obj["filled"] = m_filled;
     QJsonArray cells;
     for (const QPolygonF& cell : m_cells) {
         QJsonArray pts;
@@ -260,6 +285,7 @@ void ShapeItem::fromJson(const QJsonObject& obj) {
     m_kind = static_cast<Kind>(obj.value("kind").toInt(m_kind));
     m_start = QPointF(obj.value("sx").toDouble(), obj.value("sy").toDouble());
     m_end = QPointF(obj.value("ex").toDouble(), obj.value("ey").toDouble());
+    m_filled = obj.value("filled").toBool(m_filled);
     QVector<QPolygonF> cells;
     const QJsonArray arr = obj.value("cells").toArray();
     for (const QJsonValue& v : arr) {
