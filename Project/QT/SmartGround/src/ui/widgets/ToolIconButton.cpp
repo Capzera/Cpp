@@ -1,8 +1,10 @@
 #include "ToolIconButton.h"
 #include "ui/UiTheme.h"
+#include "ui/UiFonts.h"
 #include <QPainter>
 #include <QPainterPath>
 #include <QMouseEvent>
+#include <QFontMetrics>
 
 namespace {
 
@@ -474,6 +476,19 @@ void ToolIconButton::setBadge(const QString& text) {
     update();
 }
 
+void ToolIconButton::setCaption(const QString& text) {
+    if (m_caption == text) return;
+    m_caption = text;
+    if (m_caption.isEmpty()) {
+        setFixedSize(30, 30);
+    } else {
+        const QFont font = UiFonts::forText(m_caption, 9, false);
+        const QFontMetrics metrics(font);
+        setFixedSize(30 + 5 + metrics.horizontalAdvance(m_caption) + 4, 30);
+    }
+    update();
+}
+
 void ToolIconButton::paintIcon(QPainter& painter, Kind kind, const QRectF& box, const QColor& color) {
     switch (kind) {
     case Select: drawCursor(painter, box, color); break;
@@ -507,8 +522,11 @@ void ToolIconButton::paintEvent(QPaintEvent*) {
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setRenderHint(QPainter::TextAntialiasing);
 
-    const QRectF box = QRectF(rect()).adjusted(6.5, 6.5, -6.5, -6.5);
+    const bool captioned = !m_caption.isEmpty();
+    const QRectF box = captioned ? QRectF(0, 0, 30, 30)
+                                 : QRectF(rect()).adjusted(6.5, 6.5, -6.5, -6.5);
     QColor iconColor = m_active ? UiTheme::textOnAccent() : UiTheme::textSecondary();
+    QColor textColor = m_active ? UiTheme::textOnAccent() : QColor(92, 102, 117);
 
     if (m_active) {
         painter.setPen(Qt::NoPen);
@@ -519,9 +537,20 @@ void ToolIconButton::paintEvent(QPaintEvent*) {
         painter.setBrush(UiTheme::surfaceHover());
         painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 9, 9);
         iconColor = UiTheme::textPrimary();
+        textColor = UiTheme::textPrimary();
     }
 
-    paintIcon(painter, m_kind, box, iconColor);
+    const QRectF iconBox = captioned ? box.adjusted(6.5, 6.5, -6.5, -6.5) : box;
+    paintIcon(painter, m_kind, iconBox, iconColor);
+
+    if (captioned) {
+        QFont font = UiFonts::forText(m_caption, 9, false);
+        painter.setFont(font);
+        const QFontMetrics metrics(font);
+        const QRectF textRect(35.0, 0, metrics.horizontalAdvance(m_caption), height());
+        painter.setPen(textColor);
+        painter.drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, m_caption);
+    }
 
     if (!m_badge.isEmpty()) {
         painter.setPen(Qt::NoPen);

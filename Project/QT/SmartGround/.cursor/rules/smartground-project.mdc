@@ -20,6 +20,13 @@ Treat `.cursorrules` and `Cursor_Workflow.md` as the product requirements for ev
 - Replies must name changed files/functions, summarize work, and report verification. Never dump whole source files.
 - On bug fixes or module status changes, update `docs/BugLog.md`, `docs/ModuleStatus.md`, and `docs/ProjectSummary.md`.
 
+## Verification rules
+
+- **Canvas-interaction features must be verified through the real event chain.** Drive actual `QMouseEvent` / `QKeyEvent` into the widget, never call the engine or model API directly to assert user-visible behavior. The real chain is `QGraphicsView` → `viewport` event filter → `ToolController` → engine → `MainWindow` slot → panel refresh. Calling `engine->addPoint()` and asserting a row appeared proves only that the engine emits a signal — it does **not** prove a user click works, and it stays green even when the interaction is broken.
+- Must be covered by real events: single-click to place, drag to move, double-click to inspect, right-drag to pan, clicking a toolbar button **including its text label**, and keyboard shortcuts.
+- Use **relative** render assertions over absolute thresholds. "Grid pixel density is the same 10万 units away as at the origin" survives viewport-size and zoom-step changes; "pixels > 500" does not.
+- The repo has **two build trees**: `build/` (the app) and `build/tests/` (the test project, its own `CMakeLists.txt`). After adding a test file, run `cmake -S tests -B build/tests` to regenerate targets, then build the target from `build/tests`. Rebuild **both** trees when shipping, so no stale binary is left running.
+
 ## Collaboration mode: PM authorization and batched execution
 
 - The user (Rodriguez) is the project manager: they only review the final result. The agent owns all technical decisions and the full implementation.

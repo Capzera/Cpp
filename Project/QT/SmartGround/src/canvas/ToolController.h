@@ -245,6 +245,8 @@ public:
     CartesianPointItem* m_cartesianLinkStart = nullptr;
     QPointF m_cartesianPressPos;
     bool m_cartesianDragging = false;
+    bool m_cartesianPanning = false;
+    QPoint m_cartesianPanLast;
 
     QVector<AnnotationItem*> m_selected;
     QPointF m_marqueeStart;

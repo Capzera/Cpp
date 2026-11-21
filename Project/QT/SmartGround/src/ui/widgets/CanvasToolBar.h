@@ -65,6 +65,7 @@ private:
     void placePanel(QWidget* panel, int barX, int barW, int barY, int barH);
     void placeToolPanelUnderButton();
     void syncToolButtons();
+    void syncCartesianButtons(int tool);
     bool isInsidePanel(QWidget* panel, const QPoint& globalPos) const;
     bool isInsideToolbar(const QPoint& globalPos) const;
     bool shouldCloseOnPress(QObject* obj, QEvent* event) const;

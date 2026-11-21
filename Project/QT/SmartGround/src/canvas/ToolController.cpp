@@ -160,6 +160,8 @@ bool ToolController::isDrawingTool() const {
     case Markdown:
     case Latex:
     case Table:
+    case CartPoint:
+    case CartLine:
         return true;
     default:
         return false;
@@ -428,6 +430,14 @@ void ToolController::onMousePress(QMouseEvent* event) {
     m_modifiers = event->modifiers();
 
     if (event->button() == Qt::RightButton) {
+        if (m_cartesianEngine && m_cartesianEngine->isEnabled() &&
+            (m_tool == CartPoint || m_tool == CartLine)) {
+            m_cartesianPanning = true;
+            m_cartesianPanLast = event->position().toPoint();
+            m_view->viewport()->setCursor(Qt::ClosedHandCursor);
+            event->accept();
+            return;
+        }
         const bool rightErase = m_rightClickErase
             && (m_tool == Pen || m_tool == Highlighter);
         if (rightErase) {
@@ -706,6 +716,18 @@ void ToolController::cartesianDoubleClick(const QPointF& pos) {
 }
 
 void ToolController::onMouseMove(QMouseEvent* event) {
+    if (m_cartesianPanning) {
+        const QPoint current = event->position().toPoint();
+        const QPoint delta = current - m_cartesianPanLast;
+        m_cartesianPanLast = current;
+        if (m_cartesianEngine && m_view) {
+            m_cartesianEngine->setOriginScene(
+                m_cartesianEngine->originScene() - QPointF(delta.x(), delta.y()));
+            m_view->syncCartesianViewport();
+        }
+        event->accept();
+        return;
+    }
     if (m_rightEraseDragging) {
         const QPointF pos = m_view->mapToSceneF(event->position());
         m_eraserCursorPos = pos;
@@ -766,6 +788,12 @@ void ToolController::onMouseMove(QMouseEvent* event) {
 }
 
 void ToolController::onMouseRelease(QMouseEvent* event) {
+    if (m_cartesianPanning) {
+        m_cartesianPanning = false;
+        m_view->viewport()->setCursor(Qt::CrossCursor);
+        event->accept();
+        return;
+    }
     if (m_rightEraseDragging) {
         finishRightErase();
         event->accept();

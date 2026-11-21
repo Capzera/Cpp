@@ -30,6 +30,7 @@ class CanvasTableItem;
 class CartesianModule;
 class CartesianEngine;
 class CartesianPanel;
+class CartesianInfoPanel;
 class MyTextEdit;
 class MySegmentedControl;
 
@@ -69,9 +70,14 @@ private slots:
     void onCartesianFunctionRemoved(const QString& name);
     void onCartesianToolChanged(int kind);
     void onCartesianPointNamesChanged(bool on);
+    void onCartesianPointDoubleClicked(int index);
+    void onCartesianSegmentDoubleClicked(int index);
+    void onCartesianCurveDoubleClicked(int index);
     void refreshCartesianViewport();
+    void positionCartesianInfo();
 private:
     void setupUI();
+    void setupCartesianWiring();
     void applyStyleSheet();
     void clearScene();
     void archiveAnnotations();
@@ -86,6 +92,8 @@ private:
     void onModuleFieldChanged(const QString& key);
     void updateInputHint();
     void updateGridOption();
+    void applyCartesianLayoutMode(bool on);
+    void showCartesianHint();
     void startAutoPlay();
     void requestPause();
     void finishAutoPlay();
@@ -99,6 +107,7 @@ private:
     QString toolName(ToolController::Tool tool) const;
 
     MyComboBox *comboModules;
+    QLabel *labelInput;
     MyTextEdit *textInput;
     MyButton *btnBuild, *btnStep, *btnStepBack, *btnAuto;
     MySlider *frameSlider;
@@ -150,7 +159,9 @@ private:
     bool m_annotationsLocked = false;
     CartesianModule* m_cartesianModule = nullptr;
     CartesianPanel* m_cartesianPanel = nullptr;
+    CartesianInfoPanel* m_cartesianInfo = nullptr;
     bool m_cartesianActive = false;
+    bool m_cartesianWired = false;
     friend class UiBehaviorProbe;
     friend class GroupAProbe;
 

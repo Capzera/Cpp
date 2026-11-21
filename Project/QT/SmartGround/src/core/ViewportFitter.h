@@ -20,6 +20,9 @@ public:
     static void expandSceneRect(QGraphicsScene* scene, const Options& options);
 
     static QRectF contentRect(QGraphicsScene* scene);
+
+    static void setInfiniteCanvas(QGraphicsScene* scene, bool on);
+    static bool infiniteCanvas(const QGraphicsScene* scene);
 };
 
 #endif

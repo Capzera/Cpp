@@ -107,15 +107,33 @@ static void testEngineSnapping() {
     CartesianEngine engine;
     engine.setScale(60.0);
     engine.setOriginScene(QPointF(0.0, 0.0));
+    engine.setStep(1.0);
 
     const QPointF snapped = engine.snapMath(2.37, -1.82);
     check(nearly(snapped.x(), 2.0), "snapMath x rounds to 2");
     check(nearly(snapped.y(), -2.0), "snapMath y rounds to -2");
 
-    const QPointF sceneSnapped = engine.snapScene(QPointF(2.37 * 60.0, 1.82 * 60.0));
+    const QPointF freeMath(0.5, 0.8);
+    check(!engine.isSnapped(freeMath), "a point far from an intersection is not snapped");
+    const QPointF freeKept = engine.snappedMath(freeMath);
+    check(nearly(freeKept.x(), 0.5) && nearly(freeKept.y(), 0.8),
+          "a point far from an intersection keeps its free coordinates");
+
+    const QPointF nearMath(0.03, -0.02);
+    check(engine.isSnapped(nearMath), "a point close to an intersection is snapped");
+    const QPointF nearSnapped = engine.snappedMath(nearMath);
+    check(nearly(nearSnapped.x(), 0.0) && nearly(nearSnapped.y(), 0.0),
+          "a point close to an intersection lands on it");
+
+    const QPointF sceneSnapped = engine.snapScene(QPointF(0.03 * 60.0, 0.02 * 60.0));
     const QPointF math = engine.toMath(sceneSnapped);
-    check(nearly(math.x(), 2.0), "snapScene x lands on grid intersection");
-    check(nearly(math.y(), -2.0), "snapScene y lands on grid intersection");
+    check(nearly(math.x(), 0.0) && nearly(math.y(), 0.0),
+          "snapScene pulls a nearby click onto the intersection");
+
+    const QPointF freeScene = engine.snapScene(QPointF(0.5 * 60.0, 0.8 * 60.0));
+    const QPointF freeMathBack = engine.toMath(freeScene);
+    check(nearly(freeMathBack.x(), 0.5) && nearly(freeMathBack.y(), -0.8),
+          "snapScene keeps a far click at its free coordinates");
 }
 
 static void testEngineLadder() {

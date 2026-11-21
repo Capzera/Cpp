@@ -13,13 +13,13 @@ CartesianModule::CartesianModule() {
         emit statusMessage(text);
     });
     connect(m_engine, &CartesianEngine::pointDoubleClicked, this, [this](int index) {
-        emit requestPointEditor(index);
+        emit pointInspected(index);
     });
     connect(m_engine, &CartesianEngine::segmentDoubleClicked, this, [this](int index) {
-        emit requestSegmentEditor(index);
+        emit segmentInspected(index);
     });
     connect(m_engine, &CartesianEngine::curveDoubleClicked, this, [this](int index) {
-        emit requestFunctionEditor(index);
+        emit curveInspected(index);
     });
 }
 
@@ -29,9 +29,11 @@ QString CartesianModule::getDefaultInput() const { return QString(); }
 
 QString CartesianModule::getInputHint() const {
     return "笛卡尔坐标系是一个可以直接作图的自由画布：\n"
-           "  滚轮缩放：最小分度尺会在 1.0 / 0.5 / 0.2 / 0.1 / 0.05 / 0.02 / 0.01 之间自适应\n"
-           "  画点工具：单击落点，长按拖动可实时跟随并吸附到网格交点\n"
-           "  连线工具：奇数次选点高亮起点，偶数次选点连成线段，双击线段看一次方程\n"
+           "  滚轮缩放：分度尺在 1.0 / 0.5 / 0.2 / 0.1 / 0.05 / 0.02 / 0.01 之间自适应\n"
+           "  画点工具：单击落点，靠近坐标交点时自动吸附，否则保留自由坐标；长按可拖动\n"
+           "  连线工具：奇数次选点高亮起点，偶数次选点连成线段\n"
+           "  查看信息：双击点看坐标，双击线段看一次方程 y = kx + b，双击曲线看表达式\n"
+           "  平移画布：画点 / 连线模式下按住鼠标右键拖动\n"
            "  左侧列表：可录入 f(x) = 表达式，直接绘制一次 / 二次 / 三次函数图像";
 }
 

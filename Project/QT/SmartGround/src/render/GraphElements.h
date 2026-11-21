@@ -279,7 +279,7 @@ public:
     void setLabel(const QString& text) { if (label == text) return; prepareGeometryChange(); label = text; update(); }
     void setAnchorNode(GraphNode* node, bool syncNow = true);
     void setAnchorItem(QGraphicsItem* item, bool syncNow = true);
-    void clearAnchor() { m_anchor = nullptr; m_anchorObj = nullptr; m_anchorObjSet = false; m_anchorItem = nullptr; m_tipTarget = nullptr; m_tipTargetObj = nullptr; m_tipTargetObjSet = false; }
+    void clearAnchor() { disconnectAnchor(); m_anchor = nullptr; m_anchorObj = nullptr; m_anchorObjSet = false; m_anchorItem = nullptr; m_tipTarget = nullptr; m_tipTargetObj = nullptr; m_tipTargetObjSet = false; }
     GraphNode* anchorNode() const { return m_anchor.data(); }
     QGraphicsItem* anchorItem() const {
         if (m_anchorObjSet && m_anchorObj.isNull()) return nullptr;
@@ -351,6 +351,7 @@ public:
 private:
     QPointer<GraphNode> m_anchor;
     QPointer<QObject> m_anchorObj;
+    QMetaObject::Connection m_anchorConn;
     bool m_anchorObjSet = false;
     QGraphicsItem* m_anchorItem = nullptr;
     QGraphicsItem* m_tipTarget = nullptr;
@@ -369,6 +370,7 @@ private:
 
     QPointF defaultLabelOffset() const;
     QPointF tailLabelOffset(double gap) const;
+    void disconnectAnchor();
     static constexpr double kLabelRowGap = 22.0;
 };
 

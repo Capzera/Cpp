@@ -35,6 +35,9 @@ signals:
     void requestPointEditor(int index);
     void requestSegmentEditor(int index);
     void requestFunctionEditor(int index);
+    void pointInspected(int index);
+    void segmentInspected(int index);
+    void curveInspected(int index);
 
 private:
     CartesianEngine* m_engine = nullptr;

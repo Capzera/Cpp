@@ -902,20 +902,29 @@ QRectF PointerBlock::boundingRect() const {
     QRectF label(effectiveLabelX() - w / 2.0, effectiveLabelY(), w, 20);
     return shaft.united(label);
 }
+void PointerBlock::disconnectAnchor() {
+    if (m_anchorConn) {
+        QObject::disconnect(m_anchorConn);
+        m_anchorConn = QMetaObject::Connection();
+    }
+}
+
 void PointerBlock::setAnchorNode(GraphNode* node, bool syncNow) {
     if (m_anchor == node) return;
     if (m_anchor) m_anchor->removePointer(this);
+    disconnectAnchor();
     m_anchor = node;
     m_anchorObj = node;
     m_anchorObjSet = (node != nullptr);
     m_anchorItem = nullptr;
     if (node) {
-        QObject::connect(node, &QObject::destroyed, this, [this]() {
+        m_anchorConn = QObject::connect(node, &QObject::destroyed, this, [this]() {
             m_anchorItem = nullptr;
             m_anchor = nullptr;
             m_anchorObj = nullptr;
             m_anchorObjSet = false;
-        }, Qt::UniqueConnection);
+            m_anchorConn = QMetaObject::Connection();
+        });
     }
     if (m_anchor) {
         m_anchor->addPointer(this);
@@ -925,17 +934,19 @@ void PointerBlock::setAnchorNode(GraphNode* node, bool syncNow) {
 }
 void PointerBlock::setAnchorItem(QGraphicsItem* item, bool syncNow) {
     if (m_anchor) m_anchor->removePointer(this);
+    disconnectAnchor();
     m_anchor = nullptr;
     m_anchorItem = item;
     m_anchorObj = dynamic_cast<QObject*>(item);
     m_anchorObjSet = (item != nullptr);
     if (m_anchorObj) {
-        QObject::connect(m_anchorObj, &QObject::destroyed, this, [this]() {
+        m_anchorConn = QObject::connect(m_anchorObj, &QObject::destroyed, this, [this]() {
             m_anchorItem = nullptr;
             m_anchor = nullptr;
             m_anchorObj = nullptr;
             m_anchorObjSet = false;
-        }, Qt::UniqueConnection);
+            m_anchorConn = QMetaObject::Connection();
+        });
     }
     refreshLabelOffset();
     if (syncNow) syncToAnchor();

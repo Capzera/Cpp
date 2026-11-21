@@ -40,6 +40,12 @@ public:
     void setBadge(const QString& text);
     QString badge() const { return m_badge; }
 
+    void setCaption(const QString& text);
+    QString caption() const { return m_caption; }
+    bool hasCaption() const { return !m_caption.isEmpty(); }
+
+    static void paintIcon(QPainter& painter, Kind kind, const QRectF& box, const QColor& color);
+
 protected:
     void paintEvent(QPaintEvent*) override;
     void enterEvent(QEnterEvent* event) override;
@@ -48,13 +54,12 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
 
 private:
-    static void paintIcon(QPainter& painter, Kind kind, const QRectF& box, const QColor& color);
-
     Kind m_kind = Select;
     bool m_active = false;
     bool m_hover = false;
     bool m_pressed = false;
     QString m_badge;
+    QString m_caption;
 };
 
 #endif

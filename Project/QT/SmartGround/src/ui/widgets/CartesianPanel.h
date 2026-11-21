@@ -11,6 +11,7 @@ class CartesianPointItem;
 class CartesianCurveItem;
 class MyTextInput;
 class MyButton;
+class QLabel;
 class MyToggleSwitch;
 class MySlider;
 class MySegmentedControl;
@@ -26,6 +27,8 @@ public:
     CartesianEngine* engine() const { return m_engine; }
 
     void refresh();
+    void focusFunctionInput();
+    QWidget* buildGuideCard(QWidget* parent);
 
 signals:
     void pointSelected(int index);
@@ -40,6 +43,8 @@ private:
     QWidget* buildPointRow(CartesianPointItem* point, int index);
     QWidget* buildFunctionRow(CartesianCurveItem* curve, int index);
     void rebuildList();
+    void updateFunctionFeedback(const QString& text);
+    void submitFunction();
     void showPointMenu(CartesianPointItem* point, int index, const QPoint& globalPos);
     void showPointStyleEditor(CartesianPointItem* point, int index, const QPoint& globalPos);
     void showFunctionMenu(CartesianCurveItem* curve, int index, const QPoint& globalPos);
@@ -51,6 +56,7 @@ private:
     QVector<QWidget*> m_rows;
     MyTextInput* m_functionInput = nullptr;
     MyButton* m_functionAddButton = nullptr;
+    QLabel* m_functionFeedback = nullptr;
     bool m_refreshing = false;
 };
 

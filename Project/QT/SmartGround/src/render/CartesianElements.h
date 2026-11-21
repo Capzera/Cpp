@@ -37,7 +37,7 @@ public:
         bool showPointName = true;
         bool showGrid = true;
         bool showAxisNumber = true;
-        bool showEquation = true;
+        bool showEquation = false;
     };
 
     explicit CartesianEngine(QObject* parent = nullptr);
@@ -53,9 +53,17 @@ public:
     QPointF snapScene(const QPointF& scene) const;
     QPointF snapMath(double x, double y) const;
 
+    qreal snapTolerance() const { return m_snapTolerance; }
+    void setSnapTolerance(qreal value);
+    bool snapEnabled() const { return m_snapEnabled; }
+    void setSnapEnabled(bool on);
+    QPointF snappedMath(const QPointF& math) const;
+    bool isSnapped(const QPointF& math) const;
+
     qreal scale() const { return m_scale; }
     void setScale(qreal value);
     qreal step() const { return m_step; }
+    void setStep(qreal value);
     QPointF originScene() const { return QPointF(m_originX, m_originY); }
     void setOriginScene(const QPointF& origin);
 
@@ -131,6 +139,8 @@ private:
     qreal m_step = 1.0;
     qreal m_originX = 0.0;
     qreal m_originY = 0.0;
+    qreal m_snapTolerance = 0.28;
+    bool m_snapEnabled = true;
     bool m_enabled = false;
     int m_nextPointSerial = 0;
     ActiveTool m_activeTool = Select;
@@ -230,6 +240,9 @@ public:
     bool equationVisible() const { return m_equationVisible; }
     void setEquationVisible(bool on);
 
+    QString equationText() const;
+    QString segmentSummary() const;
+
     QColor color() const { return m_color; }
     void setColor(const QColor& color);
 
@@ -269,6 +282,15 @@ public:
     void setVisibleRange(double minX, double maxX);
     void setVisibleRange(double minX, double maxX, double minY, double maxY);
     bool hitTest(const QPointF& scenePos, qreal tolerance = 6.0) const;
+
+    int visibleRunCount() const { return m_runs.size(); }
+    int visiblePointCount() const {
+        int total = 0;
+        for (const QPolygonF& run : m_runs) total += run.size();
+        return total;
+    }
+    QRectF visibleBounds() const;
+    QVector<QPointF> samplePoints(int maxCount) const;
 
 private:
     void rebuildPolyline();

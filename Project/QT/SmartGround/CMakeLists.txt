@@ -222,6 +222,8 @@ add_executable(SmartGround
     src/modules/CartesianModule.cpp
     src/ui/widgets/CartesianPanel.h
     src/ui/widgets/CartesianPanel.cpp
+    src/ui/widgets/CartesianInfoPanel.h
+    src/ui/widgets/CartesianInfoPanel.cpp
     src/resources.qrc
 )
 target_link_libraries(SmartGround Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Svg)

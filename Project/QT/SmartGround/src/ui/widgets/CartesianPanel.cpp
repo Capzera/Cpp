@@ -32,6 +32,52 @@ QLabel* makeSectionTitle(const QString& text, QWidget* parent) {
     return label;
 }
 
+class GuideCard : public QWidget {
+public:
+    explicit GuideCard(QWidget* parent = nullptr) : QWidget(parent) {
+        setObjectName("cartesianGuideCard");
+    }
+
+    void addStep(int index, const QString& title, const QString& detail) {
+        QWidget* row = new QWidget(this);
+        row->setAttribute(Qt::WA_TranslucentBackground, true);
+        QHBoxLayout* layout = new QHBoxLayout(row);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(7);
+
+        QLabel* badge = new QLabel(QString::number(index), row);
+        badge->setFixedSize(16, 16);
+        badge->setAlignment(Qt::AlignCenter);
+        badge->setFont(UiTheme::uiFont(8, true));
+        badge->setStyleSheet(QString("color:#ffffff; background:%1; border-radius:8px;")
+                                 .arg(UiTheme::accent().name()));
+        layout->addWidget(badge, 0, Qt::AlignTop);
+
+        QLabel* text = new QLabel(QString("<b>%1</b><br><span style='color:#7a8494;'>%2</span>")
+                                      .arg(title.toHtmlEscaped(), detail.toHtmlEscaped()),
+                                  row);
+        text->setObjectName("hintLabel");
+        text->setWordWrap(true);
+        text->setFont(UiTheme::uiFont(9));
+        layout->addWidget(text, 1);
+        m_rows.push_back(row);
+    }
+
+    void paintEvent(QPaintEvent*) override {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        const QRectF box = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
+        QPainterPath path;
+        path.addRoundedRect(box, 9, 9);
+        painter.setPen(QPen(QColor(196, 216, 243), 1));
+        painter.setBrush(QColor(233, 241, 253, 220));
+        painter.drawPath(path);
+    }
+
+private:
+    QVector<QWidget*> m_rows;
+};
+
 QString formatCoord(double value) {
     QString text = QString::number(value, 'f', 4);
     if (text.contains('.')) {
@@ -85,6 +131,7 @@ CartesianPanel::CartesianPanel(QWidget* parent) : QWidget(parent) {
     root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(8);
 
+    root->addWidget(buildGuideCard(this));
     root->addWidget(makeSectionTitle("对象列表", this));
 
     m_listHost = new QWidget(this);
@@ -106,36 +153,68 @@ CartesianPanel::CartesianPanel(QWidget* parent) : QWidget(parent) {
     m_functionInput = new MyTextInput(this);
     m_functionInput->setObjectName("cartesianFunctionInput");
     m_functionInput->setPlaceholderText("3x^2 - 8x + 7");
+    m_functionInput->setMinimumWidth(120);
     functionRow->addWidget(m_functionInput, 1);
 
-    m_functionAddButton = new MyButton("+", this);
+    m_functionAddButton = new MyButton("绘图", this);
     m_functionAddButton->setObjectName("cartesianFunctionAdd");
     m_functionAddButton->setVariant(MyButton::Soft);
     m_functionAddButton->setCompact(true);
-    m_functionAddButton->setFixedWidth(34);
+    m_functionAddButton->setFixedWidth(44);
+    m_functionAddButton->setToolTip("绘制该函数图像（也可在输入框中直接回车）");
     functionRow->addWidget(m_functionAddButton);
     root->addLayout(functionRow);
 
-    QLabel* hint = new QLabel("支持一次 / 二次 / 三次函数，双击曲线可改表达式", this);
-    hint->setObjectName("hintLabel");
-    hint->setWordWrap(true);
-    root->addWidget(hint);
+    m_functionFeedback = new QLabel("支持一次 / 二次 / 三次函数，回车即可绘制；双击曲线可改表达式", this);
+    m_functionFeedback->setObjectName("hintLabel");
+    m_functionFeedback->setWordWrap(true);
+    root->addWidget(m_functionFeedback);
 
     connect(m_functionAddButton, &MyButton::clicked, this, [this]() {
-        if (!m_engine) return;
-        const QString expression = m_functionInput->text().trimmed();
-        if (expression.isEmpty()) {
-            emit statusMessage("请先输入函数表达式，例如 3x^2 - 8x + 7");
-            return;
-        }
-        const CartesianExpression::Result result = CartesianExpression::parse(expression);
-        if (!result.ok) {
-            emit statusMessage("函数表达式无法解析：" + result.error);
-            return;
-        }
-        emit functionAddRequested(expression);
-        m_functionInput->setText("");
+        submitFunction();
     });
+    connect(m_functionInput, &MyTextInput::editingFinished, this, [this]() {
+        if (!m_functionInput->text().trimmed().isEmpty()) submitFunction();
+    });
+    connect(m_functionInput, &MyTextInput::textChanged, this, [this](const QString& text) {
+        updateFunctionFeedback(text);
+    });
+}
+
+void CartesianPanel::updateFunctionFeedback(const QString& text) {
+    if (!m_functionFeedback) return;
+    const QString expression = text.trimmed();
+    if (expression.isEmpty()) {
+        m_functionFeedback->setText("支持一次 / 二次 / 三次函数，回车即可绘制；双击曲线可改表达式");
+        m_functionFeedback->setStyleSheet("color:#8e98a8;");
+        return;
+    }
+    const CartesianExpression::Result result = CartesianExpression::parse(expression);
+    if (result.ok) {
+        m_functionFeedback->setText("将绘制：" + CartesianExpression::describe(result));
+        m_functionFeedback->setStyleSheet("color:#2ea86a;");
+    } else {
+        m_functionFeedback->setText("无法解析：" + result.error);
+        m_functionFeedback->setStyleSheet("color:#e5484d;");
+    }
+}
+
+void CartesianPanel::submitFunction() {
+    if (!m_engine) return;
+    const QString expression = m_functionInput->text().trimmed();
+    if (expression.isEmpty()) {
+        emit statusMessage("请先输入函数表达式，例如 3x^2 - 8x + 7");
+        return;
+    }
+    const CartesianExpression::Result result = CartesianExpression::parse(expression);
+    if (!result.ok) {
+        emit statusMessage("函数表达式无法解析：" + result.error);
+        updateFunctionFeedback(expression);
+        return;
+    }
+    emit functionAddRequested(expression);
+    m_functionInput->setText("");
+    updateFunctionFeedback(QString());
 }
 CartesianPanel::~CartesianPanel() {}
 
@@ -143,6 +222,21 @@ void CartesianPanel::setEngine(CartesianEngine* engine) {
     if (m_engine == engine) return;
     m_engine = engine;
     refresh();
+}
+
+void CartesianPanel::focusFunctionInput() {
+    if (!m_functionInput) return;
+    m_functionInput->setFocus(Qt::MouseFocusReason);
+    m_functionInput->selectAll();
+}
+
+QWidget* CartesianPanel::buildGuideCard(QWidget* parent) {
+    GuideCard* card = new GuideCard(parent);
+    card->addStep(1, "画点", "点画布上方「画点」按钮（或按 P），在画布上单击即可落点。");
+    card->addStep(2, "连线", "按 S 切到连线工具，奇数次选点为起点，偶数次选点即连成线段。");
+    card->addStep(3, "函数", "在下方「函数绘制」输入 f(x) = 3x^2 - 8x + 7 后回车即可绘图。");
+    card->addStep(4, "管理", "点、线、函数都在上方「对象列表」中编辑、删除或改样式。");
+    return card;
 }
 
 void CartesianPanel::refresh() {
@@ -163,18 +257,22 @@ void CartesianPanel::rebuildList() {
     if (!m_engine) return;
 
     const QVector<CartesianPointItem*> points = m_engine->points();
-    if (points.isEmpty()) {
-        QLabel* empty = new QLabel("尚未描点", m_listHost);
+    const QVector<CartesianCurveItem*> curves = m_engine->curves();
+
+    if (points.isEmpty() && curves.isEmpty()) {
+        QLabel* empty = new QLabel("尚未描点。用上方「画点」工具在画布上单击即可落下第一个点。",
+                                   m_listHost);
         empty->setObjectName("hintLabel");
+        empty->setWordWrap(true);
         hostLayout->addWidget(empty);
-    } else {
-        for (int i = 0; i < points.size(); ++i) {
-            hostLayout->addWidget(buildPointRow(points.at(i), i));
-        }
     }
 
-    for (int i = 0; i < m_engine->curveCount(); ++i) {
-        CartesianCurveItem* curve = m_engine->curveAt(i);
+    for (int i = 0; i < points.size(); ++i) {
+        hostLayout->addWidget(buildPointRow(points.at(i), i));
+    }
+
+    for (int i = 0; i < curves.size(); ++i) {
+        CartesianCurveItem* curve = curves.at(i);
         if (!curve) continue;
         hostLayout->addWidget(buildFunctionRow(curve, i));
     }

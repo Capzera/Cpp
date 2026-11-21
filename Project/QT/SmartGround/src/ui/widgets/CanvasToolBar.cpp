@@ -92,7 +92,7 @@ CanvasToolBar::~CanvasToolBar() {
 }
 
 int CanvasToolBar::mainBarWidth() const {
-    return sizeHint().width();
+    return mainRowWidth();
 }
 
 ToolIconButton* CanvasToolBar::toolButtonFor(int tool) const {
@@ -116,7 +116,6 @@ int CanvasToolBar::mainRowWidth() const {
     if (!mainRow) return sizeHint().width();
     return mainRow->sizeHint().width();
 }
-
 int CanvasToolBar::mainRowHeight() const {
     QWidget* mainRow = findChild<QWidget*>("canvasToolMainRow");
     if (!mainRow) return sizeHint().height();
@@ -143,6 +142,7 @@ void CanvasToolBar::buildCartesianRow() {
     m_cartesianRow = new QWidget(this);
     m_cartesianRow->setObjectName("canvasCartesianRow");
     m_cartesianRow->setAttribute(Qt::WA_TranslucentBackground, true);
+    m_cartesianRow->setFixedHeight(38);
 
     QHBoxLayout* layout = new QHBoxLayout(m_cartesianRow);
     layout->setContentsMargins(9, 3, 9, 3);
@@ -151,16 +151,18 @@ void CanvasToolBar::buildCartesianRow() {
     struct Entry {
         ToolIconButton::Kind kind;
         const char* tip;
+        const char* label;
     };
     const Entry entries[] = {
-        {ToolIconButton::CartPoint, "画点工具 (P) — 再次点击展开描点设置"},
-        {ToolIconButton::CartLine, "连线工具 (S) — 奇数次选点为起点，偶数次选点连线"},
-        {ToolIconButton::CartFunction, "函数绘制 — 在左侧列表输入 f(x) = 表达式"}
+        {ToolIconButton::CartPoint, "画点工具 (P) — 再次点击展开描点设置", "画点"},
+        {ToolIconButton::CartLine, "连线工具 (S) — 奇数次选点为起点，偶数次选点连线", "连线"},
+        {ToolIconButton::CartFunction, "函数绘制 — 在左侧列表输入 f(x) = 表达式", "函数"}
     };
 
     for (const Entry& entry : entries) {
         ToolIconButton* button = new ToolIconButton(entry.kind, entry.tip, m_cartesianRow);
         button->setObjectName(QString("canvasCartTool_%1").arg(static_cast<int>(entry.kind)));
+        button->setCaption(QString::fromUtf8(entry.label));
         connect(button, &QAbstractButton::clicked, this, [this, button, entry]() {
             const bool alreadyActive = button->isActive();
             if (alreadyActive) {
@@ -188,6 +190,7 @@ void CanvasToolBar::buildCartesianRow() {
         });
         m_cartesianButtons.push_back(button);
         layout->addWidget(button);
+        layout->addSpacing(8);
     }
 
     layout->addWidget(new ToolDivider(this));
@@ -230,17 +233,12 @@ void CanvasToolBar::setCartesianPointNames(bool on) {
 }
 
 void CanvasToolBar::buildMainBar() {
-    QVBoxLayout* root = new QVBoxLayout(this);
-    root->setContentsMargins(0, 0, 0, 0);
-    root->setSpacing(0);
-
     QWidget* mainRow = new QWidget(this);
     mainRow->setObjectName("canvasToolMainRow");
     mainRow->setAttribute(Qt::WA_TranslucentBackground, true);
     QHBoxLayout* layout = new QHBoxLayout(mainRow);
     layout->setContentsMargins(9, 8, 9, 8);
     layout->setSpacing(2);
-    root->addWidget(mainRow);
 
     const ToolController::Tool tools[] = {
         ToolController::Select, ToolController::AnnotationSelect, ToolController::Pen,
@@ -287,6 +285,7 @@ void CanvasToolBar::buildMainBar() {
 
     connect(m_controller, &ToolController::toolChanged, this, [this](ToolController::Tool tool) {
         syncToolButtons();
+        syncCartesianButtons(tool);
         if (m_toolPanelOpen) {
             refreshToolPage(static_cast<int>(tool));
             if (m_toolPanel) {
@@ -296,6 +295,23 @@ void CanvasToolBar::buildMainBar() {
             placeToolPanelUnderButton();
         }
     });
+}
+
+void CanvasToolBar::syncCartesianButtons(int tool) {
+    if (m_cartesianButtons.isEmpty()) return;
+    int active = -1;
+    if (tool == static_cast<int>(ToolController::CartPoint)) active = static_cast<int>(ToolIconButton::CartPoint);
+    else if (tool == static_cast<int>(ToolController::CartLine)) active = static_cast<int>(ToolIconButton::CartLine);
+    for (ToolIconButton* button : m_cartesianButtons) {
+        if (!button) continue;
+        const bool on = static_cast<int>(button->kind()) == active;
+        if (button->isActive() == on) continue;
+        button->setActive(on);
+        if (on) {
+            m_cartesianPanelOpen = false;
+            if (m_toolPanel) m_toolPanel->hide();
+        }
+    }
 }
 
 void CanvasToolBar::syncToolButtons() {
@@ -849,20 +865,26 @@ void CanvasToolBar::placeToolPanelUnderButton() {
 void CanvasToolBar::reposition() {
     if (!m_host) return;
     const int areaW = m_host->width();
-    const int areaH = m_host->height();
+
+    QWidget* mainRow = findChild<QWidget*>("canvasToolMainRow");
+    const bool cartesianVisible = m_cartesianRow && m_cartesianRow->isVisible();
+    const int mainH = mainRowHeight();
+    const int cartH = cartesianVisible ? m_cartesianRow->sizeHint().height() : 0;
 
     int barW = mainRowWidth();
-    int barH = m_cartesianRow && m_cartesianRow->isVisible()
-                   ? mainRowHeight() + m_cartesianRow->sizeHint().height()
-                   : mainRowHeight();
+    if (cartesianVisible) barW = qMax(barW, m_cartesianRow->sizeHint().width());
+    const int barH = mainH + cartH;
 
-    int x = qMax(8, (areaW - barW) / 2);
-    int y = 16;
+    const int x = qMax(8, (areaW - barW) / 2);
+    const int y = 16;
     setGeometry(x, y, barW, barH);
 
-    if (m_cartesianRow && m_cartesianRow->isVisible()) {
-        const QPoint rowPos = mapTo(m_cartesianRow, QPoint(0, 0));
-        m_cartesianRow->setGeometry(rowPos.x(), rowPos.y(), barW, m_cartesianRow->sizeHint().height());
+    if (mainRow) {
+        mainRow->setGeometry(0, 0, barW, mainH);
+        mainRow->raise();
+    }
+    if (cartesianVisible) {
+        m_cartesianRow->setGeometry(0, mainH, barW, cartH);
         m_cartesianRow->raise();
     }
 

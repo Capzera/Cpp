@@ -62,6 +62,7 @@
 #include "modules/RadixSortModule.h"
 #include "modules/CartesianModule.h"
 #include "ui/widgets/CartesianPanel.h"
+#include "ui/widgets/CartesianInfoPanel.h"
 #include "modules/CircularQueueModule.h"
 #include "modules/MonotonicQueueModule.h"
 #include "modules/ExgcdModule.h"
@@ -69,6 +70,7 @@
 #include "modules/StringHashModule.h"
 #include "modules/LCSModule.h"
 #include "core/AppVersion.h"
+#include "core/CartesianExpression.h"
 #include "render/LatexBlock.h"
 #include "render/EditableModel.h"
 #include "canvas/CanvasView.h"
@@ -160,6 +162,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), currentModule(nul
         if (auto* cartesian = dynamic_cast<CartesianModule*>(m)) m_cartesianModule = cartesian;
     }
 
+    setupCartesianWiring();
+
     auto findModule = [this](const QString& name) -> IModule* {
         for (IModule* m : registeredModules) {
             if (m->getModuleName() == name) return m;
@@ -231,7 +235,7 @@ void MainWindow::setupUI() {
     comboModules->setMinimumHeight(36);
     comboModules->setVisualStyle(ComboVisualStyle::VueLight);
 
-    QLabel *labelInput = new QLabel("数据输入");
+    labelInput = new QLabel("数据输入");
     labelInput->setObjectName("sectionLabel");
     textInput = new MyTextEdit();
     textInput->setPlaceholderText("请在上方选择算法模块，这里会显示对应的输入格式说明");
@@ -328,6 +332,10 @@ void MainWindow::setupUI() {
     m_cartesianPanel->setObjectName("cartesianPanelHost");
     m_cartesianPanel->setVisible(false);
 
+    m_cartesianInfo = new CartesianInfoPanel();
+    m_cartesianInfo->setObjectName("cartesianInfoPanelHost");
+    m_cartesianInfo->setVisible(false);
+
     leftLayout->addWidget(labelTitle);
     leftLayout->addWidget(comboModules);
     leftLayout->addWidget(graphPanelHost);
@@ -402,6 +410,12 @@ void MainWindow::setupUI() {
     m_tableToolBar->hide();
     m_tableToolBar->raise();
 
+    m_cartesianInfo->setParent(graphicsView);
+    m_cartesianInfo->setObjectName("cartesianInfoPanelHost");
+    m_cartesianInfo->resize(232, 150);
+    m_cartesianInfo->hide();
+    m_cartesianInfo->raise();
+
     rightLayout->addWidget(graphicsView, 1);
     rightLayout->addWidget(statusBar);
 
@@ -473,31 +487,6 @@ void MainWindow::setupCanvasTools() {
     connect(m_canvasToolBar, &CanvasToolBar::cartesianToolChanged, this, &MainWindow::onCartesianToolChanged);
     connect(m_canvasToolBar, &CanvasToolBar::cartesianPointNamesChanged, this, &MainWindow::onCartesianPointNamesChanged);
 
-    if (m_cartesianModule) {
-        connect(m_cartesianModule, &CartesianModule::objectsChanged, this, [this]() {
-            if (m_cartesianPanel) m_cartesianPanel->refresh();
-        });
-        connect(m_cartesianModule, &CartesianModule::statusMessage, this, [this](const QString& text) {
-            labelStatus->setText(text);
-        });
-        connect(m_cartesianModule, &CartesianModule::requestPointEditor, this, [this](int index) {
-            CartesianEngine* engine = m_cartesianModule->engine();
-            if (!engine) return;
-            CartesianPointItem* point = engine->pointAt(index);
-            if (!point) return;
-            CartesianPointEditor editor(this);
-            editor.setPointData(point->name(), point->x(), point->y(), point->nameHidden());
-            if (editor.exec() == QDialog::Accepted) {
-                onCartesianPointEdited(index, editor.pointName(), editor.pointX(), editor.pointY(),
-                                       editor.nameHidden());
-            }
-        });
-        connect(m_cartesianModule, &CartesianModule::requestSegmentEditor, this, [this](int index) {
-            Q_UNUSED(index);
-            labelStatus->setText("线段方程已显示在图上：双击线段可随时查看 y = kx + b");
-        });
-    }
-
     if (m_cartesianPanel) {
         connect(m_cartesianPanel, &CartesianPanel::statusMessage, this, [this](const QString& text) {
             labelStatus->setText(text);
@@ -512,6 +501,41 @@ void MainWindow::setupCanvasTools() {
             labelStatus->setText("已选中该点，可在左侧面板中编辑其坐标或样式");
         });
     }
+}
+
+void MainWindow::setupCartesianWiring() {
+    if (!m_cartesianModule) return;
+    if (m_cartesianWired) return;
+    m_cartesianWired = true;
+
+    connect(m_cartesianModule, &CartesianModule::objectsChanged, this, [this]() {
+        if (m_cartesianPanel) m_cartesianPanel->refresh();
+    });
+    connect(m_cartesianModule->engine(), &CartesianEngine::pointMoved, this, [this](int, double, double) {
+        if (m_cartesianPanel) m_cartesianPanel->refresh();
+    });
+    connect(m_cartesianModule, &CartesianModule::statusMessage, this, [this](const QString& text) {
+        labelStatus->setText(text);
+    });
+    connect(m_cartesianModule, &CartesianModule::requestPointEditor, this, [this](int index) {
+        CartesianEngine* engine = m_cartesianModule->engine();
+        if (!engine) return;
+        CartesianPointItem* point = engine->pointAt(index);
+        if (!point) return;
+        CartesianPointEditor editor(this);
+        editor.setPointData(point->name(), point->x(), point->y(), point->nameHidden());
+        if (editor.exec() == QDialog::Accepted) {
+            onCartesianPointEdited(index, editor.pointName(), editor.pointX(), editor.pointY(),
+                                   editor.nameHidden());
+        }
+    });
+    connect(m_cartesianModule, &CartesianModule::requestSegmentEditor, this, [this](int index) {
+        Q_UNUSED(index);
+        labelStatus->setText("线段的一次方程可在右侧信息框中查看");
+    });
+    connect(m_cartesianModule, &CartesianModule::pointInspected, this, &MainWindow::onCartesianPointDoubleClicked);
+    connect(m_cartesianModule, &CartesianModule::segmentInspected, this, &MainWindow::onCartesianSegmentDoubleClicked);
+    connect(m_cartesianModule, &CartesianModule::curveInspected, this, &MainWindow::onCartesianCurveDoubleClicked);
 }
 
 void MainWindow::positionTableToolBar() {
@@ -762,6 +786,20 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
         case Qt::Key_G: m_toolController->setTool(ToolController::Markdown); return;
         case Qt::Key_X: m_toolController->setTool(ToolController::Latex); return;
         case Qt::Key_I: m_toolController->setTool(ToolController::Table); return;
+        case Qt::Key_P:
+            if (m_cartesianActive) {
+                m_toolController->setTool(ToolController::CartPoint);
+                event->accept();
+                return;
+            }
+            break;
+        case Qt::Key_S:
+            if (m_cartesianActive) {
+                m_toolController->setTool(ToolController::CartLine);
+                event->accept();
+                return;
+            }
+            break;
         default: break;
         }
     }
@@ -807,6 +845,8 @@ void MainWindow::onModuleChanged(int index) {
             m_cartesianPanel->setVisible(m_cartesianActive);
             m_cartesianPanel->setEngine(m_cartesianActive && m_cartesianModule ? m_cartesianModule->engine() : nullptr);
         }
+        applyCartesianLayoutMode(m_cartesianActive);
+        ViewportFitter::setInfiniteCanvas(graphicsScene, m_cartesianActive);
         if (m_cartesianActive && m_cartesianModule) {
             rebuildCurrentLayout(currentModule->getDefaultInput(), false, false);
             graphicsView->centerOn(QPointF(0, 0));
@@ -817,6 +857,10 @@ void MainWindow::onModuleChanged(int index) {
                 m_toolController->currentTool() == ToolController::CartLine) {
                 m_toolController->setTool(ToolController::Select);
             }
+        }
+        if (m_cartesianActive && m_toolController) {
+            m_toolController->setTool(ToolController::CartPoint);
+            showCartesianHint();
         }
     } else {
         clearScene();
@@ -839,16 +883,44 @@ void MainWindow::onModuleChanged(int index) {
         if (m_canvasToolBar) m_canvasToolBar->setCartesianMode(false);
         if (m_toolController) m_toolController->setCartesianEngine(nullptr);
         if (graphicsView) graphicsView->setCartesianEngine(nullptr);
+        if (m_cartesianInfo) m_cartesianInfo->clearInfo();
+        ViewportFitter::setInfiniteCanvas(graphicsScene, false);
         if (m_cartesianPanel) {
             m_cartesianPanel->setVisible(false);
             m_cartesianPanel->setEngine(nullptr);
         }
+        applyCartesianLayoutMode(false);
         if (m_toolController &&
             (m_toolController->currentTool() == ToolController::CartPoint ||
              m_toolController->currentTool() == ToolController::CartLine)) {
             m_toolController->setTool(ToolController::Select);
         }
     }
+}
+
+void MainWindow::applyCartesianLayoutMode(bool on) {
+    if (!labelInput || !textInput) return;
+    labelInput->setVisible(!on);
+    textInput->setVisible(!on);
+
+    if (btnBuild) btnBuild->setVisible(!on);
+    if (btnStep) btnStep->setVisible(!on);
+    if (btnStepBack) btnStepBack->setVisible(!on);
+    if (btnAuto) btnAuto->setVisible(!on);
+    if (checkScriptText) checkScriptText->setVisible(!on);
+
+    if (checkGrid) {
+        checkGrid->setVisible(!on);
+        if (on && checkGrid->isChecked()) {
+            checkGrid->setChecked(false);
+            onGridToggled(false);
+        }
+    }
+}
+
+void MainWindow::showCartesianHint() {
+    if (!labelStatus) return;
+    labelStatus->setText("描点：单击画布落点 · 连线：按 S 切到连线工具 · 函数：在左侧「函数绘制」输入 f(x)= 表达式");
 }
 
 void MainWindow::archiveAnnotations() {
@@ -1418,6 +1490,60 @@ void MainWindow::refreshCartesianViewport() {
     m_cartesianModule->setViewportRect(QRectF(topLeft, bottomRight).normalized());
 }
 
+void MainWindow::positionCartesianInfo() {
+    if (!m_cartesianInfo || !graphicsView) return;
+    if (!m_cartesianInfo->isVisible()) return;
+    const int margin = 16;
+    const int width = m_cartesianInfo->width();
+    const int height = m_cartesianInfo->height();
+    const int viewWidth = graphicsView->viewport()->width();
+    const int viewHeight = graphicsView->viewport()->height();
+    const int x = qMax(margin, viewWidth - width - margin);
+    const int y = qBound(margin, viewHeight / 2 - height / 2, qMax(margin, viewHeight - height - margin));
+    m_cartesianInfo->move(x, y);
+    m_cartesianInfo->raise();
+}
+
+void MainWindow::onCartesianPointDoubleClicked(int index) {
+    if (!m_cartesianInfo || !m_cartesianModule) return;
+    CartesianEngine* engine = m_cartesianModule->engine();
+    if (!engine) return;
+    CartesianPointItem* point = engine->pointAt(index);
+    if (!point) return;
+    const QString extra = engine->isSnapped(QPointF(point->x(), point->y()))
+                              ? QString("已吸附到坐标交点。")
+                              : QString("自由坐标（靠近交点时才会自动吸附）。");
+    m_cartesianInfo->showPoint(point->name(), point->x(), point->y(), point->color(), extra);
+    positionCartesianInfo();
+    labelStatus->setText(QString("点 %1：(%2, %3)").arg(point->name())
+                             .arg(CartesianExpression::formatNumber(point->x(), 4))
+                             .arg(CartesianExpression::formatNumber(point->y(), 4)));
+}
+
+void MainWindow::onCartesianSegmentDoubleClicked(int index) {
+    if (!m_cartesianInfo || !m_cartesianModule) return;
+    CartesianEngine* engine = m_cartesianModule->engine();
+    if (!engine) return;
+    if (index < 0 || index >= engine->segments().size()) return;
+    CartesianSegmentItem* segment = engine->segments().at(index);
+    if (!segment) return;
+    const QString equation = segment->equationText();
+    m_cartesianInfo->showSegment(equation, segment->segmentSummary());
+    positionCartesianInfo();
+    labelStatus->setText(equation.isEmpty() ? QString("线段退化为一个点") : equation);
+}
+
+void MainWindow::onCartesianCurveDoubleClicked(int index) {
+    if (!m_cartesianInfo || !m_cartesianModule) return;
+    CartesianEngine* engine = m_cartesianModule->engine();
+    if (!engine) return;
+    CartesianCurveItem* curve = engine->curveAt(index);
+    if (!curve) return;
+    m_cartesianInfo->showCurve(curve->name(), curve->expression(), curve->color());
+    positionCartesianInfo();
+    labelStatus->setText(QString("函数 %1：y = %2").arg(curve->name(), curve->expression()));
+}
+
 void MainWindow::onCartesianToolChanged(int kind) {
     if (!m_cartesianActive || !m_toolController) return;
     CartesianEngine* engine = m_cartesianModule ? m_cartesianModule->engine() : nullptr;
@@ -1431,7 +1557,8 @@ void MainWindow::onCartesianToolChanged(int kind) {
         labelStatus->setText("连线工具：奇数次选点为起点，偶数次选点即连成线段");
     } else {
         if (engine) engine->setActiveTool(CartesianEngine::Select);
-        labelStatus->setText("函数绘制：在左侧「函数绘制」输入 f(x) = 表达式");
+        if (m_cartesianPanel) m_cartesianPanel->focusFunctionInput();
+        labelStatus->setText("函数绘制：在左侧「函数绘制」输入 f(x) = 表达式后回车即可");
     }
 }
 

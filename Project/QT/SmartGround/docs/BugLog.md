@@ -3,6 +3,9 @@
 **更新时间：2026-11-21**
 | ID | 问题 | 状态 | 修复记录 |
 |---|---|---|---|
+| BUG-240 | **笛卡尔坐标系第二轮七项问题的验证方法存在盲区**：上一轮的测试用例直接调用引擎 API（`engine->addPoint()` / `engine->pointDoubleClicked()`）来断言行为，**绕过了真实的鼠标事件链路**（`QGraphicsView` → `viewport` 事件过滤器 → `ToolController` → 引擎）。这意味着「描点是否真的响应画布点击」「双击是否真的弹检视面板」「点击文字标签是否真的选中工具」这些**用户实际动作**从未被验证过 | 已修复 | **方法论缺陷，不是功能缺陷** —— 补写 `tests/CartesianRound3Test.cpp`（`SmartGroundCartesianRound3`），全部改用**真实鼠标事件**驱动：① 用 `QMouseEvent` 向 `view->viewport()` 投递 press/release，验证「画布单击 → 落点 → 左侧列表新增一行且该行确实可见」；② 在数学坐标 `(0.5, 0.8)` 处真实单击，验证落点坐标**保持自由值**且 `isSnapped()` 为 false；③ 在交点 `(5, 4)` 处真实单击，验证落点**精确吸附**且 `isSnapped()` 为 true；④ 向按钮**文字区域**（`width()-6` 处）投递真实点击，验证工具被真正切换；⑤ 真实右键按下 + 移动 + 释放，验证原点位移；⑥ 真实点击两个点后再切连线工具真实点击两点，验证**生成线段且画布上不绘制方程**；⑦ 真实双击点 / 线段，验证**右侧检视面板弹出、坐标与方程正确、且面板锚定在画布右半区且不出界**。实测七项全部通过 —— 证实上轮修复真实有效。**无限性判据同时升级为相对比较**：原点处网格像素 63327、平移 126000 单位后 61716（密度一致），而非原来的绝对阈值 |
+| BUG-239 | **笛卡尔坐标系第二轮七项实测问题**：① 描点后左侧列表不更新；② 连线后直接显示一次函数；③ 描点只能落在坐标交点上（无法落 `(0.5, 0.8)`）；④ 工具按钮只有图标可点、文字点不动；⑤ 描点模式下右键不能拖动画布；⑥ 坐标系延伸到 60 就结束、不是无限；⑦ 双击描点后右侧不弹出信息框 | 已修复 | ① **初始化顺序**：`setupUI()` 里的 `setupCanvasTools()` 早于模块 new 信号连接从未建立 —— 抽出 `MainWindow::setupCartesianWiring()` 在模块注册后调用；`CartesianPointItem::setMathPos()` 补发 `pointMoved` 让拖点也刷新列表。② `Settings::showEquation` 默认改 `false`，方程改由 `CartesianSegmentItem::equationText()` 在检视面板按需索取。③ `snapMath()` 的硬量化拆成 `snappedMath()` **接近吸附**（距离 ≤ 0.28 分度尺才吸附，否则保留自由坐标）+ `isSnapped()`。④ `ToolIconButton` 增加 `setCaption()`，文字**画在按钮内部**并参与尺寸计算，图标与文字成为同一块可点击区域。⑤ `ToolController` 新增 `m_cartesianPanning`，画点 / 连线模式下右键拖动调用 `setOriginScene()` 平移原点。⑥ `ViewportFitter` 新增 `setInfiniteCanvas()`（±1e7 场景矩形），`CartesianGridItem::boundingRect()` 改大方框、`paint()` 改用 `option->exposedRect` **按当前视口动态画网格**。⑦ 新增 `src/ui/widgets/CartesianInfoPanel.{h,cpp}` 右侧浮层检视卡，`CartesianModule` 拆分「检视」与「编辑」两组信号 |
+| BUG-238 | **`PointerBlock` 用 `Qt::UniqueConnection` 连接 lambda 导致进程崩溃**：26 个测试可执行文件以退出码 `-1073740286`（fail-fast）挂掉 | 已修复 | `Qt::UniqueConnection` **只支持指向成员函数的槽**，传 lambda 会触发 `QObject::connect` 断言「Unique connection requires the slot to be a pointer to a member function of a QObject subclass」，Qt 6.11 将其升级为致命断言。修复：`PointerBlock` 新增 `m_anchorConn`（`QMetaObject::Connection`）与 `disconnectAnchor()`，改用不带 `UniqueConnection` 的 lambda 连接并在重新锚定时显式断开，避免连接泄漏与重复触发 |
 | BUG-234 | **二次函数 `f(x) = 3x^2 - 8x + 7` 整条曲线消失**：曲线路径一旦有任何一段超出范围，就把整条折线 `clear()` 掉，导致本该可见的部分也被抹掉 | 已修复 | 根因在 `CartesianCurveItem::rebuildPolyline()`：出界分支执行 `m_polyline.clear()`，把**已经累积的全部顶点**清空，而抛物线在可视区间内必然先下探后回升（顶点低于视口下沿），于是整条曲线被判定为不可见。修复：把单条 `QPolygonF m_polyline` 改为 **`QVector<QPolygonF> m_runs` 多段结构** —— 出界时只 `flush()` 当前段（切断）而**不清空历史段**，恢复后另起新段；`paint()` 遍历绘制所有段。同步把可视范围扩展为 `setVisibleRange(minX, maxX, minY, maxY)`（由 `updateViewport()` 传入视口的数学 y 范围），`hitTest()` 改为遍历所有段 |
 | BUG-235 | **表达式解析器不认隐式乘法**：`2x + 7`、`3x^2 - 8x + 7`、`(x+1)(x-1)` 全部解析失败，一次 / 二次 / 三次函数**一个都画不出来** | 已修复 | 根因在 `src/core/CartesianExpression.cpp`：`parseProduct()` 只在显式 `*` 处做乘法，遇到 `2x` 时解析出数字 `2` 后立刻返回，把 `x` 留在记号流里导致「表达式结尾有多余内容」。修复：① 新增 `startsFactor(token)` 判断下一个记号是否为隐式乘数的开头（`x`、`(` 或数字）；② `parseProduct()` 在无显式 `*` 时若 `startsFactor(lexer.peek())` 成立则**继续解析一个因子并相乘**；③ 抽出 `multiplyTerms()` 统一做项相乘并检查次数不超过 3。修复后 `2x + 7` → `c1=2, c0=7`；`3x^2 - 8x + 7` → `c2=3, c1=-8, c0=7`；`(x+1)(x-1)` → `c2=1, c0=-1` |
 | BUG-236 | **切走笛卡尔模块后引擎仍然启用**，网格仍被绘制，且窗口退出时崩溃（`-1073741819`） | 已修复 | 两处根因：① `CartesianModule::releaseSceneItems()` 只调 `clearObjects()` + `detachScene()`，**没有 `setEnabled(false)`**，网格项的 `setVisible(m_enabled && showGrid)` 仍为 true；② `MainWindow::onModuleChanged()` 的 else 分支写成 `currentModule = nullptr; clearScene();` —— **`clearScene()` 在 `currentModule` 已被置空之后才调用**，于是 `clearScene()` 里的 `if (currentModule) currentModule->releaseSceneItems();` 永不执行，旧模块的场景资源根本没被释放。修复：① `releaseSceneItems()` 补上 `m_engine->setEnabled(false)`；② else 分支**调整顺序**为 `clearScene(); currentModule = nullptr;`（与 if 分支一致）。另在 `MainWindow` 析构中先 `setCartesianEngine(nullptr)` 解绑 `ToolController` / `CanvasView` / `CartesianPanel` 三处引擎裸指针，再释放模块，杜绝悬垂指针 |
@@ -694,3 +697,92 @@ $env:QT_QPA_PLATFORM = "offscreen"
   - `SmartGroundOverlapAudit` 的下标包围盒改用 `ArrayBlock::indexRect()`，与实际绘制一致；`forwardstar` 用例归零，全套 `ALL PASS`；
   - `SmartGroundLayoutFit` 的 `forwardstar: k pointer sits at the to row bottom edge` 恢复通过；
   - `build/tests/` 下 **97 个测试可执行文件全部零失败**；`SmartGround.exe` Release 构建成功。
+
+## 2026-11-21 笛卡尔坐标系五项可用性回归修复
+
+用户对「自由结构 - 笛卡尔坐标系」模块实测后提出五个问题：描点工具找不到、左侧算法输入冗余、对齐网格与坐标网格冲突、函数画不出来、不知道如何描点。逐条定位与修复如下。
+
+- **现象（描点工具不可见）**：浮动工具栏第二行（笛卡尔专属行）整体跑到了工具栏右边界之外，与主行重叠，用户完全看不到「画点 / 连线 / 函数」三个按钮。
+- **根因（布局）**：`src/ui/widgets/CanvasToolBar.cpp` 的 `reposition()` 用 `m_cartesianRow->mapTo(m_cartesianRow, QPoint(0, 0))` 做自参照定位 —— 该映射恒等于 `(0, 0)`，但由于 `m_cartesianRow` 是 `CanvasToolBar` 的子控件，`setGeometry` 传入的 `barW` 被裁剪到工具栏实际宽度，而行本身仍按 `sizeHint().width()` 排版，导致按钮被挤到可视区外；行高也未计入工具栏总高度。
+- **修复（布局）**：`reposition()` 改为**绝对定位两行** —— 主行 `setGeometry(0, 0, barW, mainH)`，笛卡尔行 `setGeometry(0, mainH, barW, cartH)`，工具栏总高 `mainH + cartH`，`barW` 取两行 `sizeHint()` 的较大值；三个按钮各加中文标签「画点 / 连线 / 函数」，并新增 `CanvasToolBar::syncCartesianButtons(int)` 让工具状态与笛卡尔按钮的高亮双向同步。
+- **现象（左侧算法输入冗余）**：笛卡尔模式仍显示算法输入框、构建 / 单步 / 自动播放按钮与脚本文字开关，与「自由结构」语义冲突。
+- **根因（布局）**：`MainWindow::onModuleChanged` 未对笛卡尔模式做布局裁剪，算法控件一直挂在 `leftLayout` 上。
+- **修复（布局）**：新增 `MainWindow::applyCartesianLayoutMode(bool)`，在笛卡尔模式下隐藏 `labelInput` / `textInput` / `btnBuild` / `btnStep` / `btnStepBack` / `btnAuto` / `checkScriptText` / `checkGrid`；点与线的管理统一交给 `CartesianPanel` 的「对象列表」与「函数绘制」两段。
+- **现象（对齐网格冲突）**：笛卡尔坐标系自带 60px 数学网格，画布的 `SceneGrid` 56px 虚线对齐辅助线叠加在其上，视觉噪声极大。
+- **根因（配置）**：`SceneGrid::Config::enabled` 与 `showGuides` 是**全局静态状态**，切换模块时无人重置，默认 `enabled = true`。
+- **修复（配置）**：`applyCartesianLayoutMode(true)` 内在 `checkGrid` 处于勾选态时主动 `setChecked(false)` 并调用 `onGridToggled(false)`，同时把 `cfg.enabled` 与 `cfg.showGuides` 一并置 `false`；离开笛卡尔模式时恢复控件可见性。
+- **现象（函数画不出来）**：输入 `3x^2 - 8x + 7` 后画布上没有任何曲线。
+- **根因（裁剪）**：`CartesianCurveItem::rebuildPolyline()` 用 `yLimit = span * 2.0 + 40.0` 这一**只看 x 跨度**的经验值裁剪采样窗口，完全无视 `m_minY` / `m_maxY`；抛物线在 `x = -9.27` 处 `y = 338.96`，远超经验上限，曲线整条被裁掉；此外 `boundingRect()` 返回固定的 `±400000` 方框，`QGraphicsScene` 依此做视口剔除时会把曲线整条裁出可视区。
+- **修复（裁剪）**：`rebuildPolyline()` 重写为**按真实 Y 窗口裁剪** —— `padY = (m_maxY - m_minY) * 0.5 + 8.0`，采样窗口 `[m_minY - padY, m_maxY + padY]`，并以 `maxJump = (highY - lowY) * 2.0 + 16.0` 侦测不连续段做 `flush()`；`boundingRect()` 改为按 `visibleBounds()` 动态计算并留 40px 余量。
+- **修复（输入）**：`CartesianPanel` 的函数输入框接上 `editingFinished`（回车即绘制）与 `textChanged` 实时解析反馈（绿字「将绘制：…」/ 红字「无法解析：…」），按钮文案由 `"+"` 改为「绘制」；`CartesianExpression::parse()` 新增 **`f(x) =` / `y =` / `f =` 前缀剥离**，允许用户直接照抄教科书写法。
+- **现象（不会描点）**：用户找不到描点入口，也不知道工具怎么用。
+- **根因（可发现性）**：进入笛卡尔模式后工具仍停在「指针」，用户必须先在工具栏里认出那个没有文字的图标；工具提示里承诺的 `(P)` / `(S)` 快捷键**从未实现**；面板上没有任何操作指引。
+- **修复（可发现性）**：
+  - `ToolController::isDrawingTool()` 补上 `CartPoint` / `CartLine` —— 此前这两个工具**不消费鼠标事件**，`eventFilter` 返回 `false`，画布把点击吞掉，描点根本不会触发；
+  - `MainWindow::keyPressEvent` 实现 `P`（画点）/ `S`（连线）快捷键，仅在 `m_cartesianActive` 时生效；
+  - 进入笛卡尔模式时自动切到 `CartPoint` 工具并同步引擎 `ActiveTool::Point`；
+  - `CartesianPanel` 顶部新增 `GuideCard` 四步引导卡（画点 / 连线 / 函数 / 管理），用序号徽章 + 蓝底圆角卡片呈现；
+  - 状态栏 `labelStatus` 常驻提示「描点：单击画布落点 · 连线：按 S 切到连线工具 · 函数：在左侧「函数绘制」输入 f(x)= 表达式」；
+  - 「函数」按钮点击后自动 `focusFunctionInput()` 并全选，光标直接落到表达式输入框。
+- **验证**：
+  - 新增 `tests/CartesianUxTest.cpp`（`SmartGroundCartesianUx`）：覆盖五项诉求共 25 条断言，**全部 PASS**（含「第二行与主行不重叠」「进入即选中画点工具」「算法控件全部隐藏」「`SceneGrid` enabled/showGuides 均为 false」「曲线在应用视口内可见像素 1323」「`f(x) = ` 前缀可解析」「`S` / `P` 快捷键生效」「引导卡存在」）；
+  - 新增 `tests/CartesianAppViewTest.cpp`（`SmartGroundCartesianAppView`）：走**真实 UI 路径**（输入框 → 绘制按钮 → 视口渲染）验证曲线可见；
+  - 新增 `tests/CartesianCurveIsoTest.cpp`（`SmartGroundCartesianCurveIso`）：引擎级曲线渲染隔离验证；
+  - 新增 `tests/CartesianShotTest.cpp`（`SmartGroundCartesianShot`）：整窗 UI 截图存档；
+  - `SmartGroundCartesianUi`、`SmartGroundCartesianDiag`、`SmartGroundCartesianProbe` 回归通过；`SmartGround.exe` Release 构建成功。
+- **连带缺陷 1（工具栏宽度退化）**：`CanvasToolBar::buildMainBar()` 原先有一个 `QVBoxLayout` 根布局包裹 `mainRow`，本轮为了绝对定位两行而移除它；`mainBarWidth()` 返回 `sizeHint().width()`，失去根布局后该值退化为 `-1`，`SmartGroundToolSuite` 的「工具栏宽度 < 700px」断言失败。修复：`mainBarWidth()` 改为返回 `mainRowWidth()`（即 `mainRow->sizeHint().width()`），语义仍是「主行宽度」。
+- **连带缺陷 2（按钮文本撞车）**：函数按钮文案由 `"+"` 改为「绘制」后，`UiBehaviorTest` 的 `findButton(&w, "绘制")` 会先命中 `CartesianPanel` 里这个按钮（它排在 `leftLayout` 更靠前），而不是算法的「绘制可视化效果」按钮，导致 `btnBuild->click()` 落空、后续 14 项断言连环失败。修复：函数按钮最终定名「绘图」，与算法侧按钮文本彻底分离。
+- **最终验证**：`build/tests/` 下 **85 个测试可执行文件全部零失败**；`SmartGround.exe` Release 构建成功。
+
+## 2026-11-21 笛卡尔坐标系七项实测回归修复（第二轮）
+
+用户对「自由结构 - 笛卡尔坐标系」模块第二轮实测后提出七个问题。逐条定位与修复如下。
+
+### 问题 1：描点后左侧对象列表不更新
+
+- **根因（初始化顺序）**：`MainWindow` 构造函数里 `setupUI()` 先执行并在其中调用 `setupCanvasTools()`，而**笛卡尔模块是在 `setupUI()` 返回之后才被 new 出来**的。`setupCanvasTools()` 里的 `if (m_cartesianModule) { ... }` 判断发生在 `m_cartesianModule` 还是 `nullptr` 的时刻，整段 `objectsChanged` / `statusMessage` / `requestPointEditor` / `pointInspected` 等**信号连接从未建立**，面板因此永远收不到刷新通知。
+- **修复（信号重排）**：把笛卡尔模块的全部信号连接抽成独立方法 `MainWindow::setupCartesianWiring()`，在**模块注册完成之后**（`m_cartesianModule` 赋值语句之后）调用一次，并用 `m_cartesianWired` 标志防重复连接。
+- **修复（拖点同步）**：`CartesianPointItem::setMathPos()` 此前只在 `update()` 后静默返回，拖动过程中坐标变化**不会通知任何人**，左侧列表的坐标读数会停在旧值。改为在真正发生位移时 `emit m_engine->pointMoved(m_index, x, y)`，并在 `MainWindow` 中把 `CartesianEngine::pointMoved` 也接到 `CartesianPanel::refresh()`。
+
+### 问题 2：连线后不应直接显示一次函数
+
+- **根因（默认开关）**：`CartesianEngine::Settings::showEquation` 默认值为 `true`，`updateSettings()` 会把每一根线段的 `m_equationVisible` 置真，于是 `CartesianSegmentItem::paint()` 在线段中点画出一张 `y = kx + b` 白底小卡。
+- **修复（语义反转）**：默认改为 `false`，线段不再自带方程标签；新增 `CartesianSegmentItem::equationText()` 与 `segmentSummary()` 只读接口，方程文本改为**由检视面板按需索取**。用户在「坐标系设置」里仍可勾选「显示线段与函数方程」把它画回图上。
+
+### 问题 3：描点只能落在坐标交点上
+
+- **根因（量化语义）**：`CartesianEngine::snapMath()` 无条件执行 `std::round(x / step) * step`，**任何**坐标都被硬量化到分度尺的整数倍，因此 `(0.5, 0.8)` 这样的自由坐标根本无法落点。
+- **修复（接近吸附）**：把「吸附」与「量化」拆成两件事 —— 新增 `snappedMath(const QPointF& math)` 做**接近判定**：先算到最近交点的距离 $\Delta$，只有 $\Delta \le$ `m_snapTolerance`（默认 0.28 个分度尺单位）才吸附，否则**原样保留自由坐标**；新增 `isSnapped()` 让调用方能区分「吸附点」与「自由点」。`snapScene()` 改为 `toScene(snappedMath(toMath(scene)))`，`addPoint()` 内部亦改用 `snappedMath()`（不再无条件量化）。新增 `setStep()` / `setSnapTolerance()` / `setSnapEnabled()` 供设置面板与测试使用。
+
+### 问题 4：工具按钮的点击判定区域太苛刻
+
+- **根因（控件拆分）**：第二排的每个工具原本是「一个 30×30 的 `ToolIconButton` 图标 + 一个独立的 `QLabel` 文字」，**只有图标响应点击**，点文字等于点空气。
+- **修复（图标内嵌文字）**：给 `ToolIconButton` 增加 `setCaption()` 能力 —— 文字直接**画在按钮内部**并参与尺寸计算（宽度 = 30 + 5 + 文字宽 + 4），按钮宽度随文字自适应；`CanvasToolBar::buildCartesianRow()` 移除独立 `QLabel`，改用 `button->setCaption("画点")`。现在图标与文字是**同一个控件的同一块可点击区域**，选中态（accent 圆角底 + 反白文字）也整体高亮。
+
+### 问题 5：描点功能下按住右键应拖动画布
+
+- **根因（事件吞噬）**：`ToolController::eventFilter()` 的右键分支只处理「右键擦除」与「表格右键菜单」，在 `CartPoint` / `CartLine` 工具下**右键既不拖动也不做任何事**。
+- **修复（右键平移）**：在 `ToolController` 中新增 `m_cartesianPanning` / `m_cartesianPanLast` 两个状态：坐标系启用且处于 `CartPoint` / `CartLine` 时，右键按下即进入平移态（光标切 `ClosedHandCursor`），`onMouseMove()` 按增量调用 `CartesianEngine::setOriginScene()` 移动坐标原点并 `CanvasView::syncCartesianViewport()` 同步网格与曲线可视范围，右键松开恢复十字光标。
+
+### 问题 6：坐标系延伸到哪里就结束，不是无限
+
+- **根因（场景矩形）**：`ViewportFitter::expandSceneRect()` 用 `scene->itemsBoundingRect()` 加 800px 余量设定 `sceneRect`，坐标系只有几个点时包围盒极小，**画布平移范围被死死卡住**；同时 `CartesianGridItem::boundingRect()` 返回的是**缓存的视口矩形**，平移出该矩形后网格直接不再绘制。
+- **修复（无限画布）**：① `ViewportFitter` 新增 `setInfiniteCanvas()` / `infiniteCanvas()` 与 ±1e7 的场景矩形，笛卡尔模式下由 `MainWindow::onModuleChanged()` 打开，离开时关闭，`expandSceneRect()` 在无限模式下直接维持大场景矩形；② `CartesianGridItem::boundingRect()` 改为返回 ±1e7 的大方框，`paint()` 改用 `option->exposedRect`（**当前真正暴露在屏幕上的区域**）计算网格线的起止，网格线数量由视口动态决定而非预生成数组 —— 与「只处理当前页面内显示哪些坐标」的思路一致。
+
+### 问题 7：双击描点后右侧不弹出信息框
+
+- **根因（语义错位 + 无控件）**：画布双击点被转发到 `CartesianModule::requestPointEditor`，弹出的是**模态编辑对话框**（改名字 / 改坐标），既遮挡画布也与「查看信息」的诉求不符；项目里根本不存在右侧信息面板。
+- **修复（新增检视面板）**：新增 `src/ui/widgets/CartesianInfoPanel.{h,cpp}` —— 自绘圆角白卡（标题 + 等宽正文 + 提示行），以**浮层**形式锚在画布右侧中部（`MainWindow::positionCartesianInfo()` 负责定位，永远落在画布右半区且不出界）。`CartesianModule` 新增 `pointInspected` / `segmentInspected` / `curveInspected` 三个「检视」信号，与「编辑」信号彻底分离；双击点 → 右侧卡片显示**点名 / x / y / 是否已吸附**；双击线段 → 卡片显示**一次方程 y = kx + b 与线段长度**；双击曲线 → 卡片显示**函数名与表达式**。
+
+### 连带缺陷：`PointerBlock` 的 `Qt::UniqueConnection` 导致进程崩溃
+
+- **现象**：`SmartGroundNewModule` / `SmartGroundBatch8` / `SmartGroundAnimStress` 等 26 个测试可执行文件在渲染若干帧后以退出码 `-1073740286`（`0xC0000602`，fail-fast）崩溃，与本轮改动无关但被回归暴露。
+- **根因（Qt 6.11 契约）**：`src/render/GraphElements.cpp` 的 `PointerBlock::setAnchorNode()` / `setAnchorItem()` 用 `QObject::connect(sender, &QObject::destroyed, this, [lambda]{...}, Qt::UniqueConnection)` 连接。**`Qt::UniqueConnection` 只支持「指向成员函数的槽」**，传 lambda 会触发 `QObject::connect` 的断言：`Unique connection requires the slot to be a pointer to a member function of a QObject subclass`，Qt 6.11 把该断言升级为 `qt_assert_x` 致命错误。
+- **修复（连接句柄显式管理）**：新增 `PointerBlock::m_anchorConn`（`QMetaObject::Connection`）与 `disconnectAnchor()`，改用**不带 `UniqueConnection`** 的 lambda 连接并在重新锚定时显式 `QObject::disconnect(m_anchorConn)`，避免连接泄漏与重复触发。`QPointer` 成员本就负责节点销毁后的置空。
+
+### 验证
+
+- 新增 `tests/CartesianRound2Test.cpp`（`SmartGroundCartesianRound2`）：覆盖七项诉求共 **32 条断言，全部 PASS**（含「描点后列表多一行」「`(0.5, 0.8)` 保持自由坐标」「靠近原点才吸附到 `(0, 0)`」「线段默认不画方程」「按钮带文字且宽度大于纯图标」「右键拖动改变原点」「无限画布标志已开且场景矩形大于 10 万」「信息框可见且落在画布右半区」「信息框正文含 `x =` / `y =`」「线段信息框正文含方程」）。
+- 更新 `tests/CartesianModuleTest.cpp`：旧断言「`snapScene` 必定落在网格交点上」与新语义冲突，改写为「远处点击保持自由坐标 / 靠近交点的点击被吸附」。
+- 新增 `tests/CartesianRound2Shot.cpp`（`SmartGroundCartesianRound2Shot`）：整窗截图存档，覆盖总览 / 双击信息框 / 右键平移 / 远距离平移四态。
+- **最终验证**：`build/tests/` 下 **87 个测试可执行文件全部零失败**（修复前 26 个因 `PointerBlock` 崩溃而失败）；`SmartGround.exe` Release 构建成功。

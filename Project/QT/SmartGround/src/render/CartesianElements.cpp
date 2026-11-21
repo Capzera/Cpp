@@ -128,6 +128,13 @@ void CartesianEngine::setScale(qreal value) {
     refreshAll();
 }
 
+void CartesianEngine::setStep(qreal value) {
+    const qreal clamped = qBound(1e-4, value, 1e6);
+    if (qAbs(clamped - m_step) < kEpsilon) return;
+    m_step = clamped;
+    if (m_grid) m_grid->update();
+}
+
 void CartesianEngine::syncStepToScale() {
     const QVector<qreal> ladder = stepLadder();
     qreal chosen = ladder.last();
@@ -180,10 +187,37 @@ QPointF CartesianEngine::snapMath(double x, double y) const {
     return QPointF(std::round(x / m_step) * m_step, std::round(y / m_step) * m_step);
 }
 
+void CartesianEngine::setSnapTolerance(qreal value) {
+    const qreal clamped = qBound(0.0, value, m_step * 0.5);
+    if (qAbs(clamped - m_snapTolerance) < kEpsilon) return;
+    m_snapTolerance = clamped;
+}
+
+void CartesianEngine::setSnapEnabled(bool on) {
+    if (m_snapEnabled == on) return;
+    m_snapEnabled = on;
+}
+
+QPointF CartesianEngine::snappedMath(const QPointF& math) const {
+    if (!m_snapEnabled || m_step <= 0.0) return math;
+    const QPointF nearest = snapMath(math.x(), math.y());
+    const double dx = nearest.x() - math.x();
+    const double dy = nearest.y() - math.y();
+    if (std::hypot(dx, dy) > m_snapTolerance) return math;
+    return nearest;
+}
+
+bool CartesianEngine::isSnapped(const QPointF& math) const {
+    if (!m_snapEnabled || m_step <= 0.0) return false;
+    const QPointF nearest = snapMath(math.x(), math.y());
+    const double dx = nearest.x() - math.x();
+    const double dy = nearest.y() - math.y();
+    return std::hypot(dx, dy) <= m_snapTolerance;
+}
+
 QPointF CartesianEngine::snapScene(const QPointF& scene) const {
     const QPointF math = toMath(scene);
-    const QPointF snapped = snapMath(math.x(), math.y());
-    return toScene(snapped);
+    return toScene(snappedMath(math));
 }
 
 void CartesianEngine::setSettings(const Settings& settings) {
@@ -249,7 +283,7 @@ QString CartesianEngine::uniqueFunctionName(const QString& base) const {
 
 int CartesianEngine::addPoint(double x, double y, const QString& name) {
     if (!m_scene) return -1;
-    const QPointF snapped = snapMath(x, y);
+    const QPointF placed = snappedMath(QPointF(x, y));
 
     CartesianPointItem* point = new CartesianPointItem(this, m_points.size());
     point->setZValue(20);
@@ -258,7 +292,7 @@ int CartesianEngine::addPoint(double x, double y, const QString& name) {
     point->setShape(m_settings.pointShape);
     point->setNameHidden(!m_settings.showPointName);
     point->setName(name.isEmpty() ? nextPointName() : name);
-    point->setMathPos(snapped.x(), snapped.y());
+    point->setMathPos(placed.x(), placed.y());
     m_scene->addItem(point);
     m_points.push_back(point);
 
@@ -429,7 +463,7 @@ CartesianGridItem::CartesianGridItem(CartesianEngine* engine, QGraphicsItem* par
 
 void CartesianGridItem::setViewport(const QRectF& rect) {
     prepareGeometryChange();
-    m_viewport = rect.adjusted(-400.0, -400.0, 400.0, 400.0);
+    m_viewport = rect.adjusted(-600.0, -600.0, 600.0, 600.0);
     update();
 }
 
@@ -439,14 +473,20 @@ QRectF CartesianGridItem::boundingRect() const {
 
 void CartesianGridItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option,
                               QWidget* widget) {
-    Q_UNUSED(option);
     Q_UNUSED(widget);
     if (!m_engine) return;
 
     const CartesianEngine::Settings& settings = m_engine->settings();
     const qreal step = m_engine->step();
     const qreal scale = m_engine->scale();
-    const QRectF area = m_viewport;
+
+    QRectF area;
+    if (option && !option->exposedRect.isEmpty()) {
+        area = option->exposedRect;
+    } else {
+        area = m_viewport;
+    }
+    if (area.isEmpty()) return;
 
     painter->setRenderHint(QPainter::Antialiasing, true);
 
@@ -536,10 +576,12 @@ QRectF CartesianPointItem::boundingRect() const {
 }
 
 void CartesianPointItem::setMathPos(double x, double y) {
+    if (qAbs(m_x - x) < 1e-9 && qAbs(m_y - y) < 1e-9) return;
     m_x = x;
     m_y = y;
     if (m_engine) setPos(m_engine->toScene(x, y));
     update();
+    if (m_engine) emit m_engine->pointMoved(m_index, x, y);
 }
 
 void CartesianPointItem::setName(const QString& name) {
@@ -729,6 +771,19 @@ void CartesianSegmentItem::setEquationVisible(bool on) {
     update();
 }
 
+QString CartesianSegmentItem::equationText() const {
+    if (!m_a || !m_b) return QString();
+    return CartesianExpression::describeSegment(m_a->x(), m_a->y(), m_b->x(), m_b->y());
+}
+
+QString CartesianSegmentItem::segmentSummary() const {
+    if (!m_a || !m_b) return QString();
+    const double dx = m_b->x() - m_a->x();
+    const double dy = m_b->y() - m_a->y();
+    const double length = std::hypot(dx, dy);
+    return QString("长度 %1").arg(CartesianExpression::formatNumber(length, 4));
+}
+
 void CartesianSegmentItem::setColor(const QColor& color) {
     if (m_color == color) return;
     m_color = color;
@@ -745,7 +800,9 @@ CartesianCurveItem::CartesianCurveItem(CartesianEngine* engine, int index, QGrap
 }
 
 QRectF CartesianCurveItem::boundingRect() const {
-    return QRectF(-400000, -400000, 800000, 800000);
+    if (m_runs.isEmpty()) return QRectF(-64.0, -64.0, 128.0, 128.0);
+    QRectF bounds = visibleBounds();
+    return bounds.adjusted(-40.0, -40.0, 40.0, 40.0);
 }
 
 bool CartesianCurveItem::setExpression(const QString& expression) {
@@ -775,6 +832,38 @@ void CartesianCurveItem::setVisibleRange(double minX, double maxX, double minY, 
     update();
 }
 
+QRectF CartesianCurveItem::visibleBounds() const {
+    if (m_runs.isEmpty()) return QRectF();
+    double minX = 0.0, minY = 0.0, maxX = 0.0, maxY = 0.0;
+    bool first = true;
+    for (const QPolygonF& run : m_runs) {
+        for (const QPointF& point : run) {
+            if (first) {
+                minX = maxX = point.x();
+                minY = maxY = point.y();
+                first = false;
+                continue;
+            }
+            minX = qMin(minX, point.x());
+            maxX = qMax(maxX, point.x());
+            minY = qMin(minY, point.y());
+            maxY = qMax(maxY, point.y());
+        }
+    }
+    return QRectF(QPointF(minX, minY), QPointF(maxX, maxY));
+}
+
+QVector<QPointF> CartesianCurveItem::samplePoints(int maxCount) const {
+    QVector<QPointF> points;
+    for (const QPolygonF& run : m_runs) {
+        for (const QPointF& point : run) {
+            if (points.size() >= maxCount) return points;
+            points.push_back(point);
+        }
+    }
+    return points;
+}
+
 bool CartesianCurveItem::hitTest(const QPointF& scenePos, qreal tolerance) const {
     for (const QPolygonF& run : m_runs) {
         for (int i = 1; i < run.size(); ++i) {
@@ -793,15 +882,19 @@ void CartesianCurveItem::rebuildPolyline() {
     const double span = m_maxX - m_minX;
     if (span <= 0.0) return;
 
-    int segments = 480;
-    if (span < 2.0) segments = 120;
-    else if (span > 200.0) segments = 900;
+    int segments = 720;
+    if (span < 2.0) segments = 240;
+    else if (span > 200.0) segments = 1400;
 
-    const double yLimit = span * 2.0 + 40.0;
+    const double padY = (m_maxY - m_minY) * 0.5 + 8.0;
+    const double lowY = m_minY - padY;
+    const double highY = m_maxY + padY;
+    const double maxJump = (highY - lowY) * 2.0 + 16.0;
 
     QPolygonF current;
     double prevX = m_minX;
     double prevY = CartesianExpression::evaluate(m_result, prevX);
+    bool prevInside = prevY >= lowY && prevY <= highY;
 
     auto flush = [&]() {
         if (current.size() >= 2) m_runs.push_back(current);
@@ -812,23 +905,33 @@ void CartesianCurveItem::rebuildPolyline() {
         const double t = static_cast<double>(i) / segments;
         const double x = m_minX + span * t;
         const double y = CartesianExpression::evaluate(m_result, x);
+        const bool inside = y >= lowY && y <= highY;
 
-        const bool outOfRange = std::abs(y) > yLimit;
-        const bool jumped = std::abs(y - prevY) > yLimit;
-
-        if (outOfRange || jumped) {
-            flush();
+        if (!inside) {
+            if (prevInside) {
+                current << m_engine->toScene(prevX, prevY);
+                flush();
+            }
+            prevInside = false;
             prevX = x;
             prevY = y;
             continue;
         }
 
-        current << m_engine->toScene(prevX, prevY);
+        if (prevInside && std::abs(y - prevY) > maxJump) {
+            flush();
+        }
+
+        if (prevInside) current << m_engine->toScene(prevX, prevY);
+        current << m_engine->toScene(x, y);
+        prevInside = true;
         prevX = x;
         prevY = y;
     }
-    if (!current.isEmpty()) current << m_engine->toScene(prevX, prevY);
+    if (prevInside) current << m_engine->toScene(prevX, prevY);
     flush();
+
+    prepareGeometryChange();
 }
 
 void CartesianCurveItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option,

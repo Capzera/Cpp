@@ -1,8 +1,8 @@
 # SmartGround 模块开发状态跟踪
 
-> **更新时间**: 2026-11-21 - 第 32 批（新增「自由结构 - 笛卡尔坐标系」模块，GeoGebra 对标）
+> **更新时间**: 2026-11-21 - 第 33 批（新增「自由结构 - 笛卡尔坐标系」模块，GeoGebra 对标；已过两轮实测回归）
 > **当前进度**: 63 个唯一可运行模块（63 个下拉条目） | 0 个头文件骨架
-> **核心变化**：本批新增**笛卡尔坐标系模块**——理论上无限延伸的网格画布（视口裁剪），滚轮缩放驱动**分度尺阶梯**（1.0 / 0.5 / 0.2 / 0.1 / 0.05 / 0.02 / 0.01），画布工具栏**扩展第二排**（画点 / 连线 / 函数），左侧新增**对象列表面板**（点坐标管理 + 样式设置 + `f(x) = 表达式` 函数录入），一次 / 二次 / 三次函数**按可视范围自适应绘制**，平移出视口即消失、移回即恢复。
+> **核心变化**：本批新增**笛卡尔坐标系模块**——理论上无限延伸的网格画布（视口裁剪），滚轮缩放驱动**分度尺阶梯**（1.0 / 0.5 / 0.2 / 0.1 / 0.05 / 0.02 / 0.01），画布工具栏**扩展第二排**（画点 / 连线 / 函数），左侧新增**对象列表面板**（点坐标管理 + 样式设置 + `f(x) = 表达式` 函数录入），一次 / 二次 / 三次函数**按可视范围自适应绘制**，平移出视口即消失、移回即恢复。两轮实测回归后补齐：对象列表实时刷新、描点**接近吸附**（可落 `(0.5, 0.8)` 等自由坐标）、工具按钮**图标与文字同一命中区**、画点 / 连线模式**右键拖动平移画布**、网格**真无限**（`exposedRect` 视口驱动）、双击对象弹**右侧检视面板**。
 
 ## 2026-11-21 第 32 批：笛卡尔坐标系新模块（GeoGebra 对标）
 
@@ -22,6 +22,47 @@
 | 面板联动 | `src/ui/MainWindow.{h,cpp}` | `onModuleChanged()` 中根据 `isCartesian()` 切换第二排工具栏与左侧面板显隐，并把引擎注入 `ToolController` 与 `CanvasView`；新增 `onCartesianToolChanged` / `onCartesianPointNamesChanged` / `onCartesianPointEdited` / `onCartesianPointStyleEdited` / `onCartesianFunctionStyleEdited` / `onCartesianFunctionAdded` / `onCartesianFunctionRemoved` / `refreshCartesianViewport`；析构时先解绑引擎指针再释放模块（修复退出崩溃） |
 | 新增测试 | `tests/CartesianModuleTest.cpp`（新建，11 组断言）、`tests/CartesianVisualTest.cpp`（新建，8 项断言 + 9 张渲染图）、`tests/CartesianPixelTest.cpp`（新建，15 项像素级断言）、`tests/CartesianUiTest.cpp`（新建，18 项 UI 集成断言） | 覆盖：表达式解析（一次 / 二次 / 三次 / 隐式乘法 / 非法输入）、方程描述、坐标换算往返、网格吸附、分度尺阶梯随缩放变化、点 / 线段 / 函数增删改查、像素级验证坐标轴 / 网格 / 点标记 / 名字标签 / 线段中点 / 曲线着色、面板与工具栏显隐联动、切走模块后引擎禁用 |
 | 全量回归 | `tests/build/` | **79 个测试可执行文件全部零失败**；`SmartGroundGroupAUi` 模块计数更新为 63 并新增笛卡尔存在性断言；`SmartGround.exe` Release 构建成功 |
+
+## 2026-11-21 第 32 批补二：笛卡尔坐标系七项实测回归修复（第二轮）
+
+针对用户第二轮实测提出的七个问题（列表不刷新 / 线段直接显示方程 / 描点被硬量化 / 按钮文字不可点 / 右键不能平移 / 坐标系非无限 / 双击无右侧信息框）完成一轮修复。
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 列表实时刷新 | `src/ui/MainWindow.{h,cpp}`、`src/render/CartesianElements.{h,cpp}` | 根因是 `setupCanvasTools()` 早于模块创建，信号连接从未建立。抽出 `setupCartesianWiring()` 在模块注册后调用；`CartesianPointItem::setMathPos()` 补发 `pointMoved` 信号，拖动时列表坐标同步 |
+| 线段方程语义 | `src/render/CartesianElements.{h,cpp}` | `Settings::showEquation` 默认改 `false`，线段不再自带方程标签；新增 `equationText()` / `segmentSummary()` 只读接口，方程改由检视面板按需索取（用户仍可在设置里勾选画回图上） |
+| 接近吸附语义 | `src/render/CartesianElements.{h,cpp}` | `snapMath()` 的硬量化拆为 `snappedMath()`：距离最近交点 ≤ `m_snapTolerance`（默认 0.28 分度尺）才吸附，否则**保留自由坐标**；新增 `isSnapped()` 区分吸附点与自由点；`setStep()` / `setSnapTolerance()` / `setSnapEnabled()` 供设置与测试使用 |
+| 按钮判定区域 | `src/ui/widgets/ToolIconButton.{h,cpp}`、`src/ui/widgets/CanvasToolBar.cpp` | `ToolIconButton` 新增 `setCaption()`，文字**画在按钮内部**并参与尺寸计算（30 + 5 + 文字宽 + 4）；移除独立 `QLabel`，图标与文字成为同一块可点击区域，选中态整体高亮 |
+| 右键平移 | `src/canvas/ToolController.{h,cpp}` | 新增 `m_cartesianPanning` / `m_cartesianPanLast`；坐标系启用且处于画点 / 连线时右键进入平移态，按增量调用 `setOriginScene()` 移动原点并 `syncCartesianViewport()` |
+| 无限画布 | `src/core/ViewportFitter.{h,cpp}`、`src/render/CartesianElements.cpp` | `ViewportFitter` 新增 `setInfiniteCanvas()` / `infiniteCanvas()` 与 ±1e7 场景矩形；`CartesianGridItem::boundingRect()` 改大方框，`paint()` 改用 `option->exposedRect` **按当前视口动态生成网格线**，与「只处理当前页面内显示哪些坐标」的思路一致 |
+| 右侧检视面板 | `src/ui/widgets/CartesianInfoPanel.{h,cpp}`（新建）、`src/modules/CartesianModule.{h,cpp}`、`src/ui/MainWindow.{h,cpp}` | 新增自绘圆角白卡浮层（标题 + 等宽正文 + 提示行），锚在画布右侧中部且不出界；`CartesianModule` 拆分「检视」(`pointInspected` / `segmentInspected` / `curveInspected`) 与「编辑」两组信号；双击点显示点名 / 坐标 / 是否吸附，双击线段显示一次方程与长度，双击曲线显示函数名与表达式 |
+| 连带崩溃修复 | `src/render/GraphElements.{h,cpp}` | `PointerBlock` 的 `Qt::UniqueConnection` + lambda 组合在 Qt 6.11 触发致命断言（26 个测试进程 fail-fast）。新增 `m_anchorConn` 与 `disconnectAnchor()`，改用普通 lambda 连接并显式断开 |
+| 新增测试 | `tests/CartesianRound2Test.cpp`（新建，32 条断言）、`tests/CartesianRound2Shot.cpp`（新建，截图存档）、`tests/CartesianModuleTest.cpp`（改写吸附断言） | 覆盖七项诉求逐条断言；旧「`snapScene` 必落在交点」断言与新语义冲突，改写为「远处点击保持自由坐标 / 靠近交点才吸附」 |
+| 全量回归 | `tests/build/` | **90 个测试可执行文件全部零失败**（修复 `PointerBlock` 崩溃前有 26 个失败）；`SmartGround.exe` Release 构建成功 |
+
+## 2026-11-21 第 33 批补：笛卡尔坐标系交互行为的**真实事件链**验收（第三轮）
+
+第二轮修复本身是有效的，但**验证方法存在盲区**：上一轮测试直接调用引擎 API（`engine->addPoint()` / `engine->pointDoubleClicked()`）断言行为，**完全绕过了真实的鼠标事件链路**（`QGraphicsView` → `viewport` 事件过滤器 → `ToolController` → 引擎）。这意味着「画布单击是否真的落点」「双击是否真的弹检视面板」「点击文字标签是否真的选中工具」这些**用户实际动作**从未被验证过 —— 而事件未被消费、工具未激活、过滤器顺序错误这类缺陷**恰恰只在这条链路上暴露**。
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 真实交互测试 | `tests/CartesianRound3Test.cpp`（新建）、`tests/CMakeLists.txt` | 新增 `SmartGroundCartesianRound3`。全部断言改用**真实鼠标事件**驱动：向 `view->viewport()` 投递 `QMouseEvent` press / release / dblClick、向按钮投递真实点击。覆盖：单击落点 → 左侧列表新增**可见**行；在 `(0.5, 0.8)` 真实单击 → 落点保持自由坐标且 `isSnapped()` 为 false；在交点 `(5, 4)` 真实单击 → 精确吸附且 `isSnapped()` 为 true；点击按钮**文字区域**（`width()-6`）→ 工具真正切换且按钮进入 active 态；真实右键按下+移动+释放 → 原点位移；真实点击两点再切连线工具点击两点 → 生成线段且**画布上不绘制方程**；真实双击点 / 线段 → 检视面板弹出、坐标与方程正确、面板**锚定在画布右半区且不出界** |
+| 无限性判据升级 | `tests/CartesianRound3Test.cpp` | 由绝对阈值（「远处网格像素 > 500」）改为**相对判据**：原点处网格像素 63327、平移 126000 单位后 61716，密度一致才算通过。绝对阈值会因视口尺寸与分度尺档位变化而误报 |
+| 构建树治理 | `build/`、`build/tests/` | 仓库存在**两套构建树**：`build/`（应用）与 `build/tests/`（独立的测试工程，有自己的 `CMakeLists.txt`）。新增测试文件后必须先 `cmake -S tests -B build/tests` 重新生成目标，再从 `build/tests` 构建；发布前**两棵树都要重建**，避免残留陈旧二进制 |
+| 实测结论 | — | **七项全部通过**，证实第二轮修复真实有效；全量回归 **90 个测试可执行文件零失败**（新增 1 个） |
+
+## 2026-11-21 第 32 批补：笛卡尔坐标系可用性回归修复
+
+针对用户实测提出的五个问题（描点工具不可见、左侧算法输入冗余、对齐网格冲突、函数画不出、不会描点）完成一轮修复。
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 工具栏第二行定位 | `src/ui/widgets/CanvasToolBar.{h,cpp}` | `reposition()` 改为**绝对定位两行**：主行 `(0, 0, barW, mainH)`、笛卡尔行 `(0, mainH, barW, cartH)`，工具栏总高 `mainH + cartH`，`barW` 取两行 `sizeHint()` 较大值；三个按钮加中文标签「画点 / 连线 / 函数」；新增 `syncCartesianButtons(int)` 双向同步高亮态 |
+| 算法控件裁剪 | `src/ui/MainWindow.{h,cpp}` | 新增 `applyCartesianLayoutMode(bool)`，笛卡尔模式隐藏 `labelInput` / `textInput` / `btnBuild` / `btnStep` / `btnStepBack` / `btnAuto` / `checkScriptText` / `checkGrid`；点与线统一由 `CartesianPanel` 的「对象列表」管理 |
+| 对齐网格关闭 | `src/ui/MainWindow.cpp` | 进入笛卡尔模式时 `checkGrid` 取消勾选并调用 `onGridToggled(false)`，`SceneGrid::Config` 的 `enabled` 与 `showGuides` 一并置 `false`，与坐标系 60px 网格彻底解耦 |
+| 曲线裁剪修正 | `src/render/CartesianElements.{h,cpp}` | `rebuildPolyline()` 按**真实 Y 窗口** `[m_minY - padY, m_maxY + padY]` 裁剪（`padY = (m_maxY - m_minY) * 0.5 + 8.0`），并以 `maxJump` 侦测不连续段；`boundingRect()` 改为按 `visibleBounds()` 动态计算（原固定 `±400000` 方框会被场景剔除整条曲线） |
+| 函数录入增强 | `src/core/CartesianExpression.cpp`、`src/ui/widgets/CartesianPanel.{h,cpp}` | `parse()` 支持 **`f(x) =` / `y =` / `f =` 前缀剥离**；输入框接 `editingFinished`（回车绘制）与 `textChanged` 实时绿/红解析反馈；按钮文案由 `"+"` 改为「绘图」（避开与算法「绘制可视化效果」按钮的 `findButton` 文本冲突）；新增 `focusFunctionInput()` |
+| 描点可发现性 | `src/canvas/ToolController.cpp`、`src/ui/MainWindow.{h,cpp}`、`src/ui/widgets/CartesianPanel.{h,cpp}` | `isDrawingTool()` 补入 `CartPoint` / `CartLine`（此前这两个工具**不消费鼠标事件**，描点根本触发不了）；`keyPressEvent` 实现 `P` / `S` 快捷键（仅笛卡尔模式生效）；进入模块自动切到画点工具；`CartesianPanel` 顶部新增 `GuideCard` 四步引导卡；状态栏常驻操作提示 |
 
 ## 2026-11-20 第 31 批：算法动画深化 + 欧拉筛新模块
 

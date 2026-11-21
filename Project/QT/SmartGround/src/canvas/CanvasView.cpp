@@ -246,3 +246,8 @@ void CanvasView::resizeEvent(QResizeEvent* event) {
     refreshOverlay();
     syncCartesianViewport();
 }
+
+void CanvasView::scrollContentsBy(int dx, int dy) {
+    QGraphicsView::scrollContentsBy(dx, dy);
+    syncCartesianViewport();
+}

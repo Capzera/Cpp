@@ -206,6 +206,7 @@ set(SG_WIDGET_SOURCES
     ../src/ui/widgets/MySegmentedControl.cpp
     ../src/ui/widgets/MyTextInput.cpp
     ../src/ui/widgets/CartesianPanel.cpp
+    ../src/ui/widgets/CartesianInfoPanel.cpp
 )
 
 set(SG_CANVAS_SOURCES
@@ -357,3 +358,17 @@ add_sg_ui_test(SmartGroundCartesian CartesianModuleTest.cpp)
 add_sg_ui_test(SmartGroundCartesianVisual CartesianVisualTest.cpp)
 add_sg_ui_test(SmartGroundCartesianPixel CartesianPixelTest.cpp)
 add_sg_ui_test(SmartGroundCartesianUi CartesianUiTest.cpp)
+add_sg_ui_test(SmartGroundCartesianDiag CartesianDiagTest.cpp)
+add_sg_test(SmartGroundCartesianProbe CartesianProbeTest.cpp)
+add_sg_test(SmartGroundCartesianCurveIso CartesianCurveIsoTest.cpp)
+add_sg_ui_test(SmartGroundCartesianAppView CartesianAppViewTest.cpp)
+add_sg_ui_test(SmartGroundCartesianShot CartesianShotTest.cpp)
+add_sg_ui_test(SmartGroundCartesianUx CartesianUxTest.cpp)
+add_sg_ui_test(SmartGroundCartesianRound2 CartesianRound2Test.cpp)
+
+
+add_sg_ui_test(SmartGroundCartesianRound2Shot CartesianRound2Shot.cpp)
+
+add_sg_ui_test(SmartGroundCartesianGridExtent CartesianGridExtentTest.cpp)
+
+add_sg_ui_test(SmartGroundCartesianRound3 CartesianRound3Test.cpp)

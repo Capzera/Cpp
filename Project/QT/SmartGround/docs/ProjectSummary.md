@@ -57,6 +57,62 @@ PM 决定本批只做一个模块：**笛卡尔坐标系**，功能对标 GeoGeb
 - 新增 4 个测试可执行文件共 **52 项断言全部通过**：`SmartGroundCartesian`（11 组）、`SmartGroundCartesianVisual`（8 项 + 9 张渲染图）、`SmartGroundCartesianPixel`（15 项像素级）、`SmartGroundCartesianUi`（18 项 UI 集成）。
 - **79 个测试可执行文件零失败**；`SmartGroundGroupAUi` 模块计数更新为 63 并新增笛卡尔存在性断言；`SmartGround.exe` Release 构建成功。
 
+### ⑦ 用户实测反馈后的可用性回归（2026-11-21）
+
+用户实测后提出五个问题，逐条定位修复（详见 `docs/BugLog.md`「笛卡尔坐标系五项可用性回归修复」）：
+
+| 反馈 | 根因 | 修复 |
+|---|---|---|
+| 描点工具在哪 | `CanvasToolBar::reposition()` 用自参照 `mapTo` 定位第二行，行被挤出工具栏可视区 | 改为绝对定位两行（主行 `(0,0)`、笛卡尔行 `(0,mainH)`），按钮加「画点 / 连线 / 函数」标签 |
+| 左侧数据输入没必要 | 笛卡尔模式未裁剪算法控件 | 新增 `MainWindow::applyCartesianLayoutMode(bool)` 隐藏输入框、构建 / 播放按钮与脚本开关 |
+| 默认关闭对齐网格 | `SceneGrid::Config` 是全局静态且默认 `enabled = true` | 进入笛卡尔模式即取消勾选并置 `enabled = showGuides = false` |
+| 函数画不出来 | `rebuildPolyline()` 用只看 x 跨度的经验 `yLimit` 裁掉整条曲线；`boundingRect()` 固定 `±400000` 被场景剔除 | 按真实 Y 窗口裁剪 + 动态 `boundingRect()`；`parse()` 支持 `f(x) =` 前缀；输入框回车绘制 + 实时校验反馈 |
+| 不知道怎么描点 | `isDrawingTool()` 漏了 `CartPoint` / `CartLine`，**鼠标事件不被消费**，描点根本不触发；快捷键未实现 | 补齐 `isDrawingTool()`；实现 `P` / `S` 快捷键；进入模块自动选中画点工具；面板顶部加四步 `GuideCard` 引导卡；状态栏常驻操作提示 |
+
+新增 4 个测试可执行文件：`SmartGroundCartesianUx`（25 条断言覆盖五项诉求）、`SmartGroundCartesianAppView`（真实 UI 路径验证曲线可见）、`SmartGroundCartesianCurveIso`（引擎级曲线渲染隔离）、`SmartGroundCartesianShot`（整窗截图存档），**全部零失败**。
+
+### ⑧ 用户第二轮实测反馈后的七项回归修复（2026-11-21）
+
+用户对笛卡尔坐标系第二轮实测提出七个问题，逐条定位修复（详见 `docs/BugLog.md`「笛卡尔坐标系七项实测回归修复（第二轮）」）：
+
+| 反馈 | 根因 | 修复 |
+|---|---|---|
+| 描点后左侧列表不更新 | `setupUI()` 里的 `setupCanvasTools()` **早于笛卡尔模块被 new 出来**，`if (m_cartesianModule)` 判断时它还是 `nullptr`，信号连接从未建立 | 抽出 `MainWindow::setupCartesianWiring()` 在模块注册完成后调用；`CartesianPointItem::setMathPos()` 补发 `pointMoved`，拖点也刷新列表 |
+| 连线后不该直接显示一次函数 | `Settings::showEquation` 默认 `true`，每根线段都被画上方程小卡 | 默认改 `false`；新增 `equationText()` / `segmentSummary()` 只读接口，方程改由检视面板按需索取 |
+| 描点只能落在坐标交点上 | `snapMath()` 无条件 `round(x / step) * step`，任何坐标都被硬量化 | 拆成 `snappedMath()` **接近吸附**（距离最近交点 ≤ 0.28 分度尺才吸附，否则保留自由坐标）+ `isSnapped()`；`(0.5, 0.8)` 现在能自由落点 |
+| 工具按钮只有图标能点 | 第二排是「30×30 图标 + 独立 `QLabel` 文字」，文字不响应点击 | `ToolIconButton` 增加 `setCaption()`，文字**画在按钮内部**并参与尺寸计算，图标与文字成为同一块可点击区域 |
+| 描点下右键不能拖画布 | `eventFilter()` 右键分支只处理右键擦除与表格菜单 | `ToolController` 新增 `m_cartesianPanning`，画点 / 连线模式下右键拖动调用 `setOriginScene()` 平移原点 |
+| 坐标系延伸到 60 就结束 | `ViewportFitter::expandSceneRect()` 用内容包围盒限定 `sceneRect`；`CartesianGridItem::boundingRect()` 是缓存视口矩形 | `ViewportFitter` 新增 `setInfiniteCanvas()`（±1e7 场景矩形）；网格项 `boundingRect()` 改大方框、`paint()` 改用 `option->exposedRect` **按当前视口动态画网格线** |
+| 双击描点右侧不弹信息框 | 双击被转发到**模态编辑对话框**，且项目里根本没有右侧面板 | 新增 `src/ui/widgets/CartesianInfoPanel.{h,cpp}` 自绘圆角白卡浮层，锚在画布右侧中部；`CartesianModule` 拆分「检视」与「编辑」两组信号，双击点看坐标、双击线段看一次方程、双击曲线看表达式 |
+
+**连带修复**：`PointerBlock` 用 `Qt::UniqueConnection` 连接 lambda，在 Qt 6.11 触发致命断言（26 个测试进程 fail-fast 崩溃）。改为显式持有 `QMetaObject::Connection` 并在重新锚定时断开。
+
+**全量回归**：**90 个测试可执行文件全部零失败**；`SmartGround.exe` Release 构建成功。
+
+### ⑨ 第三轮：用**真实事件链**验收交互行为（2026-11-21）
+
+第二轮修复本身有效，但**验证方法有盲区**：上一轮测试直接调用引擎 API（`engine->addPoint()` / `engine->pointDoubleClicked()`）断言行为，**完全绕过了真实鼠标事件链路**（`QGraphicsView` → `viewport` 事件过滤器 → `ToolController` → 引擎 → `MainWindow` 槽 → 面板刷新）。而「事件未被消费 / 工具未激活 / 过滤器顺序错误」这类缺陷**恰恰只在这条链路上暴露** —— 直接调 API 的测试在交互完全坏掉时依然是绿的。
+
+补写 `tests/CartesianRound3Test.cpp`（`SmartGroundCartesianRound3`），全部改用**真实鼠标事件**驱动：
+
+| 反馈 | 真实交互验证 | 结果 |
+|---|---|---|
+| 描点后左侧列表不更新 | 向 `viewport` 投递真实单击 → 落点 → 列表新增**可见**行 | 通过 |
+| 连线后直接显示一次函数 | 真实点击两点 → 切连线工具 → 真实点击两点 → 生成线段且**画布不绘制方程** | 通过 |
+| 描点吸附语义 | 在 `(0.5, 0.8)` 真实单击 → **保持自由坐标**、`isSnapped()` 为 false；在交点 `(5, 4)` 真实单击 → **精确吸附**、`isSnapped()` 为 true | 通过 |
+| 按钮文字点不动 | 向按钮**文字区域**（`width()-6`）投递真实点击 → 工具真正切换、按钮进入 active 态 | 通过 |
+| 描点下右键不能拖画布 | 真实右键按下 + 移动 + 释放 → 原点位移 | 通过 |
+| 坐标系延伸到 60 就结束 | 平移 126000 单位后网格仍渲染；**相对判据**：原点处网格像素 63327 vs 远处 61716（密度一致） | 通过 |
+| 双击描点右侧不弹信息框 | 真实双击点 / 线段 → 检视面板弹出、坐标与方程正确、**锚定在画布右半区且不出界** | 通过 |
+
+**同时治理构建树**：仓库有**两套构建树** —— `build/`（应用）与 `build/tests/`（独立测试工程，自带 `CMakeLists.txt`）。新增测试文件后必须先 `cmake -S tests -B build/tests` 重新生成目标；发布前两棵树都要重建，避免残留陈旧二进制（本轮已同步重建 `build/Desktop_Qt_6_11_1_MinGW_64_bit-Release/`）。
+
+**规则沉淀**：`docs/AnimationAesthetics.md` 新增 **9.13 交互行为的验收方式（真实事件链）**；`.cursor/rules/smartground-project.mdc` 新增「Verification rules」小节 —— 画布交互类功能**必须**用真实事件验收，渲染类断言**必须**用相对判据。
+
+新增 `tests/CartesianRound2Test.cpp`（32 条断言覆盖七项诉求）与 `tests/CartesianRound2Shot.cpp`（四态截图存档），改写 `tests/CartesianModuleTest.cpp` 的吸附断言。**87 个测试可执行文件全部零失败**，`SmartGround.exe` Release 构建成功。
+
+回归中另修两处连带缺陷：`CanvasToolBar::mainBarWidth()` 原本返回 `sizeHint().width()`，移除根布局后该值退化为 `-1`（`SmartGroundToolSuite` 失败），改为返回 `mainRowWidth()`；`CartesianPanel` 的函数按钮文案由 `"+"` 改「绘制」会与算法「绘制可视化效果」按钮在 `findButton("绘制")` 检索上撞车（`SmartGroundUiBehaviorTest` 14 项失败），最终定名「绘图」。**全量 85 个测试可执行文件零失败**。
+
 ---
 
 ## 第 32 批：归并重构 + 并查集合并 + 欧拉筛提速 + 四模块深化（2026-11-20，已完成）

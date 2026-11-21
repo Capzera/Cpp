@@ -236,7 +236,25 @@ bool parseExpression(Lexer& lexer, std::vector<Term>& out, QString& error) {
 
 CartesianExpression::Result CartesianExpression::parse(const QString& expression) {
     Result result;
-    const QString source = expression.trimmed();
+    QString source = expression.trimmed();
+
+    int prefix = source.indexOf('=');
+    if (prefix >= 0) {
+        QString head = source.left(prefix).trimmed();
+        head.remove(' ');
+        head.remove(QChar(' '));
+        const bool validHead = head.compare(QStringLiteral("f(x)"), Qt::CaseInsensitive) == 0 ||
+                               head.compare(QStringLiteral("y"), Qt::CaseInsensitive) == 0 ||
+                               head.compare(QStringLiteral("f"), Qt::CaseInsensitive) == 0 ||
+                               head.compare(QStringLiteral("g(x)"), Qt::CaseInsensitive) == 0 ||
+                               head.compare(QStringLiteral("h(x)"), Qt::CaseInsensitive) == 0;
+        if (!validHead) {
+            result.error = QString("等号左边只能是 f(x)、y 之类");
+            return result;
+        }
+        source = source.mid(prefix + 1).trimmed();
+    }
+
     if (source.isEmpty()) {
         result.error = "表达式为空";
         return result;

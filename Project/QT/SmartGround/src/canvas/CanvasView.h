@@ -24,6 +24,8 @@ public:
 
     void refreshOverlay();
 
+    void syncCartesianViewport();
+
     QPointF mapToSceneF(const QPointF& viewportPos) const;
 
     QPixmap captureSceneRegion(const QRectF& region) const;
@@ -34,10 +36,10 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
     void focusInEvent(QFocusEvent* event) override;
+    void scrollContentsBy(int dx, int dy) override;
 
 private:
     void syncDragMode();
-    void syncCartesianViewport();
 
     AnnotationScene* m_annotationScene = nullptr;
     ToolController* m_toolController = nullptr;
