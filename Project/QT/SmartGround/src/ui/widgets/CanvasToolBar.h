@@ -23,17 +23,27 @@ public:
     void setHostWidget(QWidget* host);
     void reposition();
 
+    void setCartesianMode(bool on);
+    bool isCartesianMode() const { return m_cartesianMode; }
+    void setCartesianPointNames(bool on);
+    bool cartesianPointNames() const { return m_cartesianPointNames; }
+
     bool isMorePanelOpen() const { return m_moreOpen; }
     bool isToolPanelOpen() const { return m_toolPanelOpen; }
     QWidget* morePanel() const { return m_morePanel; }
     QWidget* toolPanel() const { return m_toolPanel; }
     int mainBarWidth() const;
+    int mainRowWidth() const;
+    int mainRowHeight() const;
 
     ToolIconButton* toolButtonFor(int tool) const;
+    ToolIconButton* cartesianButtonFor(int kind) const;
 
 signals:
     void exportRequested();
     void clearRequested();
+    void cartesianToolChanged(int kind);
+    void cartesianPointNamesChanged(bool on);
 
 protected:
     void paintEvent(QPaintEvent*) override;
@@ -41,9 +51,11 @@ protected:
 
 private:
     void buildMainBar();
+    void buildCartesianRow();
     void buildMorePanel();
     void buildToolPanel();
     QWidget* createToolPage(int tool);
+    QWidget* createCartesianPage(int kind);
     void showToolPage(int tool);
     void refreshToolPage(int tool);
     void applyToolPageSize();
@@ -67,6 +79,12 @@ private:
     bool m_moreOpen = false;
     bool m_toolPanelOpen = false;
     int m_activeToolIndex = -1;
+
+    QWidget* m_cartesianRow = nullptr;
+    QVector<ToolIconButton*> m_cartesianButtons;
+    bool m_cartesianMode = false;
+    bool m_cartesianPointNames = true;
+    bool m_cartesianPanelOpen = false;
 };
 
 #endif

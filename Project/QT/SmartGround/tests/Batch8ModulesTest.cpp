@@ -160,19 +160,20 @@ int main(int argc, char** argv) {
         printf("--- dsu path compression ---\n");
         QGraphicsScene scene;
         DSUPathCompressionModule m;
-        m.buildLayout(&scene, "8\n0 1 2 0 4 0 5 6");
+        m.buildLayout(&scene, "8\n1 2\n3 4\n1 3\n4 5\n5 6\n6 7\n7 8");
         auto frames = m.runAlgorithm();
         check("dsupath: frames generated", frames.size() > 20);
-        int findFrames = 0, compressFrames = 0;
+        int findFrames = 0, compressFrames = 0, initFrames = 0, doneFrames = 0;
         for (auto& f : frames) {
-            if (f.type == ActionType::DP_FIND) ++findFrames;
-            if (f.type == ActionType::DP_COMPRESS) ++compressFrames;
+            if (f.type == ActionType::DSU_FIND_STEP || f.type == ActionType::DSU_FIND_ROOT) ++findFrames;
+            if (f.type == ActionType::DSU_COMPRESS_STEP) ++compressFrames;
+            if (f.type == ActionType::DSU_INIT) ++initFrames;
+            if (f.type == ActionType::DSU_DONE) ++doneFrames;
         }
-        check("dsupath: has DP_FIND frames", findFrames >= 8);
-        check("dsupath: has DP_COMPRESS frames", compressFrames >= 8);
-        bool hasDone = false;
-        for (auto& f : frames) if (f.type == ActionType::DP_DONE) hasDone = true;
-        check("dsupath: has DP_DONE", hasDone);
+        check("dsupath: has DSU_FIND frames", findFrames >= 8);
+        check("dsupath: has DSU_COMPRESS frames", compressFrames >= 2);
+        check("dsupath: has DSU_INIT frame", initFrames >= 1);
+        check("dsupath: has DSU_DONE", doneFrames == 1);
         for (auto& f : frames) m.renderFrame(f);
         QImage img = shot(&scene, "dsu_path.png");
         check("dsupath: scene rendered", nonWhite(img) > 500);

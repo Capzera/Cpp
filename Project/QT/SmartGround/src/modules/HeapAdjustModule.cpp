@@ -58,6 +58,9 @@ std::vector<AnimFrame> HeapAdjustModule::runAlgorithm() {
     std::vector<int> heap = m_heap;
 
     int target = m_n;
+    m_frames.push_back({ActionType::HG_INDEX, target, 0, 0, 0, {},
+                        QString("要调整的是 %1 号结点，先确认它的父子下标").arg(target),
+                        QString("结点 %1　父 = ⌊%1/2⌋ = %2").arg(target).arg(target / 2)});
     m_frames.push_back({ActionType::HG_COMPARE, target, target / 2, 0, 0, {},
                         QString("演示 up(%1)：从下标 %1 向上调整").arg(target),
                         QString("up(%1)：父节点为 %1/2 = %2").arg(target).arg(target / 2)});
@@ -66,6 +69,9 @@ std::vector<AnimFrame> HeapAdjustModule::runAlgorithm() {
     int guard = 0;
     while (i > 1 && guard++ < 64) {
         int parent = i / 2;
+        m_frames.push_back({ActionType::HG_INDEX, i, parent, 0, 0, {},
+                            QString("当前在 %1 号结点，它的父节点是 %2").arg(i).arg(parent),
+                            QString("父 = ⌊%1/2⌋ = %2").arg(i).arg(parent)});
         m_frames.push_back({ActionType::HG_COMPARE, i, parent, heap[i], heap[parent], {},
                             QString("比较 heap[%1]=%2 与父节点 heap[%3]=%4").arg(i).arg(heap[i]).arg(parent).arg(heap[parent]),
                             QString("heap[%1]=%2  vs  heap[%3]=%4").arg(i).arg(heap[i]).arg(parent).arg(heap[parent])});
@@ -94,6 +100,10 @@ std::vector<AnimFrame> HeapAdjustModule::runAlgorithm() {
                         QString("up() 完成")});
 
     int downStart = 1;
+    m_frames.push_back({ActionType::HG_INDEX, downStart, 0, 0, 0, {},
+                        QString("接下来演示 down(%1)：从根节点向下调整").arg(downStart),
+                        QString("结点 %1　孩子 = 2×%1 = %2 与 2×%1+1 = %3")
+                            .arg(downStart).arg(downStart * 2).arg(downStart * 2 + 1)});
     m_frames.push_back({ActionType::HG_COMPARE, downStart, 0, heap[downStart], 0, {},
                         QString("演示 down(%1)：从根节点向下调整").arg(downStart),
                         QString("down(%1)：孩子为 %2 与 %3").arg(downStart).arg(downStart * 2).arg(downStart * 2 + 1)});
@@ -148,6 +158,32 @@ void HeapAdjustModule::renderFrame(const AnimFrame& frame) {
         }
         for (auto& kv : m_treeEdges) { kv.second->color = QColor(170, 180, 195); kv.second->update(); }
         clearDescentTrail();
+        if (m_formulaText) {
+            setScriptText(m_formulaText, "左孩子 = 2k　右孩子 = 2k+1　父 = ⌊k/2⌋");
+            m_formulaText->setDefaultTextColor(QColor(40, 100, 150));
+        }
+    } else if (frame.type == ActionType::HG_INDEX) {
+        const int index = frame.u;
+        if (m_formulaText) {
+            setScriptText(m_formulaText, QString("结点 %1　父 = ⌊%1/2⌋ = %2　左孩子 = 2×%1 = %3　右孩子 = 2×%1+1 = %4")
+                               .arg(index).arg(index / 2).arg(index * 2).arg(index * 2 + 1));
+            m_formulaText->setDefaultTextColor(QColor(40, 100, 150));
+        }
+        auto nodeIt = m_treeNodes.find(index);
+        if (nodeIt != m_treeNodes.end()) {
+            nodeIt->second->setHighlightColor(QColor(255, 205, 125));
+            nodeIt->second->update();
+            if (m_animated) {
+                playScalePulse(nodeIt->second, 1.26, 260);
+                playNodeRipple(nodeIt->second, QColor(255, 190, 90), 40.0, 560);
+            }
+        }
+        auto blockIt = m_arrayBlocks.find(index);
+        if (blockIt != m_arrayBlocks.end()) {
+            blockIt->second->color = QColor(255, 214, 140);
+            blockIt->second->update();
+            if (m_animated) playCellRipple(blockIt->second, QColor(255, 190, 90), 0.9, 520);
+        }
     } else if (frame.type == ActionType::HG_COMPARE) {
         auto paint = [&](int index, QColor c) {
             auto it = m_arrayBlocks.find(index);
@@ -203,7 +239,26 @@ void HeapAdjustModule::renderFrame(const AnimFrame& frame) {
         if (na && nb) {
             playNodeSwapAnim(na, nb, frame.val1, frame.val2);
             auto swapEdge = m_treeEdges.find({std::min(a, b), std::max(a, b)});
-            if (swapEdge != m_treeEdges.end()) playEdgeTravel(swapEdge->second, kHgSwap, 440);
+            if (swapEdge != m_treeEdges.end()) {
+                swapEdge->second->color = kHgSwap;
+                swapEdge->second->setPenWidth(4.0);
+                swapEdge->second->update();
+                playEdgeTravel(swapEdge->second, kHgSwap, 440);
+            }
+            if (m_animated) {
+                const int lower = a > b ? a : b;
+                const int upper = a > b ? b : a;
+                auto lowerIt = m_treeNodes.find(lower);
+                auto upperIt = m_treeNodes.find(upper);
+                if (lowerIt != m_treeNodes.end() && upperIt != m_treeNodes.end()) {
+                    const int lowerValue = lower == a ? frame.val1 : frame.val2;
+                    const int upperValue = lower == a ? frame.val2 : frame.val1;
+                    playValueArcFlight(lowerIt->second->pos(), upperIt->second->pos(),
+                                       lowerValue, kHgSwap.darker(110), 520);
+                    playValueArcFlight(upperIt->second->pos(), lowerIt->second->pos(),
+                                       upperValue, kHgSwap.darker(110), 520);
+                }
+            }
         }
         swapHeapValues(a, b, frame.val1, frame.val2);
         if (na) { na->color = kHgSwap; na->setHighlightColor(kHgSwap); na->update(); }

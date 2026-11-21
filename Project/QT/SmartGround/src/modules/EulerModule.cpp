@@ -9,6 +9,9 @@ static const QColor kEuIdle = QColor(252, 252, 254);
 static const QColor kEuWalk = QColor(255, 205, 130);
 static const QColor kEuPath = QColor(140, 205, 165);
 static const QColor kEuDead = QColor(205, 210, 218);
+static const QColor kEuBridge = QColor(158, 122, 214);
+static const QColor kEuSplice = QColor(226, 96, 62);
+static const QColor kEuOdd = QColor(232, 108, 96);
 
 EulerModule::EulerModule() {}
 
@@ -42,6 +45,53 @@ void EulerModule::restoreNodePositions(const std::map<int, QPointF>& positions) 
     GraphRenderHelper::restoreNodePositions(m_nodes, positions);
 }
 
+QString EulerModule::moduleSettingsTitle() const { return "欧拉路径选项"; }
+
+QVector<ModuleField> EulerModule::moduleSettingsFields() const {
+    QVector<ModuleField> fields;
+    fields.append(ModuleField::makeToggle("bridge", "高亮延迟边", m_highlightBridges));
+    return fields;
+}
+
+void EulerModule::applyModuleSetting(const QString& key, const ModuleField& field) {
+    if (key == "bridge") m_highlightBridges = field.boolValue;
+}
+
+void EulerModule::buildStackColumn(std::vector<ArrayBlock*>& column, double x, double baseY, int capacity) {
+    for (int i = 0; i < capacity; ++i) {
+        ArrayBlock* block = new ArrayBlock(i, 0, QString::number(i));
+        block->setCellSize(44, 32);
+        block->setShowLabel(false);
+        block->showValue = false;
+        block->setPos(x, baseY - (i + 1) * 34.0);
+        m_scene->addItem(block);
+        column.push_back(block);
+    }
+}
+
+void EulerModule::setStackSlot(std::vector<ArrayBlock*>& column, int index, int value, bool filled) {
+    if (index < 0 || index >= static_cast<int>(column.size())) return;
+    ArrayBlock* block = column[index];
+    block->showValue = filled;
+    block->value = value;
+    block->update();
+}
+
+void EulerModule::clearStackColumn(std::vector<ArrayBlock*>& column) {
+    for (ArrayBlock* block : column) {
+        block->showValue = false;
+        block->color = Qt::white;
+        block->update();
+    }
+}
+
+void EulerModule::clearTrail() {
+    if (m_trail) {
+        m_trail->clearPoints();
+        m_trail->setProgress(0.0);
+    }
+}
+
 void EulerModule::buildLayout(QGraphicsScene* scene, const QString& inputData) {
     m_scene = scene;
     reset();
@@ -63,79 +113,98 @@ void EulerModule::buildLayout(QGraphicsScene* scene, const QString& inputData) {
     m_m = input.m;
     for (const auto& edge : input.edges) m_edgeList.push_back({edge.u, edge.v});
 
-    GraphRenderHelper::buildNodes(scene, m_nodes, m_n, QPointF(470, 200), m_n <= 8 ? 110 : 130, this);
+    GraphRenderHelper::buildNodes(scene, m_nodes, m_n, QPointF(270, 262), m_n <= 8 ? 105 : 125, this);
     GraphRenderHelper::buildEdges(scene, m_nodes, m_edges, input.edges, options, input.weighted);
 
-    const int startX = std::max(140, 470 - m_n * 30);
-    const double degY = 348.0;
-    const double rowGap = 100.0;
+    const double degY = 462.0;
+    const double rowGap = 76.0;
+    const int startX = 170;
+    const int cellGap = 56;
 
     if (m_directed) {
-        GraphRenderHelper::addLabel(scene, "in[] 入度", QPointF(30, degY));
-        GraphRenderHelper::addLabel(scene, "out[] 出度", QPointF(30, degY + rowGap));
+        GraphRenderHelper::addLabel(scene, "in[] 入度", QPointF(0, degY + 8));
+        GraphRenderHelper::addLabel(scene, "out[] 出度", QPointF(0, degY + rowGap + 8));
     } else {
-        GraphRenderHelper::addLabel(scene, "deg[] 度数", QPointF(30, degY));
+        GraphRenderHelper::addLabel(scene, "deg[] 度数", QPointF(0, degY + 8));
     }
-
-    const double stackY = m_directed ? degY + rowGap * 2.0 : degY + rowGap;
-    const double pathY = stackY + 100.0;
 
     for (int i = 1; i <= m_n; ++i) {
         if (m_directed) {
             ArrayBlock* inDeg = new ArrayBlock(i, 0, QString::number(i));
+            inDeg->setCellSize(52, 36);
             inDeg->setCustomValue("0");
-            inDeg->setPos(startX + (i - 1) * 60, degY + 17);
+            inDeg->setPos(startX + (i - 1) * cellGap, degY);
             scene->addItem(inDeg);
             m_indegBlocks[i] = inDeg;
 
             ArrayBlock* outDeg = new ArrayBlock(i, 0, QString::number(i));
+            outDeg->setCellSize(52, 36);
             outDeg->setCustomValue("0");
-            outDeg->setPos(startX + (i - 1) * 60, degY + rowGap + 17);
+            outDeg->setPos(startX + (i - 1) * cellGap, degY + rowGap);
             scene->addItem(outDeg);
             m_outdegBlocks[i] = outDeg;
         } else {
             ArrayBlock* deg = new ArrayBlock(i, 0, QString::number(i));
+            deg->setCellSize(52, 36);
             deg->setCustomValue("0");
-            deg->setPos(startX + (i - 1) * 60, degY + 17);
+            deg->setPos(startX + (i - 1) * cellGap, degY);
             scene->addItem(deg);
             m_degBlocks[i] = deg;
         }
     }
 
-    GraphRenderHelper::addLabel(scene, "stk[]", QPointF(30, stackY));
-    GraphRenderHelper::addLabel(scene, "path[]", QPointF(30, pathY));
+    const int displayCap = qMin(m_m + 2, 10);
+    const double stackBaseY = 420.0;
+    const double stackX = 470.0;
+    const double pathX = 600.0;
+    const double stackLabelY = stackBaseY - displayCap * 34.0 - 30.0;
 
-    const int stackCap = m_m + 2;
-    const double stackX = std::max(150.0, 330.0 - stackCap * 40.0 / 2.0);
-    for (int i = 0; i < stackCap; ++i) {
+    GraphRenderHelper::addLabel(scene, "stk[] 栈", QPointF(stackX - 10, stackLabelY));
+    GraphRenderHelper::addLabel(scene, "path[] 答案", QPointF(pathX - 10, stackLabelY));
+
+    buildStackColumn(m_stackBlocks, stackX, stackBaseY, displayCap);
+    buildStackColumn(m_pathBlocks, pathX, stackBaseY, displayCap);
+
+    const double resultY = 618.0;
+    GraphRenderHelper::addLabel(scene, "欧拉路径", QPointF(0, resultY + 8));
+    const int resultCap = qMin(m_m + 2, 16);
+    for (int i = 0; i < resultCap; ++i) {
         ArrayBlock* block = new ArrayBlock(i, 0, QString::number(i));
-        block->setCellSize(40, 36);
+        block->setCellSize(44, 32);
+        block->setShowLabel(false);
         block->showValue = false;
-        block->setPos(stackX + i * 40, stackY + 17);
+        block->setPos(120 + i * 46.0, resultY);
         scene->addItem(block);
-        m_stackBlocks.push_back(block);
+        m_resultBlocks.push_back(block);
     }
 
-    for (int i = 0; i < stackCap; ++i) {
-        ArrayBlock* block = new ArrayBlock(i, 0, QString::number(i));
-        block->setCellSize(40, 36);
-        block->showValue = false;
-        block->setPos(stackX + i * 40, pathY + 17);
-        scene->addItem(block);
-        m_pathBlocks.push_back(block);
-    }
+    m_trail = new PathTrail(kEuPath);
+    m_trail->setTrailWidth(5.0);
+    m_trail->setHeadRadius(7.5);
+    scene->addItem(m_trail);
+    m_trail->clearPoints();
+
+    m_spliceLine = new LinkLine(QPointF(), QPointF());
+    m_spliceLine->setStyle(kEuSplice, 3.0, true, true);
+    m_spliceLine->setZValue(6);
+    m_spliceLine->setOpacity(0);
+    scene->addItem(m_spliceLine);
 
     m_verdictText = createScriptText(scene, "");
     m_verdictText->setFont(UiFonts::cjk(13, true));
     m_verdictText->setDefaultTextColor(QColor(40, 140, 70));
-    m_verdictText->setPos(150, pathY + 96);
+    m_verdictText->setPos(150, 682);
+
+    m_bridgeText = createScriptText(scene, "");
+    m_bridgeText->setFont(UiFonts::cjk(12, true));
+    m_bridgeText->setDefaultTextColor(kEuBridge.darker(115));
+    m_bridgeText->setPos(150, 720);
 }
 
 std::vector<AnimFrame> EulerModule::runAlgorithm() {
     m_frames.clear();
     if (!m_valid) return m_frames;
 
-    const int maxE = m_m + 2;
     std::vector<std::vector<int>> adj(m_n + 1);
     std::vector<int> deg(m_n + 1, 0);
     std::vector<int> indeg(m_n + 1, 0);
@@ -171,8 +240,10 @@ std::vector<AnimFrame> EulerModule::runAlgorithm() {
                                     .arg(i).arg(indeg[i]).arg(outdeg[i]),
                                 QString("in[%1] = %2, out[%1] = %3").arg(i).arg(indeg[i]).arg(outdeg[i])});
         } else {
-            m_frames.push_back({ActionType::EU_DEGREE, i, 0, deg[i], 0, {},
-                                QString("节点 %1 的度数为 %2").arg(i).arg(deg[i]),
+            m_frames.push_back({ActionType::EU_DEGREE, i, 0, deg[i], deg[i] % 2, {},
+                                QString("节点 %1 的度数为 %2%3")
+                                    .arg(i).arg(deg[i])
+                                    .arg(deg[i] % 2 ? QString("（奇度点）") : QString()),
                                 QString("deg[%1] = %2").arg(i).arg(deg[i])});
         }
     }
@@ -218,13 +289,15 @@ std::vector<AnimFrame> EulerModule::runAlgorithm() {
 
     std::vector<int> stack;
     std::vector<int> path;
+    std::vector<int> incoming(m_m + 4, 0);
     stack.push_back(start);
+    incoming[0] = 0;
     m_frames.push_back({ActionType::EU_PUSH, start, 0, 0, 0, {},
                         QString("从起点 %1 出发入栈").arg(start),
                         QString("stk[0] = %1").arg(start)});
 
     int guard = 0;
-    while (!stack.empty() && guard < 2000) {
+    while (!stack.empty() && guard < 4000) {
         ++guard;
         const int u = stack.back();
         bool moved = false;
@@ -237,6 +310,7 @@ std::vector<AnimFrame> EulerModule::runAlgorithm() {
                                 QString("沿边 %1—%2 前进").arg(u).arg(v),
                                 QString("stk.push(%1)").arg(v)});
             stack.push_back(v);
+            incoming[stack.size() - 1] = eid;
             m_frames.push_back({ActionType::EU_PUSH, v, 0, static_cast<int>(stack.size()) - 1, 0, {},
                                 QString("节点 %1 入栈（栈深 %2）").arg(v).arg(stack.size()),
                                 QString("stk.push(%1)").arg(v)});
@@ -244,20 +318,52 @@ std::vector<AnimFrame> EulerModule::runAlgorithm() {
             break;
         }
         if (moved) continue;
+
         const int dead = stack.back();
+        const int retreatEdge = incoming[stack.size() - 1];
+        m_frames.push_back({ActionType::EU_DEADEND, dead, 0, static_cast<int>(stack.size()) - 1, 0, {},
+                            QString("节点 %1 已无未用边 ⇒ 走到死路，必须回溯").arg(dead),
+                            QString("stk.top() = %1 无可用边").arg(dead)});
+
+        bool splice = false;
+        for (int x : path) {
+            if (x == dead) { splice = true; break; }
+        }
         stack.pop_back();
         path.push_back(dead);
         m_frames.push_back({ActionType::EU_POP, dead, 0, static_cast<int>(path.size()) - 1, 0, {},
-                            QString("节点 %1 无未用边，出栈并记入路径").arg(dead),
+                            QString("节点 %1 出栈并记入答案").arg(dead),
                             QString("path.push(%1)").arg(dead)});
+
+        if (retreatEdge > 0) {
+            m_frames.push_back({ActionType::EU_BRIDGE, edgeEnds[retreatEdge].second, edgeEnds[retreatEdge].first,
+                                retreatEdge, 0, {},
+                                QString("边 %1—%2 是延迟边：它在回溯时才被消费，最终路径必须在此拼接")
+                                    .arg(edgeEnds[retreatEdge].second).arg(edgeEnds[retreatEdge].first),
+                                QString("延迟边 ⇒ 需要 splice 拼接")});
+        }
+
+        if (splice) {
+            m_frames.push_back({ActionType::EU_SPLICE, dead, 0, static_cast<int>(path.size()) - 1, 0, {},
+                                QString("节点 %1 已在答案中 ⇒ 两段回路在此拼接成完整欧拉回路").arg(dead),
+                                QString("splice：在 %1 处把两段接起来").arg(dead)});
+        }
+
+        if (!stack.empty()) {
+            m_frames.push_back({ActionType::EU_BACKTRACK, stack.back(), 0, static_cast<int>(stack.size()) - 1,
+                                retreatEdge, {},
+                                QString("回退到节点 %1，继续找未用边").arg(stack.back()),
+                                QString("回溯至 stk.top() = %1").arg(stack.back())});
+        }
     }
 
-    m_frames.push_back({ActionType::EU_PATH, static_cast<int>(path.size()), 0, 0, 0, {},
-                        QString("逆序出栈得到欧拉路径，共 %1 个节点").arg(path.size()),
-                        QString("路径长度 = %1 条边").arg(path.size() - 1)});
+    std::vector<int> ordered(path.rbegin(), path.rend());
+    m_frames.push_back({ActionType::EU_PATH, static_cast<int>(ordered.size()), 0, 0, 0, ordered,
+                        QString("逆序出栈得到欧拉路径，共 %1 个节点").arg(ordered.size()),
+                        QString("路径长度 = %1 条边").arg(ordered.size() - 1)});
 
     const bool circuit = m_directed ? true : (oddCount == 0);
-    m_frames.push_back({ActionType::EU_DONE, 1, 0, static_cast<int>(path.size()), 0, {},
+    m_frames.push_back({ActionType::EU_DONE, 1, 0, static_cast<int>(ordered.size()), 0, ordered,
                         circuit ? QString("欧拉回路：起点与终点相同，可以一笔画")
                                 : QString("欧拉路径：从奇度点出发，可以一笔画"),
                         circuit ? QString("存在欧拉回路")
@@ -297,11 +403,21 @@ void EulerModule::renderFrame(const AnimFrame& frame) {
             kv.second->color = Qt::white;
             kv.second->update();
         }
-        for (auto* b : m_stackBlocks) { b->showValue = false; b->color = Qt::white; b->update(); }
-        for (auto* b : m_pathBlocks) { b->showValue = false; b->color = Qt::white; b->update(); }
+        clearStackColumn(m_stackBlocks);
+        clearStackColumn(m_pathBlocks);
+        clearStackColumn(m_resultBlocks);
+        clearTrail();
+        if (m_spliceLine) {
+            m_spliceLine->setOpacity(0);
+            m_spliceLine->setPoints(QPointF(), QPointF());
+        }
         if (m_verdictText) {
             setScriptText(m_verdictText, "");
             m_verdictText->setDefaultTextColor(QColor(40, 140, 70));
+        }
+        if (m_bridgeText) {
+            setScriptText(m_bridgeText, "");
+            m_bridgeText->setDefaultTextColor(kEuBridge.darker(115));
         }
     } else if (frame.type == ActionType::EU_DEGREE) {
         const int i = frame.u;
@@ -319,21 +435,20 @@ void EulerModule::renderFrame(const AnimFrame& frame) {
         } else {
             if (m_degBlocks.count(i)) {
                 m_degBlocks[i]->setCustomValue(QString::number(frame.val1));
-                m_degBlocks[i]->color = QColor(160, 205, 245);
+                m_degBlocks[i]->color = frame.val2 == 1 ? kEuOdd : QColor(160, 205, 245);
                 m_degBlocks[i]->update();
                 if (m_animated) playScalePulse(m_degBlocks[i], 1.2, 220);
             }
         }
         if (m_nodes.count(i)) {
-            m_nodes[i]->setHighlightColor(QColor(255, 235, 180));
+            m_nodes[i]->setHighlightColor(frame.val2 == 1 && !m_directed ? kEuOdd : QColor(255, 235, 180));
             m_nodes[i]->update();
-            playNodeWake(m_nodes[i], QColor(255, 215, 140), 30.0, 440);
+            playNodeWake(m_nodes[i], frame.val2 == 1 && !m_directed ? kEuOdd : QColor(255, 215, 140), 30.0, 440);
         }
     } else if (frame.type == ActionType::EU_PUSH) {
         const int index = frame.val1;
+        setStackSlot(m_stackBlocks, index, frame.u, true);
         if (index >= 0 && index < static_cast<int>(m_stackBlocks.size())) {
-            m_stackBlocks[index]->showValue = true;
-            m_stackBlocks[index]->value = frame.u;
             m_stackBlocks[index]->color = kEuWalk;
             m_stackBlocks[index]->update();
             if (m_animated) playScalePulse(m_stackBlocks[index], 1.2, 220);
@@ -345,18 +460,33 @@ void EulerModule::renderFrame(const AnimFrame& frame) {
             playNodePop(m_nodes[frame.u], 1.18, 280);
         }
     } else if (frame.type == ActionType::EU_EDGE) {
-        GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v);
+        GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v, m_directed);
         if (edge) {
             edge->setColor(QColor(235, 155, 55));
             edge->setPenWidth(3.5);
             edge->update();
-            playEdgeTravel(edge, QColor(235, 155, 55), 460);
+            playEdgeTravelFrom(edge, QColor(235, 155, 55), frame.u, 460);
+        }
+    } else if (frame.type == ActionType::EU_DEADEND) {
+        const int node = frame.u;
+        if (m_nodes.count(node)) {
+            m_nodes[node]->color = kEuDead;
+            m_nodes[node]->setHighlightColor(QColor(255, 170, 150));
+            m_nodes[node]->update();
+            if (m_animated) {
+                playNodeRipple(m_nodes[node], QColor(226, 96, 62), 40.0, 560);
+                playScalePulse(m_nodes[node], 0.94, 240);
+            }
+        }
+        const int index = frame.val1;
+        if (index >= 0 && index < static_cast<int>(m_stackBlocks.size())) {
+            m_stackBlocks[index]->color = kEuDead;
+            m_stackBlocks[index]->update();
         }
     } else if (frame.type == ActionType::EU_POP) {
         const int index = frame.val1;
+        setStackSlot(m_pathBlocks, index, frame.u, true);
         if (index >= 0 && index < static_cast<int>(m_pathBlocks.size())) {
-            m_pathBlocks[index]->showValue = true;
-            m_pathBlocks[index]->value = frame.u;
             m_pathBlocks[index]->color = kEuPath;
             m_pathBlocks[index]->update();
             if (m_animated) playScalePulse(m_pathBlocks[index], 1.18, 240);
@@ -366,9 +496,68 @@ void EulerModule::renderFrame(const AnimFrame& frame) {
             m_nodes[frame.u]->update();
             playNodePop(m_nodes[frame.u], 0.94, 260);
         }
+    } else if (frame.type == ActionType::EU_BRIDGE) {
+        if (!m_highlightBridges) return;
+        GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v, m_directed);
+        if (edge) {
+            edge->setColor(kEuBridge);
+            edge->setPenWidth(4.0);
+            edge->update();
+            if (m_animated) playEdgeTraceFrom(edge, kEuBridge, frame.u, 520);
+        }
+        if (m_bridgeText) {
+            setScriptText(m_bridgeText, frame.explanation);
+            m_bridgeText->setDefaultTextColor(kEuBridge.darker(115));
+        }
+    } else if (frame.type == ActionType::EU_BACKTRACK) {
+        const int node = frame.u;
+        if (m_nodes.count(node)) {
+            m_nodes[node]->setHighlightColor(kEuWalk);
+            m_nodes[node]->update();
+            if (m_animated) playNodeWake(m_nodes[node], kEuWalk, 32.0, 480);
+        }
+        const int index = frame.val1;
+        if (index >= 0 && index < static_cast<int>(m_stackBlocks.size())) {
+            m_stackBlocks[index]->color = kEuWalk;
+            m_stackBlocks[index]->update();
+        }
+    } else if (frame.type == ActionType::EU_SPLICE) {
+        const int node = frame.u;
+        if (m_nodes.count(node) && m_spliceLine) {
+            const QPointF a = m_nodes[node]->pos();
+            const QPointF b = a + QPointF(0, -70);
+            m_spliceLine->setPoints(a, b);
+            m_spliceLine->setOpacity(1);
+            if (m_animated) {
+                playFadeItem(m_spliceLine, 0.0, 1.0, 420);
+                playRipple(a, kEuSplice, 46.0, 620);
+            }
+            m_nodes[node]->setHighlightColor(kEuSplice);
+            m_nodes[node]->update();
+            if (m_animated) playNodePop(m_nodes[node], 1.2, 280);
+        }
+        if (m_bridgeText) {
+            setScriptText(m_bridgeText, frame.explanation);
+            m_bridgeText->setDefaultTextColor(kEuSplice.darker(115));
+        }
     } else if (frame.type == ActionType::EU_PATH) {
         for (auto* b : m_pathBlocks) {
             if (b->showValue) { b->color = kEuPath; b->update(); }
+        }
+        const std::vector<int>& ordered = frame.group;
+        for (size_t i = 0; i < ordered.size() && i < m_resultBlocks.size(); ++i) {
+            m_resultBlocks[i]->showValue = true;
+            m_resultBlocks[i]->value = ordered[i];
+            m_resultBlocks[i]->color = kEuPath;
+            m_resultBlocks[i]->update();
+        }
+        if (m_trail && !ordered.empty()) {
+            QVector<QPointF> points;
+            for (int id : ordered) {
+                if (!m_nodes.count(id)) continue;
+                points.append(m_nodes[id]->pos());
+            }
+            if (points.size() >= 2) playPathTrail(m_trail, points, kEuPath, 760);
         }
     } else if (frame.type == ActionType::EU_DONE) {
         if (m_verdictText) {
@@ -377,6 +566,7 @@ void EulerModule::renderFrame(const AnimFrame& frame) {
                                                : QString("结论：存在欧拉路径，可以一笔画"));
             m_verdictText->setDefaultTextColor(failed ? QColor(200, 60, 60) : QColor(40, 140, 70));
         }
+        if (m_spliceLine) m_spliceLine->setOpacity(0);
         if (frame.val2 != 1) {
             for (auto& kv : m_edges) {
                 if (kv.second->color == QColor(235, 155, 55)) {
@@ -399,9 +589,13 @@ void EulerModule::reset() {
     m_outdegBlocks.clear();
     m_stackBlocks.clear();
     m_pathBlocks.clear();
+    m_resultBlocks.clear();
     m_edgeList.clear();
     m_mathText = nullptr;
     m_verdictText = nullptr;
+    m_bridgeText = nullptr;
+    m_trail = nullptr;
+    m_spliceLine = nullptr;
     m_n = 0;
     m_m = 0;
     m_directed = false;
@@ -416,6 +610,10 @@ void EulerModule::releaseSceneItems() {
     m_outdegBlocks.clear();
     m_stackBlocks.clear();
     m_pathBlocks.clear();
+    m_resultBlocks.clear();
     m_mathText = nullptr;
     m_verdictText = nullptr;
+    m_bridgeText = nullptr;
+    m_trail = nullptr;
+    m_spliceLine = nullptr;
 }

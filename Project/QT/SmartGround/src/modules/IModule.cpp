@@ -632,6 +632,23 @@ void IModule::syncPointerTips() {
         if (!anchor) continue;
         const QPointF tip = pointerTipFor(ptr, anchor);
         if (qFuzzyCompare(tip.x(), ptr->pos().x()) && qFuzzyCompare(tip.y(), ptr->pos().y())) continue;
+        bool posAnimRunning = false;
+        bool posAnimTargetsTip = false;
+        for (auto& pair : m_animRegistry) {
+            if (pair.first.target.data() != ptr) continue;
+            if (pair.first.property != "pos") continue;
+            QPropertyAnimation* anim = pair.second.data();
+            if (!anim) continue;
+            if (anim->state() != QAbstractAnimation::Running) continue;
+            posAnimRunning = true;
+            const QVariant end = anim->endValue();
+            if (end.canConvert<QPointF>()) {
+                const QPointF endPos = end.toPointF();
+                posAnimTargetsTip = qFuzzyCompare(endPos.x(), tip.x()) && qFuzzyCompare(endPos.y(), tip.y());
+            }
+            break;
+        }
+        if (posAnimRunning && posAnimTargetsTip) continue;
         stopAnimFor(ptr);
         ptr->setPos(tip);
         ptr->setTipTarget(anchor, tip);
@@ -1695,19 +1712,29 @@ void IModule::playNodeAppear(QObject* item, int duration) {
     playFadeIn(item, duration);
 }
 void IModule::playEdgeTravel(GraphEdge* edge, QColor color, int duration) {
+    playEdgeTravelFrom(edge, color, -1, duration);
+}
+
+void IModule::playEdgeTravelFrom(GraphEdge* edge, QColor color, int fromNodeId, int duration) {
     if (!edge || !m_scene) return;
     if (!m_animated) {
         edge->setDrawProgress(1.0);
         edge->setColor(color);
         edge->clearBeam();
+        edge->setBeamReversed(false);
         return;
     }
     edge->setColor(color);
     edge->setDrawProgress(1.0);
+    const bool reversed = edge->source && edge->dest
+                          && fromNodeId > 0 && edge->dest->id == fromNodeId
+                          && edge->source->id != fromNodeId;
+    edge->setBeamReversed(reversed);
     const QPointF start = edge->scenePointAt(0.0);
     const QPointF end = edge->scenePointAt(1.0);
     if ((end - start).manhattanLength() < 1.0) {
         edge->clearBeam();
+        edge->setBeamReversed(false);
         return;
     }
     startBeam(edge, color, duration);
@@ -1738,9 +1765,19 @@ void IModule::startBeam(GraphEdge* edge, QColor color, int duration) {
     QObject::connect(anim, &QVariantAnimation::finished, [this, guard]() {
         if (!guard) return;
         guard->clearBeam();
+        guard->setBeamReversed(false);
     });
     anim->start(QAbstractAnimation::DeleteWhenStopped);
     m_beamAnims[edge] = QPointer<QVariantAnimation>(anim);
+}
+
+void IModule::startBeamFrom(GraphEdge* edge, QColor color, int fromNodeId, int duration) {
+    if (!edge) return;
+    const bool reversed = edge->source && edge->dest
+                          && fromNodeId > 0 && edge->dest->id == fromNodeId
+                          && edge->source->id != fromNodeId;
+    startBeam(edge, color, duration);
+    edge->setBeamReversed(reversed);
 }
 
 void IModule::playDiscover(QObject* node, QColor color, qreal maxRadius, int duration) {
@@ -1940,6 +1977,44 @@ void IModule::playEdgeTrace(GraphEdge* edge, QColor color, int duration) {
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
+void IModule::playEdgeTraceFrom(GraphEdge* edge, QColor color, int fromNodeId, int duration) {
+    if (!edge) return;
+    const bool reversed = edge->source && edge->dest
+                          && fromNodeId > 0 && edge->dest->id == fromNodeId
+                          && edge->source->id != fromNodeId;
+    if (!m_animated) {
+        edge->setDrawProgress(1.0);
+        edge->setColor(color);
+        return;
+    }
+    edge->setColor(color);
+    edge->setDrawProgress(1.0);
+    QPointF start = edge->scenePointAt(0.0);
+    QPointF end = edge->scenePointAt(1.0);
+    if ((end - start).manhattanLength() < 1.0) return;
+
+    QPointer<TracerDot> dot = new TracerDot(color);
+    dot->setPos(reversed ? end : start);
+    m_scene->addItem(dot.data());
+    m_transientDots.push_back(dot.data());
+
+    QVariantAnimation* anim = new QVariantAnimation(dot.data());
+    anim->setDuration(duration);
+    anim->setStartValue(0.0);
+    anim->setEndValue(1.0);
+    anim->setEasingCurve(QEasingCurve::InOutCubic);
+    QObject::connect(anim, &QVariantAnimation::valueChanged, [dot, edge, reversed](const QVariant& value) {
+        if (!dot || !edge) return;
+        const qreal t = value.toReal();
+        dot->setPos(edge->scenePointAt(reversed ? 1.0 - t : t));
+    });
+    QObject::connect(anim, &QVariantAnimation::finished, [this, dot]() {
+        if (!dot) return;
+        discardTransient(dot.data());
+    });
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
 void IModule::playFadeIn(QObject* item, int duration) {
     if (!item) return;
     if (!m_animated) {
@@ -2026,12 +2101,12 @@ void IModule::detachAllEdges(std::vector<GraphNode*>& nodes, std::vector<GraphEd
     }
     nodes.clear();
 }
-void IModule::playMoveTo(std::vector<QGraphicsItem*> items, std::vector<QPointF> targets, int duration) {
+void IModule::playMoveTo(std::vector<QGraphicsObject*> items, std::vector<QPointF> targets, int duration) {
     if (items.empty() || items.size() != targets.size()) return;
     std::vector<QPointF> starts;
-    for (QGraphicsItem* item : items) {
-        if (!item) continue;
-        starts.push_back(item->pos());
+    for (size_t i = 0; i < items.size(); ++i) {
+        if (!items[i]) continue;
+        starts.push_back(items[i]->pos());
     }
     if (!m_animated) {
         for (size_t i = 0; i < items.size(); ++i) {
@@ -2040,7 +2115,7 @@ void IModule::playMoveTo(std::vector<QGraphicsItem*> items, std::vector<QPointF>
         }
         return;
     }
-    for (QGraphicsItem* item : items) {
+    for (QGraphicsObject* item : items) {
         if (!item) continue;
         auto it = m_rowShiftAnims.find(item);
         if (it != m_rowShiftAnims.end() && it->second) {
@@ -2049,24 +2124,26 @@ void IModule::playMoveTo(std::vector<QGraphicsItem*> items, std::vector<QPointF>
             m_rowShiftAnims.erase(it);
         }
     }
+    std::vector<QPointer<QGraphicsObject>> safeItems;
+    for (QGraphicsObject* item : items) safeItems.push_back(QPointer<QGraphicsObject>(item));
     QVariantAnimation* anim = new QVariantAnimation();
     anim->setDuration(duration);
     anim->setStartValue(0.0);
     anim->setEndValue(1.0);
     anim->setEasingCurve(QEasingCurve::InOutCubic);
-    QObject::connect(anim, &QVariantAnimation::valueChanged, [items, starts, targets](const QVariant& progress) {
+    QObject::connect(anim, &QVariantAnimation::valueChanged, [safeItems, starts, targets](const QVariant& progress) {
         const qreal t = progress.toReal();
-        for (size_t i = 0; i < items.size(); ++i) {
-            if (!items[i]) continue;
+        for (size_t i = 0; i < safeItems.size(); ++i) {
+            if (!safeItems[i]) continue;
             const QPointF s = starts[i];
             const QPointF e = targets[i];
-            items[i]->setPos(s.x() + (e.x() - s.x()) * t, s.y() + (e.y() - s.y()) * t);
+            safeItems[i]->setPos(s.x() + (e.x() - s.x()) * t, s.y() + (e.y() - s.y()) * t);
         }
     });
-    QObject::connect(anim, &QVariantAnimation::finished, [this, items]() {
-        for (QGraphicsItem* item : items) {
+    QObject::connect(anim, &QVariantAnimation::finished, [this, safeItems]() {
+        for (const QPointer<QGraphicsObject>& item : safeItems) {
             if (!item) continue;
-            m_rowShiftAnims.erase(item);
+            m_rowShiftAnims.erase(item.data());
         }
     });
     for (QGraphicsItem* item : items) {

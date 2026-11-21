@@ -1,6 +1,243 @@
 # SmartGround 项目接手摘要
 
-**更新时间：2026-11-20**
+**更新时间：2026-11-21**
+
+## 第 33 批：笛卡尔坐标系新模块（GeoGebra 对标）（2026-11-21，已完成）
+
+PM 决定本批只做一个模块：**笛卡尔坐标系**，功能对标 GeoGebra Web，并给出 12 张参考截图与 7 项明确要求（无限网格、滚轮缩放改变分度尺、第二排画笔工具、画点工具、连线工具、左侧对象列表、函数绘制），另加一条硬指标：**延迟要低，不能只有 20–30 帧**。
+
+### ① 新增四个源文件
+
+| 文件 | 职责 |
+|---|---|
+| `src/core/CartesianExpression.{h,cpp}` | 递归下降表达式解析器，支持一次 / 二次 / 三次多项式与**隐式乘法**（`2x`、`3x^2`、`(x+1)(x-1)`）；输出 `y = 3x^2 - 8x + 7` 规范式与线段一次方程 `y = kx + b` |
+| `src/render/CartesianElements.{h,cpp}` | `CartesianEngine`（坐标换算 / 分度尺阶梯 / 网格吸附 / 锚点缩放）+ 四个原生 `QGraphicsObject` 图元（网格 / 点 / 线段 / 曲线） |
+| `src/modules/CartesianModule.{h,cpp}` | 继承 `FreeStructureBase`，模块名 `自由结构 - 笛卡尔坐标系`，`isCartesian()` 供 UI 切换 |
+| `src/ui/widgets/CartesianPanel.{h,cpp}` | 左侧对象列表面板：点坐标管理、⋮ 菜单、样式设置卡、`f(x) = 表达式` 录入；含 `CartesianPointEditor` 模态对话框 |
+
+### ② 坐标系内核
+
+- **无限网格 + 视口裁剪**：网格是理论上的无限延伸，只按当前视口绘制；`CartesianGridItem::boundingRect()` 跟随视口并预留 400px 余量，避免超大包围盒拖慢渲染。
+- **分度尺阶梯**：滚轮缩放改变 `m_scale`，`syncStepToScale()` 在 `100 / 50 / 20 / 10 / 5 / 2 / 1 / 0.5 / 0.2 / 0.1 / 0.05 / 0.02 / 0.01` 共 13 级阶梯中选出「像素间距 ≤ 62px」的档位。默认 `scale=60` → 分度尺 **1.0**；放大到 `scale=6000` → 分度尺 **0.01**。
+- **坐标换算**：`scenePos = (originX + x·scale, originY - y·scale)`；`snapMath()` 把坐标四舍五入到当前分度尺的整数倍，保证描点总是落在**粗线交点**上。
+- **锚点缩放**：`zoomBy(factor, anchor)` 保持鼠标下的数学坐标不变 —— 先算锚点数学坐标，改完 `scale` 后反解新原点。
+- **平移**：中键拖动改的是 `originScene()` 而非 `QGraphicsView` 滚动条。
+
+### ③ 工具与交互
+
+| 工具 | 图标 | 行为 |
+|---|---|---|
+| 画点 | 鼠标尖带圆点 | 单击落点并吸附网格交点；**长按拖动时圆点逐帧跟手**（原生事件，非 Qt 属性动画 → 零延迟）；悬停已有点变 `Qt::PointingHandCursor`；双击弹出编辑对话框改**名字 + 坐标**并带「隐藏名字」开关；工具按钮二次点击展开设置卡可切换「描点是否带名字」 |
+| 连线 | 直线两端带小圆点 | 奇数次选点高亮起点，偶数次选点连成线段；双击线段显示一次方程 |
+| 函数 | 抛物线 | 左侧输入 `f(x) = 表达式`（一次 / 二次 / 三次）；曲线**按可视数学范围自适应绘制**，平移出视口即消失、移回即恢复；支持多条曲线并存 |
+
+### ④ 左侧面板（对应 PM 的图 5–8）
+
+- 每行显示：颜色圆点 + 点名字 + 坐标 + ⋮ 菜单。
+- ⋮ 菜单：**编辑名称与坐标** / **设置** / **删除**（**不含「高级」「脚本」**，与 PM 要求一致）。
+- 「设置」样式卡：颜色用项目现有的 `MyColorPicker`（**无极变色框架**）、大小用 `MySlider`、形状用 `MySegmentedControl`（圆 / 方 / 菱 / 叉）、隐藏名字用 `MyToggleSwitch`。
+- 函数区：`f(x) =` 输入框 + `+` 按钮，输入即校验并给出中文错误提示。
+
+### ⑤ 低延迟保障
+
+所有笛卡尔图形对象（点 / 线段 / 曲线 / 网格）都是**原生 `QGraphicsObject`**，直接接管 `mousePressEvent` / `mouseMoveEvent` / `hoverEnterEvent`，**完全不走 Qt 属性动画**。描点拖动时每帧只做一次 `setMathPos()`（改坐标 + `setPos()` + `update()`），实测拖动与函数曲线重绘均保持流畅。
+
+### ⑥ 过程中修掉的 5 个真实缺陷
+
+| 缺陷 | 根因 | 修复 |
+|---|---|---|
+| 二次函数**整条曲线消失** | `rebuildPolyline()` 出界时 `m_polyline.clear()` 把已累积顶点全清空 | 改为 `QVector<QPolygonF> m_runs` 多段结构，出界只切断当前段 |
+| `2x + 7` / `3x^2 - 8x + 7` **解析失败** | `parseProduct()` 只认显式 `*` | 新增 `startsFactor()` + `multiplyTerms()` 支持隐式乘法 |
+| 切走模块后**引擎仍启用 / 退出崩溃** | `releaseSceneItems()` 漏 `setEnabled(false)`；`onModuleChanged()` 里 `currentModule = nullptr` 写在 `clearScene()` **之前** | 补 `setEnabled(false)`；调整两行顺序；析构时先解绑引擎裸指针 |
+| `shape()` 返回类型冲突 | 形状编号与 `QGraphicsItem::shape()` 同名 | 形状编号改 `pointShape()`；`shape()` 恢复标准 `QPainterPath` 覆写 |
+| 四处接口对不上 Qt | `paint()` 签名 / `const` 方法改成员 / `QLayout::addStretch` / 连接受保护槽位 | 逐项改为 Qt 标准写法 |
+
+### 验证
+
+- 新增 4 个测试可执行文件共 **52 项断言全部通过**：`SmartGroundCartesian`（11 组）、`SmartGroundCartesianVisual`（8 项 + 9 张渲染图）、`SmartGroundCartesianPixel`（15 项像素级）、`SmartGroundCartesianUi`（18 项 UI 集成）。
+- **79 个测试可执行文件零失败**；`SmartGroundGroupAUi` 模块计数更新为 63 并新增笛卡尔存在性断言；`SmartGround.exe` Release 构建成功。
+
+---
+
+## 第 32 批：归并重构 + 并查集合并 + 欧拉筛提速 + 四模块深化（2026-11-20，已完成）
+
+PM 提交四条硬性指令：① 归并排序必须让数组**真的裂开**，分组内排好后再**拼接**成整体，未排序段与已排序段分色；② 并查集删掉重复的双模块，保留**一个**模块，并按课堂 `dsu` 模板（`pa[i]=i` / `sz[i]=1` 起步 → 父亲慢慢改 → `sz` 变动）；③ 欧拉筛指针要**平移**不能瞬移，且 `n/2` 之后要像埃氏筛一样**加速播放**；④ 把第 31 批剩余待办（拓扑排序、朴素 Dijkstra、Kruskal、堆调整）全部解决。
+
+### ① 归并排序重构：真实的「裂开 — 拼接」（BUG-233）
+
+- **新增帧族**：`MS_SPLIT` / `MS_REC` / `MS_MERGE_OPEN` / `MS_CMP` / `MS_PICK` / `MS_APPEND` / `MS_COPY` / `MS_DONE`。
+- **裂开**：模块用 `std::set<int> m_openBounds` 记录当前所有活跃的「分裂缝」。`MS_SPLIT` 把 `mid` 插入集合，`applyLayout()` 据此为每格重算 x 坐标并用 `playMoveTo` 平移——**数组在画面上真的被撑开成两段**。
+- **拼接**：`MS_COPY`（合并完成、写回 temp）把 `mid` 从集合里移除，缝被合上，两段重新贴成一个整体，同时整段染成已排序色。
+- **分色**：未排序段淡白 `kMsIdle` → 分裂后左段浅蓝 `kMsLeft` / 右段浅紫 `kMsRight` → 归并完成整段转绿 `kMsDone`。
+- **temp 缓冲区**：底部新增 `temp[]` 行，比较帧把两段队首染琥珀并脉冲，取出时数值用 `playValueFlight` 从原格飞入 temp 格。
+
+### ② 并查集合并为单一模块（BUG-232）
+
+- **删除** `src/modules/DSUBasicModule.{h,cpp}`，`MainWindow` 与 `tests/CMakeLists.txt` 同步摘除，模块总数由 63 调整为 **62**。
+- **`DSUPathCompressionModule` 更名为「并查集」**，语义严格对齐 PM 给出的课堂模板：`n = _n + 1`；`pa = sz = vector<int>(n, 1)` 后 `iota(pa.begin(), pa.end(), 0)`；`find(x)` 带路径压缩；`merge(u,v)` 先 `find` 两端，**按大小合并**（`sz[u] < sz[v]` 则 swap），然后 `pa[v] = u; sz[u] += sz[v];`；`pd(u,v)` 判同集合。
+- **新增帧族**：`DSU_INIT` / `DSU_FIND_START` / `DSU_FIND_STEP` / `DSU_FIND_ROOT` / `DSU_COMPRESS_STEP` / `DSU_MERGE_START` / `DSU_MERGE_LINK` / `DSU_MERGE_SIZE` / `DSU_PREDICATE` / `DSU_DONE`。
+- **画面**：森林图上每个结点挂 `pa=N` 子标签；右侧 `pa[]` / `sz[]` 两行数组**实时同步**（`pa[]` 初始全为自身下标、`sz[]` 初始全为 1）；路径压缩时用 `GraphEdge::repointDest()` 现场改接父边并画紫色飞线。
+
+### ③ 欧拉筛：指针平移 + n/2 之后加速（BUG-231）
+
+- **指针瞬移根治**：`IModule::syncPointerTips()` 原先在 `finalizeFrame()` 里无条件 `stopAnimFor(ptr)` + `setPos(tip)`，把刚启动的 `pos` 平移动画**当场掐断**，指针看起来是瞬移。现在先检查 `m_animRegistry` 里是否有正在运行、且终点就是目标 tip 的 `pos` 动画 —— 有则**跳过吸附**，让缓动曲线跑完。
+- **加速播放**：新增 `ES_FAST_START` / `ES_FAST_BATCH` / `ES_FAST_DONE`。`i > n/2` 时内层循环必然越界，改为**批量收录素数**（每批 8 个），逐批淡入质数库并染绿对应格子。
+
+### ④ 四模块深化（第 31 批剩余待办）
+
+| 模块 | 深化内容 |
+|------|----------|
+| 拓扑排序 | 删边时该边染灰并打 **✕  -1** 徽标（删边 ⇒ 终点入度 -1 合并成同一个动作）；入度表与图结点同序对齐；新增 `TS_EDGE_DELETE` / `TS_NEW_ZERO` / `TS_CYCLE`；成环时剩余结点染红并画红色闭环；底部加图例条 |
+| 朴素 Dijkstra | 右侧新增**候选尺**：未确定点按 `dist` 升序排成刻度尺，`min` 指针指向最小者，已确定点划掉沉底；新增 `DJ_CANDIDATE` / `DJ_CHOOSE` / `DJ_RELAX_KEEP`，把「**为什么选它**」显式化；松弛不更优时红线划掉候选值 |
+| Kruskal | `find` 改为**逐跳上溯**可视化（`KR_FIND_START` / `KR_FIND_STEP` / `KR_FIND_ROOT`），沿途结点染紫、父链逐段点亮；同根时 `KR_CYCLE` 把该边染朱红并沿树上路径画出**红色闭环**反证「为什么必须舍弃」 |
+| 堆调整 | 树下方常驻**公式条**「左孩子 = 2k　右孩子 = 2k+1　父 = ⌊k/2⌋」；新增 `HG_INDEX` 帧核对当前结点下标（父 = ⌊k/2⌋、孩子 = 2k / 2k+1）；数组格与树结点之间加**极细引导线**建立映射；交换时数值沿**树边**弧线飞行，与光束路径重合 |
+
+### ⑤ 顺带根治：`playMoveTo` 野指针（BUG-230）
+
+`IModule::playMoveTo()` 把 `std::vector<QGraphicsItem*>` **裸指针**捕获进动画 lambda。画布中途 `clear()` 时这些 item 已被销毁，动画继续写值 → **SIGSEGV**（`SmartGroundAnimStress` 在 MergeSort 处崩溃即由此而来）。修复：签名改为 `std::vector<QGraphicsObject*>`（`ArrayBlock` / `GraphNode` 均继承自 `QGraphicsObject`），动画内改用 `std::vector<QPointer<QGraphicsObject>>`，item 一旦析构指针自动置空。
+
+### 验证
+
+- `SmartGroundStrictAudit`：62 模块 × 2 轮逐帧审计 → `TOTAL OVERLAP CONFLICTS = 0` / `TOTAL TIP FAILURES = 0` / `TOTAL AXIS FAILURES = 0`。
+- **全部测试可执行文件零失败**（`TOTAL FAILED: 0`）；`SmartGround.exe` Release 构建成功。
+- 同步更新 `tests/Batch31Test.cpp`（并查集断言改为统一模块语义）、`tests/Batch31Visual.cpp`（去掉双模式视觉块）、`tests/Batch8ModulesTest.cpp`、`tests/GroupAUiTest.cpp`（模块数 63 → 62、模块名「并查集 路径压缩」→「并查集」）、`tests/OverlapAuditTest.cpp`、`tests/EdgeRenderTest.cpp`、`tests/StressTest.cpp`。
+
+---
+
+## 第 31 批：现有模块动画深化落地（2026-11-20，已完成）
+
+PM 复查 `TrieModule` / `IntervalSchedModule` / `EulerModule` / `BipartiteModule` 后明确策略转向：**不开新篇，先把现有算法做到尽善尽美**。随后 PM 逐条评审 10 条分镜方案，裁定为：**快排不动底层逻辑、归并单独调整、01 背包先比较再跳、KMP 与堆调整维持现状（教学优先，画面简洁）、并查集拆成双模式、埃氏筛保留「一次干掉一大堆」的爽感并另开欧拉筛**。本批即按该裁定落地。
+
+### 已落地的 4 项改造 + 1 个新模块
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 归并排序分镜独立 | `src/modules/MergeSortModule.{h,cpp}` | 新建专属 `MS_*` 帧族（`MS_SPLIT` / `MS_REC` / `MS_MERGE_OPEN` / `MS_CMP` / `MS_PICK` / `MS_APPEND` / `MS_COPY` / `MS_DONE`），**与快排的 `AR_*` 完全隔离**；新增 `temp[]` 合并输出缓冲行；合并时「两段队首对比高亮 → 胜者飞入 temp → temp 整体写回原区间」；左段蓝 / 右段紫 / 已排序段绿 |
+| 01 背包先比较后跳 | `src/modules/Knapsack01Module.cpp` | 新增 `KN_COMPARE` 帧：两个候选**并排高亮对比**后，**只有胜者**飞向目标格；`KN_CANDIDATE` 退化为「只高亮来源格」；容量不足时给出「只能不选」公式 |
+| 并查集双模式 | `src/modules/DSUPathCompressionModule.{h,cpp}` | 新增「有路径压缩 / 无路径压缩」分段设置；无压缩模式发 `DP_NO_COMPRESS`（路径染红，明确说明「父指针保持原样」）；两模式都发 `DP_HEIGHT`，底部常驻**树高标尺**；默认数据换成深链 `9\n0 0 1 2 3 4 0 6 0`（树高 **5 → 1**，差别一眼可见） |
+| 新增欧拉筛模块 | `src/modules/EulerSieveModule.{h,cpp}`（新建，已注册到「数学」分组） | 复用埃氏筛的 10 列矩阵；右侧独立**质数库 `prime[]`** 区域 + `p` 指针；`i` 指针指当前外层数；筛 `i*p` 后立刻演示 `i % p == 0 → break`（`i` 所在格染红说明「后面的 p 不用试了」）；文案全程强调「每个合数只被它的最小质因子筛掉一次」 |
+| 边原地改指向 | `src/render/GraphElements.{h,cpp}` | `GraphEdge::repointDest(GraphNode*)` 让路径压缩把已有父边原地改指向根结点，无需重建边对象 |
+
+### 帧类型扩展
+
+`src/engine/AnimFrame.h` 新增 24 个动作类型：归并 8 个（`MS_*`）、背包 1 个（`KN_COMPARE`）、并查集 2 个（`DP_NO_COMPRESS` / `DP_HEIGHT`）、欧拉筛 9 个（`ES_*`）。
+
+### 验证
+
+- 新增 `tests/Batch31Test.cpp`（30 项断言）+ `tests/Batch31Visual.cpp`（5 张渲染图），`tests/CMakeLists.txt` 注册 `SmartGroundBatch31` / `SmartGroundBatch31Visual`。
+- 关键断言：归并最终数组有序且合并次数 = n-1；背包每个 `KN_DECIDE` 前必有 `KN_COMPARE`；并查集两模式帧类型互斥、树高 5 → 1；欧拉筛 **42 个合数无重复划除**、每次 `break` 均满足 `i % p == 0`、最终 42 划除 / 17 保留；**埃氏筛行为未被改动**。
+- `SmartGroundStrictAudit` 63 模块：`TOTAL OVERLAP CONFLICTS = 0` / `TOTAL TIP FAILURES = 0` / `TOTAL AXIS FAILURES = 0`。
+- **77 个测试可执行文件零失败**；`SmartGround.exe` Release 构建成功。
+
+### 评审记录（PM 第 7 轮裁定，存档备查）
+
+| 序 | 模块 | PM 裁定 |
+|---|---|---|
+| 1 | `QuickSortModule` | 底层动画逻辑不动，只做分镜表层调整 |
+| 2 | `MergeSortModule` | 单独调整，与快排区分开（→ 已落地 `MS_*` 帧族） |
+| 3 | `HeapAdjustModule` | 通过：新增「选择当前最小值」指示 |
+| 4 | `Knapsack01Module` | 通过：应先比较最大值，再往目标格跳（→ 已落地 `KN_COMPARE`） |
+| 5 | `KMPNextModule` | 维持现状：教学目的是老师边讲边演示，过多元素反而干扰效果 |
+| 6 | `TopologicalSortModule` | 通过 |
+| 7 | `DijkstraNaiveModule` | 通过：新增「选择当前最小值」有必要 |
+| 8 | `KruskalModule` | 通过 |
+| 9 | `DSUPathCompressionModule` | 通过：不要同时演示有/无压缩，用滑块切换成两种模式，默认数据要能体现差别且偏链式（→ 已落地双模式 + 深链默认数据） |
+| 10 | `SieveOfEratosthenesModule` | 埃氏筛不动（「一次干掉一大堆才是帅的」），把「一个一个归档」方案**转用于欧拉筛**，新增欧拉筛模块并配独立质数库与 `p` 指针（→ 已落地 `EulerSieveModule`） |
+
+### 交付物
+- 新增 **`docs/Batch31_Storyboards.md`** —— 10 个现有模块的动画深化分镜，逐个给出**「旧方案现状（已核对源码）」vs「新方案分镜」**对照。
+
+### 十个深化对象与各自的核心缺口（历史方案存档）
+
+| 序 | 模块 | 旧方案的核心缺口 |
+|---|---|---|
+| 1 | `QuickSortModule` | 无可视递归栈（depth 只在脚本文本）；pivot 是脱离数组的浮空格子 |
+| 2 | `MergeSortModule` | **与快排共用同一套帧类型**，两算法视觉上无法区分 |
+| 3 | `HeapAdjustModule` | 上下标与 `2k / 2k+1` 公式只在脚本文本；光束与值迁移路径不重合 |
+| 4 | `Knapsack01Module` | 两个候选被拆成两帧先后覆盖，看不到并排比较 |
+| 5 | `KMPNextModule` + `KMPMatchModule` | `pi[]` 只是数字表，「最长真前后缀」完全不可见 |
+| 6 | `TopologicalSortModule` | 边被"删除"无删除标记；入度表与图中结点无对齐 |
+| 7 | `DijkstraNaiveModule` | **「为什么选它」完全不可见**（核心教学点缺失） |
+| 8 | `KruskalModule` | `find` 的逐跳路径压缩被跳过；成环边无红环反证 |
+| 9 | `DSUPathCompressionModule` | 无压缩前后对照；旧链无残影；`sz[]` 是摆设 |
+| 10 | `SieveOfEratosthenesModule` | 「从 `i*i` 开始」的剪枝理由只在脚本文本 |
+
+### 新方案共用的视觉契约
+统一视觉契约（颜色语义表、指针与光束方向规则、五段分层布局、收尾完整性）见 `docs/AnimationAesthetics.md`；十个分镜在同一基线上展开，新增的关键可视化结构包括：递归层带、基准值徽标、候选最小值尺、并查集森林树形图、树高标尺、`pi[]` 跨格括线、拓扑入度表对齐、`i*i` 紫色区间标记。
+
+### 实施分批（已完成）
+**31-A**（快排 / 归并 / 堆）→ **31-B**（背包 / 埃氏筛 / 拓扑）→ **31-C**（KMP / Dijkstra / Kruskal / 并查集）→ **31-D**（线段树合并版）。
+
+---
+
+## 第 30 批：视觉缺陷修复 + 动画美学宪法（2026-11-20）
+
+PM 亲自复查后指出三个视觉缺陷，本批全部修复；同时把「什么样的动画才算好」这件事从口头共识升级为**可执行的书面宪法**。
+
+### ① 开关控件的左右语义反了
+- **现象**：图的类型开关滑块在**右**时显示的却是「有向图」高亮；模块设置里的「高亮延迟边」开关也是同样的反逻辑。
+- **根因**（`src/ui/widgets/MyToggleSwitch.cpp`）：
+  1. `paintEvent()` 左侧画 `m_onText`、右侧画 `m_offText`，把「开」放左、「关」放右，而高亮逻辑却跟着滑块走 —— 滑块靠右时高亮的是左边的「开」，视觉上等于「滑块在右 = 关」；
+  2. `trackRect()` 用 `m_onText` 的宽度算左侧留白，轨道位置与文字不匹配。
+- **修复**：统一为**「滑块在右 = 该状态开启」**。左侧画 `m_offText`、右侧画 `m_onText`，高亮跟随滑块位置（靠右 → 右侧 `textPrimary` 深色；靠左 → 左侧深色）。`trackRect()` 改用 `m_offText` 宽度。全项目 toggle 一次性对齐。
+
+### ② 二分图判定的队列没清空，且 tail 指针飞出队列行
+- **根因三处**：
+  1. `BP_FINISH` 分支**完全没有清空队列**，残留值留到最后一帧；
+  2. `BP_DEQUEUE` 帧的 `val1` 传的是 `head - 1`（**已自增过的值**），清的是错格子，真正出队的格子永远脏；
+  3. 双指针都用 `PointerBlock::Down` 锚在槽位**上方**且杆长相同，标签被避让算法推到 y=434，**飞出队列行**。
+- **修复**：新增 `BP_QUEUE_CLEAR` 帧类型专门收尾；`val1` 改为 `++head` 之前取值；队列行下移到 y=560，双指针改 `Up` + `belowCell` 锚在**下方**并用不同杆长分层。布局重排：`col[]` → y=470、结论 → y=630、奇环文本 → y=666。
+
+### ③ 无向边第二次访问的光束方向不变
+- **根因**：`GraphEdge` 的光束只支持正向绘制，`playEdgeTravel()` 也不接受起点参数，于是「从 v 访问 u」画出来的还是 u→v。
+- **修复**：
+  - `GraphEdge` 新增 `m_beamReversed` 属性，反向时 `quadSubPath(p0, c, p1, 1.0 - head, 1.0 - tail)`，光束头尾一并反向；
+  - `IModule` 新增 `playEdgeTravelFrom` / `playEdgeTraceFrom` / `startBeamFrom`，内部比对 `edge->dest->id == fromNodeId` 自动判定；
+  - 欧拉 `EU_EDGE`/`EU_BRIDGE`、匈牙利 `HN_TRY`/`HN_OCCUPIED`、二分图 `BP_CHECK`/`BP_CONFLICT` 全部改用带起点 id 的版本。
+
+### ④ 新建《动画与视觉美学规范》
+- 新增 **`docs/AnimationAesthetics.md`**，把下列内容固化为**强制条款**：
+  - **三条底线**：语义先于装饰、一处实现全局复用、状态必须收尾；
+  - **色彩语义表**：颜色 = 算法事实（蓝=0/偶数层，橙=1/奇数层，绿=最终成立，黄=正在扫描，红=真冲突，紫=延迟边，灰=已淘汰，靛=反例解），同时活跃强调色 ≤ 3 种；
+  - **运动语义表**：四种边运动（行进 / **反向行进** / 生长 / 描迹）、五种节点运动、指针运动规则、`PathTrail` 用法、时长基准表；
+  - **布局规范**：画布五段分层（标题 / 主体 / 状态数组 / 辅助结构 / 结论）、净距要求、数组下标在格上、值居中、**队列三段式画法**；
+  - **控件语义规范**：**滑块在右 = 该状态开启**，互斥多态选择必须用 `makeSegment`；
+  - **状态完整性**：临时结构复位、指针归位、结论落地、重放幂等、撤销兼容；
+  - **文案规范**、**帧设计规范**、**新模块 10 条自检清单**。
+- 同步接入 `.cursorrules`、`AGENTS.md`、`.cursor/rules/smartground-project.mdc`、`Cursor_Workflow.md` 第 2 节，保证每个新会话都带着这套美学记忆开工。
+
+### 验证
+- 新增 `tests/VisualFixTest.cpp`（`SmartGroundVisualFix`）：5 项断言覆盖队列清空、指针不越界、指针标签不出画布、桥接帧产出、开关两态快照。
+- `SmartGroundStrictAudit` 62 模块 × 2 轮 → `TOTAL OVERLAP CONFLICTS = 0` / `TOTAL TIP FAILURES = 0` / `TOTAL AXIS FAILURES = 0`。
+- **76 个测试可执行文件零失败**；`SmartGround.exe` Release 构建成功。
+
+## 第 29 批：四个已有模块的动画深化（2026-11-20）
+
+本批**不新增模块**，只把上一轮提出的 4 个分镜方案落地到已有模块，把「静态示意图」升级为「有教学推进感的分步动画」。新增 20 个 `ActionType`，4 个模块各自补齐「为什么这样选」的因果链。
+
+### ① Trie 字典树：插入 / 查询 / 字典序三模式
+- **新增** `moduleSettingsFields()`：`makeSegment` 提供「插入建树 / 查询单词 / 字典序遍历」三模式切换，`makeText` 提供查询词输入框；`applyModuleSetting()` 分派到 `runInsertMode()` / `runQueryMode()` / `runOrderMode()`。
+- **查询模式**：先用 `buildStaticTrie()` 建好静态树，再逐字符沿路径下降（`TR_QUERY_CHAR`）。命中分支边变紫并弹跳（`TR_QUERY_HIT`）；走到底且 `end = 1` 则绿脉冲表示**命中**（`TR_QUERY_FOUND`）；中途无分支（`TR_QUERY_MISS`）或仅走到前缀结点则红闪**判失败**。
+- **字典序模式**：按字符升序做 DFS 前序遍历，`TR_ORDER_START` / `TR_ORDER_NODE`（`v` 字段区分「进入子树」与「输出单词」）/ `TR_ORDER_DONE`；命中的单词逐个落到底部输出行 `m_orderItems`，顺序严格递增。
+
+### ② 区间调度贪心：冲突重叠带 + 反证对照
+- **冲突带**：`IV_REJECT_BAND` 帧在时间轴上用 `QGraphicsRectItem`（红色虚线边框 + 70/255 半透明填充）画出**重叠区间带**，直观呈现「为什么这两个活动不能同时选」。
+- **反证阶段**：`IV_PHASE_RESET` 重置画面后，改用「按**开始时间**最早选」的错误准则重跑（`IV_COUNTER_COMPARE` / `IV_COUNTER_PICK` / `IV_COUNTER_DONE`），错误解单独排在下一行（`m_naiveLabels`），与贪心解（`m_greedyLabels`）上下对照，直接给出「贪心 2 个 vs 错误 1 个」的结论。
+
+### ③ 二分图染色判定：BFS 队列行 + 奇环抽取
+- **队列可视化**：新增 `m_queueBlocks`（`q[]` 数组行）+ `m_queueHeadPtr` / `m_queueTailPtr` 双指针锚定槽位，`BP_ENQUEUE` / `BP_DEQUEUE` 把「染色」与「同色冲突」的因果链显式化。
+- **奇环抽取**：`extractOddCycle(u, v)` 沿 BFS 父指针链求两条链的公共祖先，拼出完整环；`BP_ODD_CYCLE` 帧用 `PathTrail` 描出整条奇环并把环上结点染红，解释「同色相邻」的本质原因是**奇数长度回路**。
+- **修正**（BUG-226）：原实现用「双指针同步上跳找相遇点」，两链长度不同时会跳过相遇点返回空数组；改为「取完整祖先链 → 尾部对齐比较公共后缀求 LCA → 按 `u→…→LCA←…←v` 拼环」。
+
+### ④ 欧拉路径 Hierholzer：栈列 / 回溯 / 拼接
+- **栈与答案列**：`stk[]` 栈列与 `path[]` 答案列改为**纵向堆叠**（显示栈底 → 栈顶），底部新增「欧拉路径」结果行与 `PathTrail` 描边轨迹。
+- **五段语义拆帧**：`EU_DEADEND` 死路结点灰化收缩 → 压栈 → `EU_BACKTRACK` 回溯出栈 → `EU_BRIDGE` 延迟边紫色描边（可开关）→ `EU_SPLICE` 拼接（橙色虚线箭头 + 涟漪）→ `EU_TRAIL` 最终一笔描出有序轨迹。
+- **布局重排**：`deg[]` 行起始 x 44 → 170、行距 54 → 76；`stk[]` / `path[]` 列 x 470 / 600（标签水平相隔 120px）；答案行下移至 y = 618。
+
+### 验证
+- 新增 `tests/AnimUpgradeTest.cpp`（`SmartGroundAnimUpgrade`）：9 项断言覆盖三模式帧产出、奇环抽取、死路回溯、拼接、冲突带与反证结论。
+- `SmartGroundStrictAudit`：62 模块 × 2 轮逐帧审计 → `TOTAL OVERLAP CONFLICTS = 0` / `TOTAL TIP FAILURES = 0` / `TOTAL AXIS FAILURES = 0`。
+- **73 个测试可执行文件零失败**；`SmartGround.exe` Release 构建成功。
 
 ## 第 28 批：数组下标归位 / 指针轴向对齐 / 图形空心实心语义修正（2026-11-20）
 
@@ -472,9 +709,9 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 
 ## 当前代码状态
 
-- 菜单中注册了 62 个唯一可运行模块（57 个算法模块 + 5 个自由结构沙盒模块），下拉条目与唯一模块一一对应。
+- 菜单中注册了 63 个唯一可运行模块（57 个算法模块 + 6 个自由结构沙盒模块），下拉条目与唯一模块一一对应。
 - 已无待实现的头文件骨架。
-- 本轮改动已通过 Qt 6.11.1 / MinGW 13.1 构建，69 个测试套件在 `offscreen` 平台下串行全绿。
+- 本轮改动已通过 Qt 6.11.1 / MinGW 13.1 构建，全部测试套件在 `offscreen` 平台下串行全绿。
 - 项目已纳入 `D:\Program\Cpp` 的 Git 仓库（SmartGround 位于 `Project/QT/SmartGround` 子路径），可查看提交历史与工作树状态。
 - 根目录 main.cpp 是辅助入口；CMake 实际编译 src/main.cpp。
 - Release 产物以 Windows GUI 子系统链接（`WIN32_EXECUTABLE TRUE`），`windeployqt` 打包后不再弹出黑色控制台窗口。
@@ -482,15 +719,15 @@ SmartGround 是面向 CSP-J/S 算法教学的 Qt6 Widgets 桌面程序，使用 
 
 ### 已注册模块
 
-- 排序：BubbleSortModule、SelectionSortModule、InsertionSortModule、ShellSortModule（希尔排序）、QuickSortModule、MergeSortModule、CountingSortModule（计数排序）、BucketSortModule（桶排序）、RadixSortModule（基数排序）
+- 排序：BubbleSortModule、SelectionSortModule、InsertionSortModule、ShellSortModule（希尔排序）、QuickSortModule、MergeSortModule（归并排序：真实「裂开—归并」重构，二分分裂时数组插缝、合并完成时格子拼接回整段，未排序段与已排序段分色）、CountingSortModule（计数排序）、BucketSortModule（桶排序）、RadixSortModule（基数排序）
 - 数据结构：StackModule、QueueModule、CircularQueueModule（循环队列）、MonotonicStackModule、PrefixSumModule、DifferenceModule、HeapBasicsModule、HeapAdjustModule（up/down）、HeapSortModule、FenwickTreeModule（树状数组 BIT）、HashTableModule（哈希表 开放寻址）
 - 搜索：BinarySearchClosedModule、BinarySearchHalfOpenModule
-- 图论：DSUBasicModule、DSUPathCompressionModule（路径压缩）、TarjanModule、TarjanCutVertexBridgeModule、TopologicalSortModule、DijkstraNaiveModule、DijkstraHeapModule（堆优化）、ForwardStarModule（链式前向星）、KruskalModule、PrimModule（Prim 最小生成树）、BFSModule、DfsModule（DFS 深度优先搜索）、BipartiteModule（二分图判定）、EulerModule（欧拉路径）、HungarianModule（二分图匹配）
+- 图论：DSUPathCompressionModule（并查集：统一模块，`pa[i]=i` / `sz[i]=1` 初始化，`merge(u,v)` 按大小合并 + 路径压缩，右侧 `pa[]` / `sz[]` 两行实时同步）、TarjanModule、TarjanCutVertexBridgeModule、TopologicalSortModule（拓扑排序：删边打 ✕ 徽标 + `-1` 入度递减、入度表与图结点同序对齐、成环染红）、DijkstraNaiveModule（朴素 Dijkstra：右侧「候选尺」按 `dist` 升序显式展示「为什么选它」，松弛失败用红线划掉）、DijkstraHeapModule（堆优化）、ForwardStarModule（链式前向星）、KruskalModule（Kruskal：`find` 逐跳上溯 + 路径压缩可视化，成环边染朱红并画出红色闭环）、PrimModule（Prim 最小生成树）、BFSModule、DfsModule（DFS 深度优先搜索）、BipartiteModule（二分图判定）、EulerModule（欧拉路径）、HungarianModule（二分图匹配）
 - 动态规划：Knapsack01Module、KnapsackCompleteModule、LISModule、LCSModule（最长公共子序列：标签与数组下标分列，消除压字）
 - 字符串：KMPNextModule（已改造为 `pi[]` 1-indexed + `#` 哨兵）、KMPMatchModule（匹配过程）、TrieModule（Trie 字典树）、StringHashModule（字符串哈希）
 - 贪心：IntervalSchedModule（区间调度）、MonotonicQueueModule（单调队列）、HuffmanTreeModule（哈夫曼树：频率数组初始显示原始权值并逐个飞入排序、底部候选队列、果冻合并、无向树边、0/1 路径标注、右侧编码表、底部 WPL 累加）
 - 线段树：SegmentTreeBuildModule（建树）、SegmentTreeTagModule（区间乘/加懒标记）、SegmentTreeQueryModule（区间查询）
-- 数论与树形：SieveOfEratosthenesModule（埃氏筛）、FastPowModule（快速幂）、GcdModule（GCD 辗转相除）、ExgcdModule（扩展欧几里得：同余式变形 → 辗转相除双栏 → 递归回代逐层展开，公式左对齐飞入落位，给出模逆元）、TreeSubtreeSizeModule（子树大小统计）、TreeDiameterModule（树的直径）
+- 数论与树形：SieveOfEratosthenesModule（埃氏筛）、EulerSieveModule（欧拉筛：独立质数库 `prime[]` + `p` 指针，`i*p` 划除后立刻 `i % p == 0 → break`）、FastPowModule（快速幂）、GcdModule（GCD 辗转相除）、ExgcdModule（扩展欧几里得：同余式变形 → 辗转相除双栏 → 递归回代逐层展开，公式左对齐飞入落位，给出模逆元）、TreeSubtreeSizeModule（子树大小统计）、TreeDiameterModule（树的直径）
 - 自由结构沙盒（不含算法，仅作讲题草稿）：SandboxArrayModule、SandboxMatrixModule（矩阵 / 行列式 / 表格，带「矩阵设置」特化面板）、SandboxTreeModule、SandboxGraphModule、SandboxBlankModule（空白画布，供老师叠加批注）
 
 ## 核心架构
@@ -1326,3 +1563,20 @@ PM 对八模块逐一点评后提出七项改进，逐一落地（BUG-134 ~ BUG-
 - `.gitignore` 新增 `/*.png`，防止测试截图再次污染根目录；`tools/sg.ps1 -Target clean` 同时清理根目录与 `build/tests` 下的 PNG。
 - 测试构建从「每个测试独立编译全部模块源码」改为共享静态库（`SgCore` / `SgWidgets` / `SgUi`），build 目录由 **7539 MB 降至 233 MB**，单个测试的编译目录由约 180 MB 降至约 1 MB。
 - `StartupPanelTest` 不再依赖 `UiShot` 事先生成的截图文件，改为自行构造 `MainWindow` 抓取画面做像素分析，消除测试间的隐式顺序依赖。
+
+## 工程整洁度（2026-11-20，大清理）
+
+- 项目总占用由 **1149.9 MB 降至 78.0 MB**（释放约 1072 MB，降幅 93%）。
+- 清理内容：
+  - **根目录 197 张调试截图**（`*.png`，约 6 MB）全部删除。
+  - **`shots/` 目录整体删除**（43 个截图 + 3 个一次性裁剪脚本 `crop.py` / `grid.py` / `zoom.py`，共 6.4 MB）。
+  - **`tools/` 一次性补丁与恢复脚本全部清除**：110 个 Python 脚本（`add_helpers.py` / `build_imodule.py` / `recover_modules*.py` / `dedupe_*.py` / `hf_replay*.py` / `patch_replay*.py` 等）、59 个 `_` 前缀中间产物（`_edits.json` 3.4 MB / `_events.json` 6.0 MB / `_recover.jsonl` 0.8 MB / `_im_cur.cpp` / `_hf_backup.cpp` 等）、49 个 `tools/_recovered/` 恢复副本。
+  - **`tools/__pycache__/`**（`.pyc` 字节码）删除；**`.qtcreator/`** 本地残留删除。
+  - **`build/tests/` 全量删除**（97 个测试可执行文件 701.8 MB + `CMakeFiles` 191.9 MB + 207 张测试截图 4.7 MB），这是纯编译产物，可由 `cmake -S tests -B build/tests` 完整重建。
+  - **`build/Desktop_Qt_6_11_1_MinGW_64_bit-Release/`**（Qt Creator 影子构建目录，45.9 MB，含 `.qtc_clangd` 索引 8.7 MB）删除。
+  - `build/Testing/`、`build/.qt/`、`build/*.pdf` 临时产物删除。
+- **保留项**：`tools/latex/`（`serve.js` / `render.js` / `formulas.tex`）与 `node_modules/`（40.4 MB）是 LaTeX 公式渲染服务的**运行时依赖**，`LatexService.cpp` 会按 `appDir/tools/latex/serve.js` 路径查找，删除将导致画布公式预览不可用，故予以保留；`tools/clean.sh` 与 `tools/sg.ps1` 为长期维护脚本，保留。
+- **构建体系瘦身**：主程序 `build/CMakeFiles` 中 `compiler_depend.make`(34.8 MB) / `compiler_depend.internal`(33.4 MB) / `ParseCache.txt`(2.9 MB) 三份 MinGW 依赖扫描缓存删除后，由 `cmake -S . -B build` 重新 configure 自动再生，`build` 目录由 103.4 MB 降至 35.2 MB。
+- **`.gitignore` 扩充**：新增 `/shots/`、`/tools/_recovered/`、`/tools/__pycache__/`、`/tools/_*.{py,cpp,h,json,jsonl,txt}`、`/tools/*.py`、`/.qtc_clangd/`、`*.pdf` 共 12 条规则，防止同类垃圾再次入库。
+- **验证**：清理后 `cmake -S . -B build` + `cmake --build build` 重新编译 `SmartGround.exe` 成功（100%，0 error）；`cmake -S tests -B build/tests` 配置成功并单独构建 `SmartGroundStrictAudit` 套件，运行结果 `TOTAL OVERLAP CONFLICTS = 0` / `TOTAL TIP FAILURES = 0` / `TOTAL AXIS FAILURES = 0`，退出码 0，确认源码与测试资产完好无损。
+- `build/` 已被 `.gitignore` 的 `/build*/` 覆盖，故本次清理不影响版本库内容（`git status` 仅显示 194 项删除与 `.gitignore` 一处修改，均为预期的垃圾文件移除）。

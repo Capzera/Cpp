@@ -77,10 +77,30 @@ public:
                 m_treeEdges[{parent, i}] = edge;
             }
         }
+
+        m_guideLines.clear();
+        for (int i = 1; i <= n; ++i) {
+            auto nodeIt = m_treeNodes.find(i);
+            auto blockIt = m_arrayBlocks.find(i);
+            if (nodeIt == m_treeNodes.end() || blockIt == m_arrayBlocks.end()) continue;
+            QGraphicsLineItem* guide = m_scene->addLine(
+                QLineF(QPointF(nodeIt->second->pos().x(), nodeIt->second->pos().y() + 26.0),
+                       QPointF(blockIt->second->pos().x() + blockIt->second->cellWidth() / 2.0,
+                               blockIt->second->pos().y() - 4.0)));
+            guide->setPen(QPen(QColor(212, 218, 228), 1.0));
+            guide->setZValue(-1);
+            m_guideLines.push_back(guide);
+        }
+
         QGraphicsTextItem* treeTitle = m_scene->addText("完全二叉树结构（heap[i] 的孩子是 heap[2i] 与 heap[2i+1]）");
         treeTitle->setFont(QFont("Microsoft YaHei UI", 11, QFont::Bold));
         treeTitle->setDefaultTextColor(QColor(120, 130, 145));
         treeTitle->setPos(centerX - 320, treeTop - 96);
+
+        m_formulaText = m_scene->addText("左孩子 = 2k　右孩子 = 2k+1　父 = ⌊k/2⌋");
+        m_formulaText->setFont(QFont("Consolas", 13, QFont::Bold));
+        m_formulaText->setDefaultTextColor(QColor(40, 100, 150));
+        m_formulaText->setPos(660.0, treeTop - 34);
 
         m_relationText = m_scene->addText("");
         m_relationText->setFont(QFont("Consolas", 12, QFont::Bold));
@@ -220,7 +240,9 @@ protected:
     std::map<int, ArrayBlock*> m_arrayBlocks;
     std::map<int, GraphNode*> m_treeNodes;
     std::map<std::pair<int, int>, GraphEdge*> m_treeEdges;
+    std::vector<QGraphicsLineItem*> m_guideLines;
     QGraphicsTextItem* m_relationText = nullptr;
+    QGraphicsTextItem* m_formulaText = nullptr;
     int m_n = 0;
 };
 

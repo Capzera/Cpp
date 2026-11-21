@@ -27,6 +27,8 @@ public:
     std::map<int, QPointF> captureNodePositions() const override;
     void restoreNodePositions(const std::map<int, QPointF>& positions) override;
 private:
+    void paintFindPath(const std::vector<int>& path, const QColor& color);
+    void paintCycleRing(int u, int v);
     std::vector<AnimFrame> m_frames;
     std::map<int, GraphNode*> m_nodes;
     std::map<std::pair<int,int>, GraphEdge*> m_edges;

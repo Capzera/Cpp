@@ -6,6 +6,7 @@
 class AnnotationScene;
 class ToolController;
 class SelectionOverlay;
+class CartesianEngine;
 
 class CanvasView : public QGraphicsView {
     Q_OBJECT
@@ -17,6 +18,9 @@ public:
 
     void setToolController(ToolController* controller);
     ToolController* toolController() const { return m_toolController; }
+
+    void setCartesianEngine(CartesianEngine* engine);
+    CartesianEngine* cartesianEngine() const { return m_cartesianEngine; }
 
     void refreshOverlay();
 
@@ -33,9 +37,11 @@ protected:
 
 private:
     void syncDragMode();
+    void syncCartesianViewport();
 
     AnnotationScene* m_annotationScene = nullptr;
     ToolController* m_toolController = nullptr;
+    CartesianEngine* m_cartesianEngine = nullptr;
     bool m_panning = false;
     QPoint m_panOrigin;
 };

@@ -103,6 +103,26 @@ ToolIconButton* CanvasToolBar::toolButtonFor(int tool) const {
     return nullptr;
 }
 
+ToolIconButton* CanvasToolBar::cartesianButtonFor(int kind) const {
+    for (ToolIconButton* button : m_cartesianButtons) {
+        if (!button) continue;
+        if (static_cast<int>(button->kind()) == kind) return button;
+    }
+    return nullptr;
+}
+
+int CanvasToolBar::mainRowWidth() const {
+    QWidget* mainRow = findChild<QWidget*>("canvasToolMainRow");
+    if (!mainRow) return sizeHint().width();
+    return mainRow->sizeHint().width();
+}
+
+int CanvasToolBar::mainRowHeight() const {
+    QWidget* mainRow = findChild<QWidget*>("canvasToolMainRow");
+    if (!mainRow) return sizeHint().height();
+    return mainRow->sizeHint().height();
+}
+
 void CanvasToolBar::paintEvent(QPaintEvent*) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
@@ -119,10 +139,108 @@ void CanvasToolBar::paintEvent(QPaintEvent*) {
     painter.drawPath(inner);
 }
 
+void CanvasToolBar::buildCartesianRow() {
+    m_cartesianRow = new QWidget(this);
+    m_cartesianRow->setObjectName("canvasCartesianRow");
+    m_cartesianRow->setAttribute(Qt::WA_TranslucentBackground, true);
+
+    QHBoxLayout* layout = new QHBoxLayout(m_cartesianRow);
+    layout->setContentsMargins(9, 3, 9, 3);
+    layout->setSpacing(2);
+
+    struct Entry {
+        ToolIconButton::Kind kind;
+        const char* tip;
+    };
+    const Entry entries[] = {
+        {ToolIconButton::CartPoint, "画点工具 (P) — 再次点击展开描点设置"},
+        {ToolIconButton::CartLine, "连线工具 (S) — 奇数次选点为起点，偶数次选点连线"},
+        {ToolIconButton::CartFunction, "函数绘制 — 在左侧列表输入 f(x) = 表达式"}
+    };
+
+    for (const Entry& entry : entries) {
+        ToolIconButton* button = new ToolIconButton(entry.kind, entry.tip, m_cartesianRow);
+        button->setObjectName(QString("canvasCartTool_%1").arg(static_cast<int>(entry.kind)));
+        connect(button, &QAbstractButton::clicked, this, [this, button, entry]() {
+            const bool alreadyActive = button->isActive();
+            if (alreadyActive) {
+                m_cartesianPanelOpen = !m_cartesianPanelOpen;
+                if (m_toolPanel) {
+                    if (m_cartesianPanelOpen) {
+                        showToolPage(-1 - static_cast<int>(entry.kind));
+                        m_toolPanel->adjustSize();
+                        m_toolPanel->layout()->activate();
+                        m_toolPanel->show();
+                        m_toolPanel->raise();
+                    } else {
+                        m_toolPanel->hide();
+                    }
+                }
+                reposition();
+                return;
+            }
+            for (ToolIconButton* other : m_cartesianButtons) other->setActive(false);
+            button->setActive(true);
+            m_cartesianPanelOpen = false;
+            if (m_toolPanel) m_toolPanel->hide();
+            emit cartesianToolChanged(static_cast<int>(entry.kind));
+            reposition();
+        });
+        m_cartesianButtons.push_back(button);
+        layout->addWidget(button);
+    }
+
+    layout->addWidget(new ToolDivider(this));
+
+    MyButton* namesButton = new MyButton("描点显示名字", m_cartesianRow);
+    namesButton->setObjectName("canvasCartPointNames");
+    namesButton->setVariant(MyButton::Ghost);
+    namesButton->setCompact(true);
+    connect(namesButton, &MyButton::clicked, this, [this, namesButton]() {
+        m_cartesianPointNames = !m_cartesianPointNames;
+        namesButton->setText(m_cartesianPointNames ? "描点显示名字" : "描点隐藏名字");
+        emit cartesianPointNamesChanged(m_cartesianPointNames);
+    });
+    layout->addWidget(namesButton);
+
+    m_cartesianRow->setVisible(false);
+}
+
+void CanvasToolBar::setCartesianMode(bool on) {
+    if (m_cartesianMode == on) return;
+    m_cartesianMode = on;
+    if (!m_cartesianRow) buildCartesianRow();
+    if (m_cartesianRow) {
+        m_cartesianRow->setVisible(on);
+        if (!on) {
+            m_cartesianPanelOpen = false;
+            for (ToolIconButton* button : m_cartesianButtons) button->setActive(false);
+            if (m_toolPanel) m_toolPanel->hide();
+        }
+    }
+    updateGeometry();
+    reposition();
+}
+
+void CanvasToolBar::setCartesianPointNames(bool on) {
+    m_cartesianPointNames = on;
+    if (MyButton* button = m_cartesianRow ? m_cartesianRow->findChild<MyButton*>("canvasCartPointNames") : nullptr) {
+        button->setText(on ? "描点显示名字" : "描点隐藏名字");
+    }
+}
+
 void CanvasToolBar::buildMainBar() {
-    QHBoxLayout* layout = new QHBoxLayout(this);
+    QVBoxLayout* root = new QVBoxLayout(this);
+    root->setContentsMargins(0, 0, 0, 0);
+    root->setSpacing(0);
+
+    QWidget* mainRow = new QWidget(this);
+    mainRow->setObjectName("canvasToolMainRow");
+    mainRow->setAttribute(Qt::WA_TranslucentBackground, true);
+    QHBoxLayout* layout = new QHBoxLayout(mainRow);
     layout->setContentsMargins(9, 8, 9, 8);
     layout->setSpacing(2);
+    root->addWidget(mainRow);
 
     const ToolController::Tool tools[] = {
         ToolController::Select, ToolController::AnnotationSelect, ToolController::Pen,
@@ -270,6 +388,57 @@ void CanvasToolBar::buildToolPanel() {
     for (ToolController::Tool tool : tools) {
         m_toolPages->addWidget(createToolPage(static_cast<int>(tool)));
     }
+
+    m_toolPages->addWidget(createCartesianPage(static_cast<int>(ToolIconButton::CartPoint)));
+    m_toolPages->addWidget(createCartesianPage(static_cast<int>(ToolIconButton::CartLine)));
+    m_toolPages->addWidget(createCartesianPage(static_cast<int>(ToolIconButton::CartFunction)));
+}
+
+QWidget* CanvasToolBar::createCartesianPage(int kind) {
+    QWidget* page = new QWidget(m_toolPages);
+    page->setObjectName(QString("canvasToolPage_cart_%1").arg(kind));
+    page->setAttribute(Qt::WA_TranslucentBackground, true);
+    page->setStyleSheet("background:transparent;");
+
+    QVBoxLayout* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(8);
+
+    if (kind == static_cast<int>(ToolIconButton::CartPoint)) {
+        layout->addWidget(makePanelTitle("画点设置", page));
+        QHBoxLayout* nameRow = new QHBoxLayout();
+        nameRow->setSpacing(8);
+        QLabel* nameLabel = makePanelLabel("描点名字", page);
+        nameLabel->setFixedWidth(52);
+        nameRow->addWidget(nameLabel);
+        MyToggleSwitch* nameSwitch = new MyToggleSwitch(page);
+        nameSwitch->setObjectName("canvasCartPointNameSwitch");
+        nameSwitch->setOnText("显示");
+        nameSwitch->setOffText("隐藏");
+        nameSwitch->setChecked(m_cartesianPointNames);
+        connect(nameSwitch, &MyToggleSwitch::toggled, this, [this](bool on) {
+            m_cartesianPointNames = on;
+            emit cartesianPointNamesChanged(on);
+        });
+        nameRow->addWidget(nameSwitch);
+        nameRow->addStretch(1);
+        layout->addLayout(nameRow);
+
+        QLabel* hint = makePanelLabel("单击落点，长按拖动可让圆点跟随鼠标并吸附到网格交点", page);
+        hint->setWordWrap(true);
+        layout->addWidget(hint);
+    } else if (kind == static_cast<int>(ToolIconButton::CartLine)) {
+        layout->addWidget(makePanelTitle("连线设置", page));
+        QLabel* hint = makePanelLabel("奇数次选点为起点（高亮显示），偶数次选点即连成线段；双击线段查看一次方程", page);
+        hint->setWordWrap(true);
+        layout->addWidget(hint);
+    } else {
+        layout->addWidget(makePanelTitle("函数绘制", page));
+        QLabel* hint = makePanelLabel("在左侧「函数绘制」输入 f(x) = 表达式，支持一次 / 二次 / 三次函数，可同时绘制多条曲线", page);
+        hint->setWordWrap(true);
+        layout->addWidget(hint);
+    }
+    return page;
 }
 
 QWidget* CanvasToolBar::createToolPage(int toolIndex) {
@@ -507,6 +676,20 @@ void CanvasToolBar::applyToolPageSize() {
 
 void CanvasToolBar::showToolPage(int toolIndex) {
     if (!m_toolPages) return;
+    if (toolIndex < 0) {
+        const QString target = QString("canvasToolPage_cart_%1").arg(-toolIndex - 1);
+        const int count = m_toolPages->count();
+        for (int i = 0; i < count; ++i) {
+            QWidget* page = m_toolPages->widget(i);
+            if (!page) continue;
+            if (page->objectName() == target) {
+                m_toolPages->setCurrentIndex(i);
+                applyToolPageSize();
+                return;
+            }
+        }
+        return;
+    }
     const int count = m_toolPages->count();
     for (int i = 0; i < count; ++i) {
         QWidget* page = m_toolPages->widget(i);
@@ -668,11 +851,20 @@ void CanvasToolBar::reposition() {
     const int areaW = m_host->width();
     const int areaH = m_host->height();
 
-    const int barW = sizeHint().width();
-    const int barH = sizeHint().height();
-    const int x = qMax(8, (areaW - barW) / 2);
-    const int y = 16;
+    int barW = mainRowWidth();
+    int barH = m_cartesianRow && m_cartesianRow->isVisible()
+                   ? mainRowHeight() + m_cartesianRow->sizeHint().height()
+                   : mainRowHeight();
+
+    int x = qMax(8, (areaW - barW) / 2);
+    int y = 16;
     setGeometry(x, y, barW, barH);
+
+    if (m_cartesianRow && m_cartesianRow->isVisible()) {
+        const QPoint rowPos = mapTo(m_cartesianRow, QPoint(0, 0));
+        m_cartesianRow->setGeometry(rowPos.x(), rowPos.y(), barW, m_cartesianRow->sizeHint().height());
+        m_cartesianRow->raise();
+    }
 
     if (m_moreOpen && m_morePanel) placePanel(m_morePanel, x, barW, y, barH);
     if (m_toolPanelOpen && m_toolPanel) placeToolPanelUnderButton();

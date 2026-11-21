@@ -25,7 +25,8 @@ int main(int argc, char** argv) {
 
     QStringList names = w.probeModuleNames();
     printf("module count = %d\n", names.size());
-    check("module count == 62", names.size() == 62);
+    check("module count == 63", names.size() == 63);
+    check("has cartesian", names.contains("自由结构 - 笛卡尔坐标系"));
     check("has gcd", names.contains("GCD 辗转相除"));
     check("has dfs", names.contains("DFS 深度优先搜索"));
     check("has prim", names.contains("Prim 最小生成树"));
@@ -44,8 +45,9 @@ int main(int argc, char** argv) {
     check("has shell sort", names.contains("希尔排序"));
     check("has fast pow", names.contains("快速幂"));
     check("has sieve", names.contains("埃氏筛"));
+    check("has euler sieve", names.contains("欧拉筛"));
     check("has forward star", names.contains("链式前向星"));
-    check("has dsu path compression", names.contains("并查集 路径压缩"));
+    check("has dsu path compression", names.contains("并查集"));
     check("has subtree size", names.contains("子树大小统计"));
     check("has tree diameter", names.contains("树的直径"));
     check("has dijkstra heap", names.contains("Dijkstra 堆优化"));
@@ -61,7 +63,7 @@ int main(int argc, char** argv) {
     const QStringList targets = {"树状数组 BIT", "完全背包 DP", "Tarjan 割点与桥",
                                  "二分图匹配 - 匈牙利算法", "堆调整 up / down", "堆排序",
                                  "希尔排序", "快速幂", "埃氏筛", "链式前向星",
-                                 "并查集 路径压缩", "子树大小统计", "树的直径",
+                                 "并查集", "子树大小统计", "树的直径",
                                  "Dijkstra 堆优化"};
     for (const QString& target : targets) {
         w.probeSelectModule(target);

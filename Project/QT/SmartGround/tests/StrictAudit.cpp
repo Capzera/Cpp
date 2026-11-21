@@ -221,7 +221,6 @@ int main(int argc, char** argv) {
     mods.push_back(std::make_unique<EulerModule>());
     mods.push_back(std::make_unique<BipartiteModule>());
     mods.push_back(std::make_unique<DSUPathCompressionModule>());
-    mods.push_back(std::make_unique<DSUBasicModule>());
     mods.push_back(std::make_unique<ForwardStarModule>());
     mods.push_back(std::make_unique<TarjanModule>());
     mods.push_back(std::make_unique<HungarianModule>());
@@ -261,6 +260,7 @@ int main(int argc, char** argv) {
     mods.push_back(std::make_unique<FastPowModule>());
     mods.push_back(std::make_unique<GcdModule>());
     mods.push_back(std::make_unique<SieveOfEratosthenesModule>());
+    mods.push_back(std::make_unique<EulerSieveModule>());
     mods.push_back(std::make_unique<TreeSubtreeSizeModule>());
     mods.push_back(std::make_unique<TreeDiameterModule>());
     mods.push_back(std::make_unique<PrefixSumModule>());

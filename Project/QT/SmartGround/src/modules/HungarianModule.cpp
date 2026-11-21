@@ -277,7 +277,7 @@ void HungarianModule::renderFrame(const AnimFrame& frame) {
         if (it != m_edges.end()) {
             it->second->color = kHnTry;
             it->second->update();
-            playEdgeTravel(it->second, kHnTry, 480);
+            playEdgeTravelFrom(it->second, kHnTry, frame.u, 480);
         }
         if (m_augmentTrail && right) {
             if (m_augmentPoints.isEmpty() && left) m_augmentPoints.append(left->pos());
@@ -294,7 +294,7 @@ void HungarianModule::renderFrame(const AnimFrame& frame) {
             it->second->color = kHnFailed;
             it->second->setPenWidth(4.0);
             it->second->update();
-            playEdgeTravel(it->second, kHnFailed, 460);
+            playEdgeTravelFrom(it->second, kHnFailed, frame.val1, 460);
         }
         if (m_augmentTrail && holder) {
             if (m_augmentPoints.isEmpty() && right) m_augmentPoints.append(right->pos());

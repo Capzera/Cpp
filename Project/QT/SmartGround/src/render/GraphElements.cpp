@@ -474,6 +474,14 @@ void GraphEdge::adjust() {
     prepareGeometryChange();
     update();
 }
+void GraphEdge::repointDest(GraphNode* newDest) {
+    if (!newDest || dest == newDest) return;
+    if (dest) dest->removeEdge(this);
+    dest = newDest;
+    if (dest) dest->addEdge(this);
+    prepareGeometryChange();
+    update();
+}
 void GraphEdge::mousePressEvent(QGraphicsSceneMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
         m_dragging = true;
@@ -623,7 +631,11 @@ void GraphEdge::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidg
         const qreal tail = qMax(0.0, head - 0.34);
         if (head - tail > 0.004) {
             QPainterPath beamPath;
-            quadSubPath(p0, c, p1, tail, head, beamPath);
+            if (m_beamReversed) {
+                quadSubPath(p0, c, p1, 1.0 - head, 1.0 - tail, beamPath);
+            } else {
+                quadSubPath(p0, c, p1, tail, head, beamPath);
+            }
             QColor glow(color.red(), color.green(), color.blue());
             QLinearGradient grad = QLinearGradient(beamPath.pointAtPercent(0.0), beamPath.pointAtPercent(1.0));
             grad.setColorAt(0.0, QColor(glow.red(), glow.green(), glow.blue(), 0));

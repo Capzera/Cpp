@@ -4,6 +4,7 @@
 #include "render/GraphElements.h"
 #include <QObject>
 #include <QGraphicsTextItem>
+#include <QPointer>
 #include <map>
 #include <vector>
 
@@ -28,7 +29,16 @@ public:
     std::map<int, QPointF> captureNodePositions() const override;
     void restoreNodePositions(const std::map<int, QPointF>& positions) override;
 
+    QString moduleSettingsTitle() const override;
+    QVector<ModuleField> moduleSettingsFields() const override;
+    void applyModuleSetting(const QString& key, const ModuleField& field) override;
+
 private:
+    void buildStackColumn(std::vector<ArrayBlock*>& column, double x, double baseY, int capacity);
+    void setStackSlot(std::vector<ArrayBlock*>& column, int index, int value, bool filled);
+    void clearStackColumn(std::vector<ArrayBlock*>& column);
+    void clearTrail();
+
     std::vector<AnimFrame> m_frames;
     std::map<int, GraphNode*> m_nodes;
     std::map<std::pair<int, int>, GraphEdge*> m_edges;
@@ -37,14 +47,19 @@ private:
     std::map<int, ArrayBlock*> m_outdegBlocks;
     std::vector<ArrayBlock*> m_stackBlocks;
     std::vector<ArrayBlock*> m_pathBlocks;
+    std::vector<ArrayBlock*> m_resultBlocks;
     QGraphicsTextItem* m_mathText = nullptr;
     QGraphicsTextItem* m_verdictText = nullptr;
+    QGraphicsTextItem* m_bridgeText = nullptr;
+    QPointer<PathTrail> m_trail;
+    QPointer<LinkLine> m_spliceLine;
     std::vector<std::pair<int, int>> m_edgeList;
     GraphModuleUtils::GraphOptions m_options;
     int m_n = 0;
     int m_m = 0;
     bool m_valid = false;
     bool m_directed = false;
+    bool m_highlightBridges = true;
 };
 
 #endif

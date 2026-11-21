@@ -26,6 +26,10 @@ public:
     std::map<int, QPointF> captureNodePositions() const override;
     void restoreNodePositions(const std::map<int, QPointF>& positions) override;
 private:
+    void markEdgeDeleted(int u, int v);
+    void clearEdgeDeleted(int u, int v);
+    void applyIndegree(int node, int value);
+    void paintCycle(int u, int v);
     std::vector<AnimFrame> m_frames;
     std::map<int, GraphNode*> m_nodes;
     std::map<std::pair<int,int>, GraphEdge*> m_edges;
@@ -35,6 +39,7 @@ private:
     PointerBlock* m_headPointer;
     PointerBlock* m_tailPointer;
     QGraphicsTextItem* m_mathText;
+    QGraphicsTextItem* m_legendText;
     std::vector<std::pair<int,int>> m_edgeList;
     GraphModuleUtils::GraphOptions m_options;
     int m_head[101];

@@ -91,34 +91,110 @@ std::vector<AnimFrame> KruskalModule::runAlgorithm() {
         if (std::get<0>(a) != std::get<0>(b)) return std::get<0>(a) < std::get<0>(b);
         return std::get<1>(a) < std::get<1>(b);
     });
-    int parent[101], size[101];
-    for (int i = 1; i <= m_n; ++i) { parent[i] = i; size[i] = 1; }
-    auto findRoot = [&parent](int x) {
-        while (parent[x] != x) x = parent[x];
-        return x;
-    };
+    std::vector<int> parent(m_n + 1, 0);
+    std::vector<int> size(m_n + 1, 1);
+    for (int i = 1; i <= m_n; ++i) parent[i] = i;
     m_frames.push_back({ActionType::KR_RESET, 0, 0, 0, 0, {}, "每个节点初始化为独立集合", "parent[i] = i"});
     int accepted = 0, total = 0;
     for (int i = 0; i < static_cast<int>(edges.size()) && accepted < m_n - 1; ++i) {
         auto [u, v, weight] = edges[i];
-        int rootU = findRoot(u), rootV = findRoot(v);
-        m_frames.push_back({ActionType::KR_CHECK, u, v, weight, i, {rootU, rootV}, QString("检查第 %1 条边 %2—%3，权值 %4").arg(i + 1).arg(u).arg(v).arg(weight), QString("find(%1)=%2，find(%3)=%4").arg(u).arg(rootU).arg(v).arg(rootV)});
+        m_frames.push_back({ActionType::KR_CHECK, u, v, weight, i, {},
+                            QString("检查第 %1 条边 %2—%3，权值 %4").arg(i + 1).arg(u).arg(v).arg(weight),
+                            QString("边 %1：%2 — %3，w = %4").arg(i + 1).arg(u).arg(v).arg(weight)});
+
+        std::vector<int> pathU;
+        int x = u;
+        int guard = 0;
+        while (parent[x] != x && guard++ < 64) {
+            pathU.push_back(x);
+            x = parent[x];
+            m_frames.push_back({ActionType::KR_FIND_STEP, x, 0, parent[x], 0,
+                                {pathU.begin(), pathU.end()},
+                                QString("find(%1)：沿 parent 链从 %2 跳到 %3").arg(u).arg(pathU.back()).arg(x),
+                                QString("parent[%1] = %2").arg(pathU.back()).arg(x)});
+        }
+        pathU.push_back(x);
+        const int rootU = x;
+        m_frames.push_back({ActionType::KR_FIND_ROOT, rootU, u, 1, 0,
+                            {pathU.begin(), pathU.end()},
+                            QString("find(%1) 的根是 %2").arg(u).arg(rootU),
+                            QString("root(%1) = %2").arg(u).arg(rootU)});
+
+        std::vector<int> pathV;
+        x = v;
+        guard = 0;
+        while (parent[x] != x && guard++ < 64) {
+            pathV.push_back(x);
+            x = parent[x];
+            m_frames.push_back({ActionType::KR_FIND_STEP, x, 0, parent[x], 0,
+                                {pathV.begin(), pathV.end()},
+                                QString("find(%1)：沿 parent 链从 %2 跳到 %3").arg(v).arg(pathV.back()).arg(x),
+                                QString("parent[%1] = %2").arg(pathV.back()).arg(x)});
+        }
+        pathV.push_back(x);
+        const int rootV = x;
+        m_frames.push_back({ActionType::KR_FIND_ROOT, rootV, v, 1, 0,
+                            {pathV.begin(), pathV.end()},
+                            QString("find(%1) 的根是 %2").arg(v).arg(rootV),
+                            QString("root(%1) = %2").arg(v).arg(rootV)});
+
         if (rootU == rootV) {
-            m_frames.push_back({ActionType::KR_REJECT, u, v, weight, i, {rootU}, QString("两端已连通，舍弃这条成环边"), QString("root(%1) = root(%2)，跳过").arg(u).arg(v)});
+            std::vector<int> ring;
+            ring.push_back(u);
+            for (size_t k = 0; k < pathU.size(); ++k) ring.push_back(pathU[k]);
+            m_frames.push_back({ActionType::KR_CYCLE, u, v, weight, i, ring,
+                                QString("两个根相同（都是 %1），这条边会和树上路径构成一个环，必须舍弃").arg(rootU),
+                                QString("root(%1) = root(%2) ⇒ 成环，舍弃").arg(u).arg(v)});
             continue;
         }
-        if (size[rootU] < size[rootV]) std::swap(rootU, rootV);
-        parent[rootV] = rootU;
-        size[rootU] += size[rootV];
+
+        int child = rootV;
+        int root = rootU;
+        if (size[rootU] < size[rootV]) std::swap(root, child);
+        parent[child] = root;
+        size[root] += size[child];
         ++accepted;
         total += weight;
-        std::vector<int> group{rootU, rootV, rootV, rootU};
-        for (int node = 1; node <= m_n; ++node) if (findRoot(node) == rootU) group.push_back(node);
-        m_frames.push_back({ActionType::KR_ACCEPT, u, v, weight, i, group, QString("接受边 %1—%2，当前生成树权值 %3").arg(u).arg(v).arg(total), QString("合并集合，MST 权值 = %1 + %2 = %3").arg(total - weight).arg(weight).arg(total)});
+        std::vector<int> group{root, child, child, root};
+        for (int node = 1; node <= m_n; ++node) {
+            int probe = node;
+            int g2 = 0;
+            while (parent[probe] != probe && g2++ < 64) probe = parent[probe];
+            if (probe == root) group.push_back(node);
+        }
+        m_frames.push_back({ActionType::KR_ACCEPT, u, v, weight, i, group,
+                            QString("接受边 %1—%2，当前生成树权值 %3").arg(u).arg(v).arg(total),
+                            QString("合并集合，MST 权值 = %1 + %2 = %3").arg(total - weight).arg(weight).arg(total)});
     }
     if (accepted == m_n - 1) m_frames.push_back({ActionType::KR_FINISH, accepted, m_n, total, 0, {}, QString("最小生成树完成，共接受 %1 条边").arg(accepted), QString("MST 总权值 = %1").arg(total)});
     else m_frames.push_back({ActionType::KR_DISCONNECTED, accepted, m_n, total, 0, {}, QString("图不连通，只能选出 %1/%2 条生成边").arg(accepted).arg(m_n - 1), "不存在覆盖全部节点的生成树"});
     return m_frames;
+}
+
+void KruskalModule::paintFindPath(const std::vector<int>& path, const QColor& color) {
+    for (size_t k = 0; k + 1 < path.size(); ++k) {
+        GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, path[k], path[k + 1]);
+        if (!edge) continue;
+        edge->setColor(color);
+        edge->setPenWidth(3.4);
+        edge->update();
+    }
+    for (int node : path) {
+        if (!m_nodes.count(node)) continue;
+        m_nodes[node]->color = color;
+        m_nodes[node]->setHighlightColor(color);
+        m_nodes[node]->update();
+    }
+}
+
+void KruskalModule::paintCycleRing(int u, int v) {
+    GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, u, v);
+    if (edge) {
+        edge->setColor(QColor(228, 82, 74));
+        edge->setPenWidth(4.0);
+        edge->update();
+        playEdgeTravel(edge, QColor(228, 82, 74), 520);
+    }
 }
 
 void KruskalModule::renderFrame(const AnimFrame& frame) {
@@ -133,7 +209,12 @@ void KruskalModule::renderFrame(const AnimFrame& frame) {
             m_parentBlocks[i]->color = Qt::white;
             m_parentBlocks[i]->update();
         }
-        for (auto& pair : m_edges) pair.second->setColor(Qt::black);
+        for (auto& pair : m_edges) {
+            pair.second->setColor(Qt::black);
+            pair.second->setPenWidth(2.0);
+            pair.second->setPathLabel(QString());
+            pair.second->update();
+        }
         for (ArrayBlock* block : m_edgeBlocks) { block->color = Qt::white; block->update(); }
         m_edgePointer->setOpacity(0);
     } else if (frame.type == ActionType::KR_CHECK) {
@@ -149,17 +230,73 @@ void KruskalModule::renderFrame(const AnimFrame& frame) {
             m_edgePointer->setOpacity(1);
             playPointerMove(m_edgePointer, QPointF(m_edgeBlocks[index]->pos().x() + 30, m_edgeBlocks[index]->pos().y() + 42));
         }
-        if (frame.group.size() > 1) {
-            m_nodes[frame.group[0]]->color = QColor(255, 205, 125);
-            m_nodes[frame.group[1]]->color = QColor(155, 210, 245);
-            m_nodes[frame.group[0]]->update();
-            m_nodes[frame.group[1]]->update();
-            GraphEdge* probe = GraphRenderHelper::findEdge(m_edges, frame.group[0], frame.group[1]);
-            if (probe) {
-                probe->setColor(QColor(255, 205, 125));
-                playEdgeTravel(probe, QColor(255, 205, 125), 420);
+        if (m_nodes.count(frame.u)) {
+            m_nodes[frame.u]->color = QColor(255, 205, 125);
+            m_nodes[frame.u]->update();
+            playNodeWake(m_nodes[frame.u], QColor(255, 190, 90), 30.0, 440);
+        }
+        if (m_nodes.count(frame.v)) {
+            m_nodes[frame.v]->color = QColor(155, 210, 245);
+            m_nodes[frame.v]->update();
+            playNodeWake(m_nodes[frame.v], QColor(140, 190, 245), 30.0, 440);
+        }
+        GraphEdge* probe = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v);
+        if (probe) {
+            probe->setColor(QColor(255, 205, 125));
+            playEdgeTravel(probe, QColor(255, 205, 125), 420);
+        }
+    } else if (frame.type == ActionType::KR_FIND_STEP) {
+        const std::vector<int>& path = frame.group;
+        for (int node : path) {
+            if (!m_nodes.count(node)) continue;
+            m_nodes[node]->color = QColor(214, 180, 245);
+            m_nodes[node]->setHighlightColor(QColor(214, 180, 245));
+            m_nodes[node]->update();
+            if (m_animated) playNodeRipple(m_nodes[node], QColor(190, 150, 235), 30.0, 420);
+        }
+        if (path.size() >= 2) {
+            GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, path[path.size() - 2], path[path.size() - 1]);
+            if (edge) {
+                edge->setColor(QColor(158, 122, 214));
+                edge->setPenWidth(3.2);
+                edge->update();
+                playEdgeTravel(edge, QColor(158, 122, 214), 440);
             }
-            playNodeWake(m_nodes[frame.group[0]], QColor(255, 205, 125), 30.0, 440);
+        }
+    } else if (frame.type == ActionType::KR_FIND_ROOT) {
+        const std::vector<int>& path = frame.group;
+        paintFindPath(path, QColor(158, 122, 214));
+        if (m_nodes.count(frame.u)) {
+            m_nodes[frame.u]->color = QColor(150, 214, 170);
+            m_nodes[frame.u]->setHighlightColor(QColor(150, 214, 170));
+            m_nodes[frame.u]->update();
+            if (m_animated) {
+                playScalePulse(m_nodes[frame.u], 1.24, 260);
+                playNodeRipple(m_nodes[frame.u], QColor(150, 214, 170), 44.0, 580);
+            }
+        }
+    } else if (frame.type == ActionType::KR_CYCLE) {
+        const std::vector<int>& ring = frame.group;
+        for (int node : ring) {
+            if (!m_nodes.count(node)) continue;
+            m_nodes[node]->color = QColor(245, 155, 155);
+            m_nodes[node]->setHighlightColor(QColor(228, 82, 74));
+            m_nodes[node]->update();
+            playNodePop(m_nodes[node], 0.94, 280);
+        }
+        for (size_t k = 0; k + 1 < ring.size(); ++k) {
+            GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, ring[k], ring[k + 1]);
+            if (!edge) continue;
+            edge->setColor(QColor(228, 82, 74));
+            edge->setPenWidth(3.6);
+            edge->update();
+        }
+        paintCycleRing(frame.u, frame.v);
+        int index = frame.val2;
+        if (index >= 0 && index < static_cast<int>(m_edgeBlocks.size())) {
+            m_edgeBlocks[index]->color = QColor(240, 170, 165);
+            m_edgeBlocks[index]->update();
+            playScalePulse(m_edgeBlocks[index], 0.92, 260);
         }
     } else if (frame.type == ActionType::KR_ACCEPT) {
         GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v);

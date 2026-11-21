@@ -108,12 +108,57 @@ void TopologicalSortModule::buildLayout(QGraphicsScene* scene, const QString& in
         scene->addItem(orderBlock);
         m_orderBlocks[i - 1] = orderBlock;
     }
+
+    m_legendText = createScriptText(scene,
+        QString("图例：橙=入度为0可出队　绿=已入拓扑序　✕=已删除的边　-1=该边终点入度减1"));
+    m_legendText->setFont(QFont("Microsoft YaHei", 10, QFont::Bold));
+    m_legendText->setDefaultTextColor(QColor(110, 125, 145));
+    m_legendText->setPos(35, degreeY + 248);
+
     m_headPointer = new PointerBlock("H", QColor(45, 130, 210));
     m_tailPointer = new PointerBlock("T", QColor(210, 95, 50));
     m_headPointer->setOpacity(0);
     m_tailPointer->setOpacity(0);
     scene->addItem(m_headPointer);
     scene->addItem(m_tailPointer);
+}
+
+void TopologicalSortModule::markEdgeDeleted(int u, int v) {
+    GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, u, v, true);
+    if (!edge) return;
+    edge->setColor(QColor(196, 200, 208));
+    edge->setPenWidth(2.0);
+    edge->setPathLabel("✕  -1");
+    edge->setPathLabelColor(QColor(214, 96, 84));
+    edge->update();
+}
+
+void TopologicalSortModule::clearEdgeDeleted(int u, int v) {
+    GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, u, v, true);
+    if (!edge) return;
+    edge->setPathLabel(QString());
+    edge->update();
+}
+
+void TopologicalSortModule::applyIndegree(int node, int value) {
+    auto it = m_degreeBlocks.find(node);
+    if (it == m_degreeBlocks.end()) return;
+    it->second->value = value;
+    it->second->customValue.clear();
+    it->second->showValue = true;
+    it->second->color = value == 0 ? QColor(145, 220, 235) : QColor(255, 220, 165);
+    it->second->update();
+}
+
+void TopologicalSortModule::paintCycle(int u, int v) {
+    if (!m_nodes.count(u) || !m_nodes.count(v)) return;
+    GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, u, v, true);
+    if (edge) {
+        edge->setColor(QColor(228, 82, 74));
+        edge->setPenWidth(4.0);
+        edge->update();
+        playEdgeTravel(edge, QColor(228, 82, 74), 520);
+    }
 }
 
 std::vector<AnimFrame> TopologicalSortModule::runAlgorithm() {
@@ -143,16 +188,26 @@ std::vector<AnimFrame> TopologicalSortModule::runAlgorithm() {
         for (int edge = m_head[u]; edge; edge = m_next[edge]) {
             int v = m_to[edge];
             int value = --degree[v];
-            m_frames.push_back({ActionType::TS_SCAN_EDGE, u, v, value, 0, {}, QString("删除边 %1 → %2，入度变为 %3").arg(u).arg(v).arg(value), QString("indegree[%1]-- = %2").arg(v).arg(value)});
+            m_frames.push_back({ActionType::TS_EDGE_DELETE, u, v, value, 0, {},
+                                QString("删除边 %1 → %2，这条边的终点入度减 1").arg(u).arg(v),
+                                QString("删除 %1 → %2　⇒　indegree[%3] = %4")
+                                    .arg(u).arg(v).arg(v).arg(value)});
             if (value == 0) {
                 queue[tail] = v;
-                m_frames.push_back({ActionType::TS_ENQUEUE, v, tail, tail + 1, 0, {}, QString("节点 %1 入度归零，进入队列").arg(v), QString("indegree[%1] = 0 ⇒ q[%2] = %1").arg(v).arg(tail)});
+                m_frames.push_back({ActionType::TS_NEW_ZERO, v, tail, tail + 1, 0, {},
+                                    QString("节点 %1 的入度归零，成为新的零点").arg(v),
+                                    QString("indegree[%1] = 0 ⇒ 进入队列").arg(v)});
                 ++tail;
             }
         }
     }
     if (count < m_n) {
-        for (int i = 1; i <= m_n; ++i) if (degree[i] > 0) m_frames.push_back({ActionType::TS_BLOCKED, i, 0, degree[i], 0, {}, QString("节点 %1 仍有入度 %2，受有向环阻塞").arg(i).arg(degree[i]), QString("indegree[%1] = %2 > 0").arg(i).arg(degree[i])});
+        for (int i = 1; i <= m_n; ++i) {
+            if (degree[i] <= 0) continue;
+            m_frames.push_back({ActionType::TS_CYCLE, i, 0, degree[i], 0, {},
+                                QString("节点 %1 仍有入度 %2，被有向环阻塞").arg(i).arg(degree[i]),
+                                QString("indegree[%1] = %2 > 0").arg(i).arg(degree[i])});
+        }
     }
     m_frames.push_back({ActionType::TS_FINISH, count, m_n, 0, 0, {}, count == m_n ? "拓扑排序完成" : QString("只输出 %1/%2 个节点，图中存在有向环").arg(count).arg(m_n), count == m_n ? "有向无环图" : "输出数 < n ⇒ 存在有向环"});
     return m_frames;
@@ -171,7 +226,12 @@ void TopologicalSortModule::renderFrame(const AnimFrame& frame) {
         }
         for (auto& pair : m_queueBlocks) { pair.second->showValue = false; pair.second->color = Qt::white; pair.second->update(); }
         for (auto& pair : m_orderBlocks) { pair.second->showValue = false; pair.second->color = Qt::white; pair.second->update(); }
-        for (auto& pair : m_edges) pair.second->setColor(Qt::black);
+        for (auto& pair : m_edges) {
+            pair.second->setColor(Qt::black);
+            pair.second->setPenWidth(2.0);
+            pair.second->setPathLabel(QString());
+            pair.second->update();
+        }
         m_headPointer->setOpacity(0);
         m_tailPointer->setOpacity(0);
     } else if (frame.type == ActionType::TS_DEGREE) {
@@ -216,18 +276,58 @@ void TopologicalSortModule::renderFrame(const AnimFrame& frame) {
         playNodePop(m_nodes[frame.u], 1.08, 260);
     } else if (frame.type == ActionType::TS_SCAN_EDGE) {
         for (auto& pair : m_edges) if (pair.second->color == QColor(235, 155, 55)) pair.second->setColor(QColor(170, 195, 220));
-        GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v);
+        GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, frame.u, frame.v, true);
         if (edge) {
             edge->setColor(QColor(235, 155, 55));
             playEdgeTravel(edge, QColor(235, 155, 55), 440);
         }
-        m_degreeBlocks[frame.v]->value = frame.val1;
-        m_degreeBlocks[frame.v]->color = frame.val1 == 0 ? QColor(145, 220, 235) : QColor(255, 220, 165);
-        m_degreeBlocks[frame.v]->update();
-        if (frame.val1 == 0) {
-            m_nodes[frame.v]->color = QColor(145, 220, 235);
-            m_nodes[frame.v]->update();
-            playDiscover(m_nodes[frame.v], QColor(110, 210, 235), 46.0, 620);
+        applyIndegree(frame.v, frame.val1);
+    } else if (frame.type == ActionType::TS_EDGE_DELETE) {
+        const int u = frame.u, v = frame.v;
+        GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, u, v, true);
+        if (edge) {
+            edge->setColor(QColor(235, 155, 55));
+            playEdgeTravel(edge, QColor(235, 155, 55), 440);
+        }
+        markEdgeDeleted(u, v);
+        applyIndegree(v, frame.val1);
+        if (m_degreeBlocks.count(v)) {
+            playCellRipple(m_degreeBlocks[v], QColor(255, 180, 90), 0.85, 480);
+            playNodePop(m_degreeBlocks[v], 1.14, 240);
+        }
+        if (m_nodes.count(v)) {
+            m_nodes[v]->color = frame.val1 == 0 ? QColor(145, 220, 235) : QColor(255, 220, 165);
+            m_nodes[v]->update();
+        }
+    } else if (frame.type == ActionType::TS_NEW_ZERO) {
+        const int v = frame.u;
+        applyIndegree(v, 0);
+        if (m_nodes.count(v)) {
+            m_nodes[v]->color = QColor(145, 220, 235);
+            m_nodes[v]->update();
+            playDiscover(m_nodes[v], QColor(110, 210, 235), 46.0, 620);
+        }
+        playValueFlight(m_nodes[v]->pos(), m_queueBlocks[frame.v], v, QColor(190, 240, 245), true);
+        if (frame.v == 0) m_headPointer->setOpacity(1);
+        const int next = frame.v + 1;
+        if (next < m_n) m_tailPointer->setOpacity(1);
+        else m_tailPointer->setOpacity(0);
+        if (frame.v == 0) playPointerArrange({m_headPointer, m_tailPointer}, {m_queueBlocks[0], m_queueBlocks[0]});
+        else if (next < m_n) playPointerArrange({m_headPointer, m_tailPointer}, {m_queueBlocks[0], m_queueBlocks[next]});
+    } else if (frame.type == ActionType::TS_CYCLE) {
+        const int u = frame.u;
+        if (m_nodes.count(u)) {
+            m_nodes[u]->color = QColor(228, 82, 74);
+            m_nodes[u]->setHighlightColor(QColor(228, 82, 74));
+            m_nodes[u]->update();
+            playNodePop(m_nodes[u], 0.93, 280);
+        }
+        if (m_degreeBlocks.count(u)) {
+            m_degreeBlocks[u]->color = QColor(245, 155, 155);
+            m_degreeBlocks[u]->update();
+        }
+        for (const auto& edge : m_edgeList) {
+            if (edge.first == u) paintCycle(edge.first, edge.second);
         }
     } else if (frame.type == ActionType::TS_BLOCKED) {
         m_nodes[frame.u]->color = QColor(245, 155, 155);
@@ -255,6 +355,7 @@ void TopologicalSortModule::reset() {
     m_headPointer = nullptr;
     m_tailPointer = nullptr;
     m_mathText = nullptr;
+    m_legendText = nullptr;
     m_n = 0;
     m_m = 0;
     m_edgeCount = 0;
@@ -273,4 +374,5 @@ void TopologicalSortModule::releaseSceneItems() {
     m_headPointer = nullptr;
     m_tailPointer = nullptr;
     m_mathText = nullptr;
+    m_legendText = nullptr;
 }

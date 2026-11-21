@@ -248,7 +248,7 @@ int HuffmanTreeModule::queueIndexOf(int id, const std::vector<int>& queue) const
 }
 
 void HuffmanTreeModule::applyTreeRows(const HuffmanForest& forest, int duration) {
-    std::vector<QGraphicsItem*> movers;
+    std::vector<QGraphicsObject*> movers;
     std::vector<QPointF> goals;
     for (const auto& kv : forest.rows) {
         auto it = m_treeNodes.find(kv.first);
@@ -262,7 +262,7 @@ void HuffmanTreeModule::applyTreeRows(const HuffmanForest& forest, int duration)
 }
 
 void HuffmanTreeModule::applyQueueOrder(const std::vector<int>& order, int duration) {
-    std::vector<QGraphicsItem*> movers;
+    std::vector<QGraphicsObject*> movers;
     std::vector<QPointF> goals;
     for (size_t i = 0; i < order.size(); ++i) {
         auto it = m_queueNodes.find(order[i]);

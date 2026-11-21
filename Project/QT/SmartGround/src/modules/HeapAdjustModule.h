@@ -21,6 +21,7 @@ public:
 private:
     std::vector<AnimFrame> m_frames;
     QGraphicsTextItem* m_mathText = nullptr;
+    QGraphicsTextItem* m_formulaText = nullptr;
     bool m_valid = false;
 };
 

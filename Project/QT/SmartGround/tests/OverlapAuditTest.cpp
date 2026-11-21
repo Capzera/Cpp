@@ -14,8 +14,8 @@
 #include "modules/PrefixSumModule.h"
 #include "modules/Knapsack01Module.h"
 #include "modules/SegmentTreeBuildModule.h"
-#include "modules/DSUBasicModule.h"
 #include "modules/TopologicalSortModule.h"
+#include "modules/DSUPathCompressionModule.h"
 #include "modules/GcdModule.h"
 #include "modules/DfsModule.h"
 #include "modules/PrimModule.h"
@@ -184,7 +184,7 @@ int main(int argc, char** argv) {
     auditModule<PrefixSumModule>("prefix: baseline no overlap");
     auditModule<Knapsack01Module>("knapsack: no overlap");
     auditModule<SegmentTreeBuildModule>("segmenttree: no overlap");
-    auditModule<DSUBasicModule>("dsu: no overlap");
+    auditModule<DSUPathCompressionModule>("dsu: no overlap");
     auditModule<TopologicalSortModule>("topo: no overlap");
     auditModule<GcdModule>("gcd: no overlap");
     auditModule<DfsModule>("dfs: no overlap");

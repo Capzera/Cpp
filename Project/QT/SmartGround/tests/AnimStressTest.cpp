@@ -9,7 +9,6 @@
 #include "modules/DijkstraNaiveModule.h"
 #include "modules/KruskalModule.h"
 #include "modules/TarjanModule.h"
-#include "modules/DSUBasicModule.h"
 #include "modules/HeapBasicsModule.h"
 #include "modules/StackModule.h"
 #include "modules/QueueModule.h"

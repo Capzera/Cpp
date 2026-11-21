@@ -7,6 +7,8 @@ alwaysApply: true
 
 Treat `.cursorrules` and `Cursor_Workflow.md` as the product requirements for every task in this repository. Read the current project summary, module status, algorithm outline, and bug log before substantial work; update the relevant docs with every implementation or bug fix.
 
+- **`docs/AnimationAesthetics.md` is the visual constitution of this project.** Before writing any animation code, reading it is mandatory: it defines the color semantics (color = algorithmic fact), the four edge motions, the layout layering rules, the toggle-switch semantics (knob on the right = that state is active), the state-completeness clauses, and the pre-delivery checklist. Every new module and every animation deepening must conform to it; when a new visual concept appears, add it to that file first, then to the code.
+
 - For a new algorithm module, first present an animation storyboard specifying pointers, auxiliary visual structures, labels, and color/state meanings. Wait for the user's approval before implementing the module.
 - Add no C++ code comments. Use readable four-space indentation and compact C++17 style.
 - Keep one algorithm concept per class; all modules inherit `IModule`.

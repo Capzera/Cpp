@@ -27,6 +27,9 @@ class CanvasToolBar;
 class CanvasBrushSlider;
 class TableToolBar;
 class CanvasTableItem;
+class CartesianModule;
+class CartesianEngine;
+class CartesianPanel;
 class MyTextEdit;
 class MySegmentedControl;
 
@@ -59,6 +62,14 @@ private slots:
     void onClearAnnotations();
     void onAnnotationVisibilityToggled();
     void onAnnotationLockToggled();
+    void onCartesianPointEdited(int index, const QString& name, double x, double y, bool nameHidden);
+    void onCartesianPointStyleEdited(int index, const QColor& color, qreal size, int shape, bool nameHidden);
+    void onCartesianFunctionStyleEdited(const QString& name, const QColor& color);
+    void onCartesianFunctionAdded(const QString& expression);
+    void onCartesianFunctionRemoved(const QString& name);
+    void onCartesianToolChanged(int kind);
+    void onCartesianPointNamesChanged(bool on);
+    void refreshCartesianViewport();
 private:
     void setupUI();
     void applyStyleSheet();
@@ -137,6 +148,9 @@ private:
     MyButton* m_btnLockAnnotations = nullptr;
     bool m_annotationsVisible = true;
     bool m_annotationsLocked = false;
+    CartesianModule* m_cartesianModule = nullptr;
+    CartesianPanel* m_cartesianPanel = nullptr;
+    bool m_cartesianActive = false;
     friend class UiBehaviorProbe;
     friend class GroupAProbe;
 

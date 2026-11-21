@@ -1,7 +1,73 @@
 # SmartGround 模块开发状态跟踪
 
-> **更新时间**: 2026-11-20 - 第 28 批（数组下标归位 + 指针轴向对齐 + 图形空心实心语义修正）
-> **当前进度**: 62 个唯一可运行模块（62 个下拉条目） | 0 个头文件骨架
+> **更新时间**: 2026-11-21 - 第 32 批（新增「自由结构 - 笛卡尔坐标系」模块，GeoGebra 对标）
+> **当前进度**: 63 个唯一可运行模块（63 个下拉条目） | 0 个头文件骨架
+> **核心变化**：本批新增**笛卡尔坐标系模块**——理论上无限延伸的网格画布（视口裁剪），滚轮缩放驱动**分度尺阶梯**（1.0 / 0.5 / 0.2 / 0.1 / 0.05 / 0.02 / 0.01），画布工具栏**扩展第二排**（画点 / 连线 / 函数），左侧新增**对象列表面板**（点坐标管理 + 样式设置 + `f(x) = 表达式` 函数录入），一次 / 二次 / 三次函数**按可视范围自适应绘制**，平移出视口即消失、移回即恢复。
+
+## 2026-11-21 第 32 批：笛卡尔坐标系新模块（GeoGebra 对标）
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 表达式解析器 | `src/core/CartesianExpression.{h,cpp}`（新建） | 递归下降解析器，支持**一次 / 二次 / 三次**多项式；**隐式乘法**（`2x`、`3x^2`、`(x+1)(x-1)`）由 `startsFactor()` + `multiplyTerms()` 支持；`parse()` 返回 `Result{c3,c2,c1,c0,error}`；`evaluate()` 求值；`describe()` 输出 `y = 3x^2 - 8x + 7` 形式的规范式；`describeSegment()` 输出线段一次方程 `y = kx + b`（含水平 / 垂直退化情形） |
+| 坐标引擎 | `src/render/CartesianElements.{h,cpp}`（新建） | `CartesianEngine` 负责数学坐标 ↔ 场景坐标换算（`scenePos = (originX + x·scale, originY - y·scale)`）、**分度尺阶梯** `stepLadder()`（100 → 0.01 共 13 级）、`snapMath()` / `snapScene()` 网格吸附、`zoomBy()` 锚点缩放（缩放时保持鼠标下数学坐标不变）、`updateViewport()` 驱动曲线可视范围 |
+| 网格渲染 | `CartesianGridItem` | 主/次网格线 + 坐标轴 + 刻度数字，全部按当前视口裁剪绘制；`setViewport()` 记录可视矩形并预留 400px 余量；`boundingRect()` 跟随视口，避免超大 `boundingRect` 拖慢渲染 |
+| 点对象 | `CartesianPointItem` | 原生 `QGraphicsObject`（**非动画属性**，拖动零延迟）；`hoverEnterEvent` 切换 `Qt::PointingHandCursor`（食指向上）；形状支持圆 / 方 / 菱 / 叉四种；名字标签白底圆角；`nameHidden` 支持隐藏名字；`setMathPos()` 统一入口保证吸附与位置一致 |
+| 线段对象 | `CartesianSegmentItem` | 两端点连线；`refreshGeometry()` 跟随端点位移；`hitTest()` 用点到线段距离做命中；双击显示一次方程标签 |
+| 函数曲线 | `CartesianCurveItem` | **多段折线 `m_runs`** 结构：出界的部分只**切断当前段**而不清空整条曲线（修复「二次曲线整条消失」缺陷）；`setVisibleRange(minX,maxX,minY,maxY)` 按视口数学范围自适应重绘，平移出视口则无可见段、移回即恢复 |
+| 模块封装 | `src/modules/CartesianModule.{h,cpp}`（新建） | 继承 `FreeStructureBase`，模块名 `自由结构 - 笛卡尔坐标系`；`isCartesian()` 返回 true 供 UI 切换第二排工具栏；`moduleSettingsFields()` 提供「显示网格 / 显示刻度数字 / 描点时显示名字 / 显示方程」四个开关；`buildLayout()` 挂载引擎到场景；`releaseSceneItems()` **同时 `setEnabled(false)`**（修复切走后引擎仍启用） |
+| 画布工具栏 | `src/ui/widgets/CanvasToolBar.{h,cpp}`、`src/ui/widgets/ToolIconButton.{h,cpp}` | 新增 `CartPoint` / `CartLine` / `CartFunction` 三个图标；`setCartesianMode()` 控制**第二排工具行**显隐；画点工具的**二次点击展开设置卡**（描点是否带名字）；图标绘制：画点 = 鼠标尖带圆点、连线 = 直线两端带小圆点、函数 = 抛物线 |
+| 左侧面板 | `src/ui/widgets/CartesianPanel.{h,cpp}`（新建） | 对象列表（每行：颜色圆点 + 名字 + 坐标 + ⋮ 菜单）；⋮ 菜单 →「编辑名称与坐标」「设置」「删除」；**样式卡**用现有 `MyColorPicker`（无极变色）+ `MySlider`（大小）+ `MySegmentedControl`（形状）+ `MyToggleSwitch`（隐藏名字），**不含「高级 / 脚本」子菜单**；函数区输入 `f(x) = 表达式` 并实时校验；`CartesianPointEditor` 模态对话框同时编辑**名字与坐标**并带「隐藏名字」开关 |
+| 交互实现 | `src/canvas/ToolController.{h,cpp}` | 新增 `CartPoint` / `CartLine` 工具枚举与 `setCartesianEngine()`；`beginCartesianPoint()` 单击落点并吸附到当前分度尺粗线交点，长按拖动时 `updateCartesianPoint()` **逐帧跟手**（无 Qt 属性动画，60fps 无卡顿）；`beginCartesianLink()` 奇数次选点高亮起点、偶数次选点连成线段；`cartesianDoubleClick()` 统一分发点 / 线段 / 曲线双击 |
+| 缩放与平移 | `src/canvas/CanvasView.{h,cpp}` | 笛卡尔模式下滚轮不再缩放 `QGraphicsView` 变换，而是调用 `CartesianEngine::zoomBy()` **改变分度尺**；中键平移改为移动 `originScene()`；`resizeEvent()` 同步视口 |
+| 面板联动 | `src/ui/MainWindow.{h,cpp}` | `onModuleChanged()` 中根据 `isCartesian()` 切换第二排工具栏与左侧面板显隐，并把引擎注入 `ToolController` 与 `CanvasView`；新增 `onCartesianToolChanged` / `onCartesianPointNamesChanged` / `onCartesianPointEdited` / `onCartesianPointStyleEdited` / `onCartesianFunctionStyleEdited` / `onCartesianFunctionAdded` / `onCartesianFunctionRemoved` / `refreshCartesianViewport`；析构时先解绑引擎指针再释放模块（修复退出崩溃） |
+| 新增测试 | `tests/CartesianModuleTest.cpp`（新建，11 组断言）、`tests/CartesianVisualTest.cpp`（新建，8 项断言 + 9 张渲染图）、`tests/CartesianPixelTest.cpp`（新建，15 项像素级断言）、`tests/CartesianUiTest.cpp`（新建，18 项 UI 集成断言） | 覆盖：表达式解析（一次 / 二次 / 三次 / 隐式乘法 / 非法输入）、方程描述、坐标换算往返、网格吸附、分度尺阶梯随缩放变化、点 / 线段 / 函数增删改查、像素级验证坐标轴 / 网格 / 点标记 / 名字标签 / 线段中点 / 曲线着色、面板与工具栏显隐联动、切走模块后引擎禁用 |
+| 全量回归 | `tests/build/` | **79 个测试可执行文件全部零失败**；`SmartGroundGroupAUi` 模块计数更新为 63 并新增笛卡尔存在性断言；`SmartGround.exe` Release 构建成功 |
+
+## 2026-11-20 第 31 批：算法动画深化 + 欧拉筛新模块
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 帧类型扩展 | `src/engine/AnimFrame.h` | 新增 24 个动作类型：归并 `MS_SPLIT/MS_REC/MS_MERGE_OPEN/MS_CMP/MS_PICK/MS_APPEND/MS_COPY/MS_DONE`、背包 `KN_COMPARE`、并查集 `DP_NO_COMPRESS/DP_HEIGHT`、欧拉筛 `ES_RESET/ES_OUTER/ES_INNER/ES_CROSS/ES_PRIME_ADD/ES_PRIME_PICK/ES_BREAK/ES_DONE` |
+| 归并排序分镜独立 | `src/modules/MergeSortModule.{h,cpp}` | **不再复用快排的 `AR_*` 帧族**，改用专属 `MS_*`；布局新增 `temp[]` 合并输出缓冲行（y=400）与底部讲解行（y=620）；合并过程为「两段队首对比高亮 → 胜者从原格飞入 temp → temp 整体写回原区间」；左段染蓝、右段染紫，已排好序的区间染绿，整体有序后染深绿 |
+| 01 背包先比较后跳 | `src/modules/Knapsack01Module.cpp` | 新增 `KN_COMPARE` 帧：`skip` 与 `take` 两个候选**同时**高亮 + 涟漪对比，随后**只有胜者**通过 `playValueFlight` 飞向目标格；`KN_CANDIDATE` 帧退化为「只高亮来源格、不再抢先飞行」；容量不足时只发 `KN_COMPARE`（`take = -1`）并给出「只能不选」的公式 |
+| 并查集双模式 | `src/modules/DSUPathCompressionModule.{h,cpp}` | 新增 `moduleSettingsFields()`（`makeSegment`「有路径压缩 / 无路径压缩」）与 `applyModuleSetting()`；无压缩模式改发 `DP_NO_COMPRESS` 帧（路径染红、明确标注「父指针保持原样」）；两模式都发 `DP_HEIGHT` 帧，底部常驻**树高标尺**；默认数据改为 `9\n0 0 1 2 3 4 0 6 0`（树高 5 → 压缩后 1） |
+| 新增欧拉筛 | `src/modules/EulerSieveModule.{h,cpp}`（新建） | 复用埃氏筛的 10 列矩阵布局（行距 92px 留出指针空间）；右侧独立**质数库 `prime[]`** 区域（5 列网格）；`i` 指针（橙，向下指当前外层数）、`p` 指针（紫，向上指当前质数）；`ES_INNER` 高亮 `i*p` 目标格，`ES_CROSS` 划除并注明「最小质因子 = p」，`ES_BREAK` 把 `i` 所在格染红说明「`i % p == 0` → 后面的 p 不用试了」 |
+| 边原地改指向 | `src/render/GraphElements.{h,cpp}` | `GraphEdge` 新增 `repointDest(GraphNode*)`，路径压缩时把已有父边**原地改指向**根结点（自动从旧 dest 解绑、向新 dest 绑定），无需重建边对象 |
+| 新增测试 | `tests/Batch31Test.cpp`（新建，30 项断言）、`tests/Batch31Visual.cpp`（新建，5 张渲染图） | 断言覆盖：归并不复用 `AR_*` 帧、最终数组有序、合并次数 = n-1；背包每个 `KN_DECIDE` 前必有 `KN_COMPARE`；并查集两模式的帧类型互斥且树高 5 → 1；欧拉筛**每个合数只被划一次**（42 个合数无重复）、每次 `break` 都满足 `i % p == 0`、最终 42 划除 / 17 保留；埃氏筛行为**未被改动** |
+| 全量回归 | `tests/build/` | **77 个测试可执行文件全部零失败**；`SmartGroundStrictAudit` 63 模块 `TOTAL OVERLAP CONFLICTS = 0` / `TOTAL TIP FAILURES = 0` / `TOTAL AXIS FAILURES = 0`；`SmartGround.exe` Release 构建成功 |
+
+## 2026-11-20 第 30 批：视觉缺陷修复 + 美学宪法建立
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 美学宪法 | `docs/AnimationAesthetics.md`（新建） | 8 大章节：三条底线 / 色彩语义表 / 运动语义表（四种边运动 + 五种节点运动 + 指针运动 + 轨迹 + 时长基准）/ 布局分层规范 / 控件语义规范 / 状态完整性条款 / 文案规范 / 帧设计规范 / 新模块自检清单（10 条） |
+| 规则接入 | `.cursorrules` / `AGENTS.md` / `.cursor/rules/smartground-project.mdc` / `Cursor_Workflow.md` | 四处均加入「动笔前必须先读 `docs/AnimationAesthetics.md`」的强制条款；`Cursor_Workflow.md` 第 2 节补入颜色语义、运动方向、状态收尾、控件语义四条宪法 |
+| 开关语义修正 | `src/ui/widgets/MyToggleSwitch.cpp` | **统一为「滑块在右 = 该状态开启」**：左侧画 `m_offText`、右侧画 `m_onText`，高亮跟随滑块位置；`trackRect()` 改用 `m_offText` 宽度计算左侧留白。影响全项目所有 toggle（图的类型 / 高亮延迟边 / 显示反例对照 / 右键擦除） |
+| 边运动方向 | `src/render/GraphElements.{h,cpp}` | `GraphEdge` 新增 `m_beamReversed` 属性；`paint()` 反向时用 `quadSubPath(p0, c, p1, 1.0 - head, 1.0 - tail)`，光束头部与拖尾一并反向 |
+| 边运动 API | `src/modules/IModule.{h,cpp}` | 新增 `playEdgeTravelFrom(edge, color, fromNodeId, ms)` / `playEdgeTraceFrom(edge, color, fromNodeId, ms)` / `startBeamFrom(...)`；内部比对 `edge->dest->id == fromNodeId` 自动判定反向 |
+| 二分图队列 | `src/modules/BipartiteModule.{h,cpp}` | 新增 `BP_QUEUE_CLEAR` 帧类型（BFS 结束、结论之前清空整行队列并隐藏双指针）；修正 `BP_DEQUEUE` 的 `val1` 取值时机（改为 `++head` 之前）；队列行下移至 y=560，双指针改 `PointerBlock::Up` + `belowCell` 锚在槽位下方；`col[]` 行 → y=470，结论文本 → y=630，奇环文本 → y=666 |
+| 欧拉延迟边 | `src/modules/EulerModule.cpp` | `EU_EDGE` / `EU_BRIDGE` 改用带起点 id 的运动 API；`EU_BRIDGE` 帧的 `u`/`v` 改为「回溯出发点 → 边的另一端」，延迟边高亮方向与实际回溯方向一致 |
+| 匈牙利增广边 | `src/modules/HungarianModule.cpp` | `HN_TRY` / `HN_OCCUPIED` 改用 `playEdgeTravelFrom` 并传入起点 id，增广路的试探方向与递归让位方向一致 |
+| 新增测试 | `tests/VisualFixTest.cpp`（新建） | 5 项断言：队列行最终无残留值 / tail 指针不越界 / 指针标签不越出画布 / 欧拉桥接帧产出 / 开关两态快照渲染；`tests/CMakeLists.txt` 注册 `SmartGroundVisualFix` |
+| 全量回归 | `tests/build/` | **76 个测试可执行文件全部零失败**；`SmartGroundStrictAudit` 62 模块 × 2 轮 `TOTAL OVERLAP CONFLICTS = 0` / `TOTAL TIP FAILURES = 0` / `TOTAL AXIS FAILURES = 0`；`SmartGround.exe` Release 构建成功 |
+
+## 2026-11-20 第 29 批：四个已有模块的动画深化（分镜落地）
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 帧类型扩展 | `src/engine/AnimFrame.h` | 新增 20 个动作类型：`TR_QUERY_RESET/CHAR/HIT/MISS/FOUND`、`TR_ORDER_START/NODE/DONE`、`IV_REJECT_BAND/PHASE_RESET/COUNTER_COMPARE/COUNTER_PICK/COUNTER_DONE`、`EU_DEADEND/BACKTRACK/SPLICE/TRAIL/BRIDGE`、`BP_ENQUEUE/DEQUEUE/ODD_CYCLE` |
+| Trie 三模式 | `src/modules/TrieModule.{h,cpp}` | 新增 `moduleSettingsFields()`（`makeSegment` 三模式 + `makeText` 查询词）与 `applyModuleSetting()`；`runAlgorithm()` 拆成 `runInsertMode()` / `runQueryMode()` / `runOrderMode()` 三条独立路径。查询模式新增 `buildStaticTrie()` 先建静态树再逐字符下降；字典序模式用显式栈做「字符升序 DFS」，`TR_ORDER_NODE` 的 `v` 字段区分「进入子树」与「输出单词」，`val1` 携带输出序号 |
+| Trie 指针 | `src/modules/TrieModule.cpp` | 保留字符行指针 `i`（`PointerGeometry::aboveCell`，锚定当前字符格）与游标指针 `p`（锚定当前树结点）；查询/建树两种模式下 `i` 随字符推进逐格右移 |
+| 区间调度反证 | `src/modules/IntervalSchedModule.{h,cpp}` | 新增 `m_showCounterExample` 开关与 `IV_REJECT_BAND` / `IV_COUNTER_*` 帧；冲突时用 `QGraphicsRectItem`（红虚线 + 70/255 半透明填充）在时间轴上画出**重叠区间带**；反证阶段改按开始时间排序重跑，错误解排在独立一行（`m_naiveLabels`），与贪心解（`m_greedyLabels`）上下对照 |
+| 二分图奇环 | `src/modules/BipartiteModule.{h,cpp}` | 新增 `m_queueBlocks`（队列数组行）+ `m_queueHeadPtr` / `m_queueTailPtr`（双指针锚定槽位）；新增 `extractOddCycle(u, v)`：沿 `m_parent[]` 父指针链求两条链的公共祖先，拼接出完整的环；`BP_ODD_CYCLE` 帧用 `PathTrail` 描出整条奇环并把环上结点染红 |
+| 欧拉回溯拼接 | `src/modules/EulerModule.{h,cpp}` | 新增 `m_stackBlocks` / `m_pathBlocks`（纵向栈列）、`m_resultBlocks`（底部答案行）、`m_trail`（`PathTrail` 轨迹）、`m_spliceLine`（`LinkLine` 橙色虚线箭头）；新增「高亮延迟边」开关；`EU_DEADEND` 死路结点灰化收缩、`EU_BRIDGE` 延迟边紫色描边、`EU_SPLICE` 拼接箭头 + 涟漪、`EU_PATH` 答案行落值 + 轨迹描边 |
+| 布局重排 | `src/modules/EulerModule.cpp` / `IntervalSchedModule.cpp` | 欧拉：`deg[]` 行起始 x 44 → 170、行距 54 → 76，`stk[]`/`path[]` 列 x 470 / 600，答案行下移至 y = 618；区间调度：标题与扫描行分离（`greedyY = timelineBottom + 58`），结果/反证文字各占独立行 |
+| 奇环抽取修正 | `src/modules/BipartiteModule.cpp` | `extractOddCycle()` 原先用「双指针同步上跳找相遇点」，在两链长度不同时会漏掉公共祖先；改为「分别取完整祖先链 → 从尾部对齐比较公共后缀 → 拼成 `u→…→LCA←…←v` 的环」 |
+| 新增测试 | `tests/AnimUpgradeTest.cpp`（新增） | 9 项断言覆盖三个新模式的帧产出（查询命中 / 查询失败 / 字典序完成 / 奇环抽取 / 死路回溯 / 拼接 / 冲突带 / 反证结论），并输出 5 张可视化截图供人工复核 |
+| 注册测试 | `tests/CMakeLists.txt` | 新增 `add_sg_test(SmartGroundAnimUpgrade AnimUpgradeTest.cpp)` |
+| 全量回归 | `tests/build/` | **73 个测试可执行文件全部零失败**；`SmartGroundStrictAudit` 62 模块 × 2 轮逐帧审计 `TOTAL OVERLAP CONFLICTS = 0` / `TOTAL TIP FAILURES = 0` / `TOTAL AXIS FAILURES = 0`；`SmartGround.exe` Release 构建成功 |
+
+## 2026-11-20 第 28 批：数组下标归位 + 指针轴向对齐 + 图形空心实心语义修正
 > **核心变化**：**① 数组下标归位**：上一轮为规避重叠告警把下标从单元格**上方**挪进了**格子内部左上角**，且把值区改成扣除下标高度后的剩余区，导致值偏离格心 —— 这是一次擅自决断。本批 `ArrayBlock::paint()` 恢复为下标绘制在 `QRectF(0, -kIndexGap - kIndexHeight, m_cellW, kIndexHeight)`（`AlignHCenter | AlignBottom`，与顶边框保持 6px 净距），值恢复在整个窗格内 `Qt::AlignCenter` 双向居中；新增 `kIndexGap`/`kIndexHeight` 常量与 `indexRect()`，`boundingRect()` 上边界相应上移。**② 指针轴向对齐**：`layoutPointerSlots()` 原先 `tips[idx] += QPointF(offset, 0)` 会**横向平移箭头尖端**（偏离格心），`resolveVisualCollisions()` 原先以横向平移标签为主（标签脱离自身轴线，`i`/`j`/`L`/`R` 与指针对不上号）。现改为**轴向优先**：垂直指针沿轴线由近及远堆叠（`m_labelRow`），水平指针沿轴向让位，横向平移仅作水平指针兜底；`separatePointerLabels()` 垂直指针改纵向分离。**③ 水平箭头方向修正**：`Right` 的箭头尖此前与 `Left` 同朝左，语义错误，现 `Right` 朝右、`Left` 朝左，标签偏移同步。**④ 图形空心/实心语义修正**：`ShapeItem::paint()` 原先把「空心」画成**虚线边框 + `#EEF0F4` 灰填充**（把图标语言误用到画布结果上），现改为笔一律实线、空心 `Qt::NoBrush`（内部全透明）、实心 `QBrush(m_penColor)`（边框色即填充色）；`MySegmentedControl` 新增 `ShapeIcon` 与 `setShapeIcon()`，**图标**语义为「空心=虚线边框无填充、实心=实线边框同色实心」，绘制逻辑抽为公共静态 `buildIconPath()` / `paintShapeIcon()` 供 UI 与测试共用。**⑤ 链式前向星**：手工文本下标改为 `ArrayBlock` 内建下标，`k` 指针标签改 `setLabelAtTail()` 落轴线，行距 96 → 116。
 
 ## 2026-11-20 第 28 批：数组下标归位 + 指针轴向对齐 + 图形空心实心语义修正
@@ -78,8 +144,8 @@
 | 共享编排助手 | `src/modules/IModule.{h,cpp}` | 新增 8 个助手：`playEdgeTravel(edge, color, duration)`（沿边 `scenePointAt(t)` 行进的光点，半径与透明度按 `sin(t·π)` 起伏，`InOutCubic` 缓动，结束后自动移除）、`playDiscover(node, color, maxRadius, duration)`（结点发现涟漪）、`playEdgeDiscover(edge, node, color, duration)`（边先到、结点后醒）、`playNodeWake(node, color, maxRadius, duration)`（结点苏醒脉冲）、`playFocusRing(node, color, duration)`、`playValueArcFlight(start, end, value, color, duration)`（数值弧线飞行）、`playCellSweep(cells, color, stagger, duration)`（逐格错峰扫描）、`playCellLanding(cell, color, duration)`（落位脉冲）。全部遵守 `m_animated == false` 时瞬时生效、不创建 Qt 动画的约束 |
 | 图算法族 | `BFSModule` / `DfsModule` / `DijkstraNaiveModule` / `DijkstraHeapModule` / `TopologicalSortModule` / `PrimModule` / `KruskalModule` / `TarjanModule` / `TarjanCutVertexBridgeModule` / `BipartiteModule` / `EulerModule` / `HungarianModule` | 扫描与松弛时播放 `playEdgeTravel` 边行进；首次访问结点播放 `playDiscover` / `playNodeWake`；松弛成功 / 匹配成功播放结点涟漪与缩放；割点与桥加冲突脉冲；匈牙利匹配加占用冲突脉冲 |
 | 树堆族 | `HeapSortModule` / `HeapAdjustModule` / `HeapBasicsModule` / `TrieModule` / `HashTableModule` / `ForwardStarModule` / `SegmentTreeBuildModule` / `SegmentTreeQueryModule` / `SegmentTreeTagModule` | 堆的比较 / 交换播放树边行进（`m_treeEdges` 索引 `min/max` 对齐）；线段树下降播放 `playEdgeTravel` + 子结点涟漪；前向星建边播放结点发现涟漪与落位 |
-| 排序族 | `BubbleSortModule` / `SelectionSortModule` / `InsertionSortModule` / `MergeSortModule` / `QuickSortModule` / `ShellSortModule` / `CountingSortModule` / `RadixSortModule` / `BucketSortModule` | 交换与归位播放涟漪 / 落位脉冲；快排递归区间播放 `playCellSweep` 错峰扫描；希尔分组播放组色涟漪；计数排序计数格播放脉冲 + 涟漪 |
-| 查与算族 | `BinarySearchClosedModule` / `BinarySearchHalfOpenModule` / `FastPowModule` / `FenwickTreeModule` / `LISModule` / `IntervalSchedModule` / `GcdModule` / `MonotonicQueueModule` / `MonotonicStackModule` / `DSUBasicModule` / `DSUPathCompressionModule` / `TreeDiameterModule` / `TreeSubtreeSizeModule` / `Knapsack01Module` / `KnapsackCompleteModule` / `StringHashModule` / `SieveOfEratosthenesModule` | 二分命中与丢弃播放涟漪；快速幂 / 树状数组播放数值弧线飞行；区间调度选中与冲突分别播放绿 / 红双层涟漪；筛法合数与质数分别播放红 / 绿涟漪 |
+| 排序族 | `BubbleSortModule` / `SelectionSortModule` / `InsertionSortModule` / `MergeSortModule` / `QuickSortModule` / `ShellSortModule` / `CountingSortModule` / `RadixSortModule` / `BucketSortModule` | 交换与归位播放涟漪 / 落位脉冲；快排递归区间播放 `playCellSweep` 错峰扫描；希尔分组播放组色涟漪；计数排序计数格播放脉冲 + 涟漪；**归并排序第 32 批重构**：`m_openBounds` 记录分裂缝，`MS_SPLIT` 用 `playMoveTo` 把数组**真的撑开**，`MS_COPY` 合缝**拼接**并整段染 `kMsDone`，底部 `temp[]` 缓冲行承接 `playValueFlight` |
+| 查与算族 | `BinarySearchClosedModule` / `BinarySearchHalfOpenModule` / `FastPowModule` / `FenwickTreeModule` / `LISModule` / `IntervalSchedModule` / `GcdModule` / `MonotonicQueueModule` / `MonotonicStackModule` / `DSUPathCompressionModule` / `TreeDiameterModule` / `TreeSubtreeSizeModule` / `Knapsack01Module` / `KnapsackCompleteModule` / `StringHashModule` / `SieveOfEratosthenesModule` / `EulerSieveModule` | 二分命中与丢弃播放涟漪；快速幂 / 树状数组播放数值弧线飞行；区间调度选中与冲突分别播放绿 / 红双层涟漪；筛法合数与质数分别播放红 / 绿涟漪；**并查集第 32 批统一**：`pa[]` / `sz[]` 双行实时同步，`merge` 按大小合并、`sz` 累加逐项落位，路径压缩 `repointDest()` 现场改接父边；**欧拉筛第 32 批提速**：`i > n/2` 段改为 `ES_FAST_BATCH` 批量收录素数 |
 | 矩阵数论族 | `LCSModule` / `ExgcdModule` | LCS 候选比较播放 `playValueArcFlight`（上方 / 左方候选值弧线飞入目标格）+ 目标格涟漪；确定值播放 `playCellLanding`；回溯路径播放落位脉冲；扩欧每轮整除式飞入时播放行首涟漪 |
 | 数据结构族 | `StackModule` / `QueueModule` / `CircularQueueModule` / `KMPNextModule` | 入栈 / 入队播放 `playCellLanding`，出栈 / 出队播放收缩脉冲 + 涟漪；循环队列入队 / 出队 / 绕回分别播放落位 / 涟漪 / 落位；KMP pi 比较播放双格涟漪、失配播放蓝涟漪、确定 pi 播放落位脉冲 + 涟漪 |
 | 画笔换色与菜单自关闭 | `src/ui/` 画板相关 | 画笔颜色变更即时写入当前笔迹与已选中对象的渲染色；应用级 `eventFilter` 挂在 `qApp` 上，画笔飞出菜单打开时，点击菜单以外的区域（画布等）自动收起菜单 |
@@ -715,8 +781,7 @@ PM 定稿：**VueLight 为默认风格**，**保留三套并提供运行时切�
 |--------|------|--------|--------|------|
 | 单调栈 | ✅ | MonotonicStackModule | Kiro | 下一个更大元素已实现 |
 | 单调队列 | ✅ | MonotonicQueueModule | Cursor | 滑动窗口最大值，q[] 存下标单调递减 |
-| 并查集基础 | ✅ | DSUBasicModule | Kiro | Find & Union 已实现 |
-| 并查集路径压缩 | ✅ | DSUPathCompressionModule | Cursor | find 回溯时路径一次性压扁成星，右侧 pa[] / sz[] 两行实时同步 |
+| 并查集 | ✅ | DSUPathCompressionModule | Cursor | **第 32 批统一为单一模块**（删除 `DSUBasicModule`）：严格对齐课堂 `dsu` 模板 —— `pa[i]=i` / `sz[i]=1` 起步，`find` 带路径压缩，`merge` 按大小合并 `pa[v]=u; sz[u]+=sz[v]`；右侧 `pa[]` / `sz[]` 两行实时同步，路径压缩用 `GraphEdge::repointDest()` 现场改接父边 |
 | 树状数组 | ✅ | FenwickTreeModule | Cursor | 二叉分层格阵（`floor(log2 n)+1` 层），`FT_MERGE` 自底向上合并，兄弟块与底层 `a[]` 数字同时飞入合成 `t[i]`，add/sum 双操作 |
 | 线段树建树 | ✅ | SegmentTreeBuildModule | - | 纯区间求和版，无取模、无乘法懒标记 |
 | 线段树单点修改 | ⏳ | SegmentTreePointUpdateModule | - | 链式回溯更新 |
@@ -815,9 +880,9 @@ PM 定稿：**VueLight 为默认风格**，**保留三套并提供运行时切�
 
 ### P1 (已完成 ✅)
 1. ✅ **快速排序** - 高频算法，递归可视化技术已突破，已迁移 playPointersSync
-2. ✅ **归并排序** - 辅助数组技术已实现
+2. ✅ **归并排序** - **第 32 批重构**：真实「裂开—拼接」动画，辅助数组技术已实现
 3. ✅ **单调栈** - 中等难度，已完成实现
-4. ✅ **并查集基础** - 路径压缩前置模块
+4. ✅ **并查集** - **第 32 批统一为单一模块**，路径压缩前置能力已内置
 
 ### P2 (本批已完成 ✅)
 1. ✅ **拓扑排序** - 入度队列和有向环检测
@@ -860,6 +925,7 @@ PM 定稿：**VueLight 为默认风格**，**保留三套并提供运行时切�
 - 新模块顺序：先确认动画分镜，再实现算法帧、渲染、输入和重置流程。
 - Bug 状态与修复验证记录在 docs/BugLog.md。
 - `tests/` 提供 32 个无头测试可执行程序（共享静态库构建，build 目录约 233 MB）：覆盖极端输入压力测试、动画中断清理测试、边权跟随测试、像素级边框/箭头/控件渲染断言、UI 状态机、就地编辑崩溃回归、A 组新模块行为与菜单可达性断言、树状数组合并帧正确性断言；用 `cmake -S tests -B build/tests` 单独构建，不影响主程序。
+- **2026-11-20 大清理**：`build/tests/` 已整体删除（纯编译产物，可由 `cmake -S tests -B build/tests` 完整重建），`build/Desktop_Qt_6_11_1_MinGW_64_bit-Release/` 影子构建目录、根目录 197 张调试截图、`shots/` 目录、`tools/` 下 169 个一次性脚本与中间产物、`tools/_recovered/` 恢复副本均已清除；项目总占用由 **1149.9 MB 降至 78.0 MB**。保留 `tools/latex/` 与 `node_modules/`（LaTeX 公式渲染服务运行时依赖）。清理后重新构建 `SmartGround.exe` 成功，`SmartGroundStrictAudit` 套件重建运行三项计数全为 0。
 
 ## 下一步优先级
 
@@ -879,3 +945,26 @@ PM 定稿：**VueLight 为默认风格**，**保留三套并提供运行时切�
 - **数论**：埃氏筛、线性筛、快速幂、辗转相除
 - **贪心**：区间调度、哈夫曼树
 - **哈希**：哈希表拉链法与开放寻址
+
+### 下一批开发方向（2026-11-20 排定）
+
+PM 已确认策略转向：**先做深现有模块，不开新篇**。批 30 四个模块（`TrieModule` / `IntervalSchedModule` / `EulerModule` / `BipartiteModule`）深化完成并验收通过。
+
+**批 31 —— 十个现有模块的动画深化**，完整分镜（旧方案 vs 新方案对照）见 `docs/Batch31_Storyboards.md`：
+
+| 序 | 模块 | 旧方案核心缺口 | 新方案关键新增 |
+|---|---|---|---|
+| 1 | `QuickSortModule` | 无可视递归栈；pivot 是脱离数组的浮空格子 | 递归层带 + 基准值徽标 + 锁定语义 |
+| 2 | `MergeSortModule` | 与快排**共用同一套帧类型**，两算法视觉上无法区分 | 独立的 `MS_*` 帧族：两段汇入单一输出 |
+| 3 | `HeapAdjustModule` | 上下标与 `2k/2k+1` 公式只存在于脚本文本；光束与值迁移路径不重合 | 结点内写下标 + 常驻公式条 + 值沿树边真正迁移 |
+| 4 | `Knapsack01Module` | 两个候选被拆成两帧先后覆盖，看不到并排比较 | 两条候选路径并排 + 胜者飞行落位 + 转移来源注记 |
+| 5 | `KMPNextModule` + `KMPMatchModule` | `pi[]` 只是数字表，前后缀含义完全不可见 | 跨格紫色括线 + 长度编码匹配条 |
+| 6 | `TopologicalSortModule` | 边被"删除"无删除标记；入度与图结点无对齐 | 删边打 ✕ + 徽标 `-1` + 入度表与结点同序对齐 |
+| 7 | `DijkstraNaiveModule` | **「为什么选它」完全不可见**（核心教学点缺失） | 候选最小值尺 + 松弛新旧值对比 |
+| 8 | `KruskalModule` | `find` 的逐跳路径压缩被跳过；成环边无反证 | 逐跳 find + 路径压缩改写飞线 + 红色成环 |
+| 9 | `DSUPathCompressionModule` | 无压缩前后对照；旧链无残影；`sz[]` 是摆设 | 树高标尺 + 旧链虚线残影 + 按秩合并可视化 |
+| 10 | `SieveOfEratosthenesModule` | 「从 `i*i` 开始」的剪枝理由只在脚本文本 | 紫色区间标记 + 扫描指针轨 + 质数逐个归档 |
+
+实施分批：**31-A**（快排/归并/堆）→ **31-B**（背包/埃氏筛/拓扑）→ **31-C**（KMP/Dijkstra/Kruskal/并查集）→ **31-D**（线段树合并版）。
+
+后续备选（批 32+）：线段树单点修改与区间查询合并版、Bellman-Ford/SPFA 负权松弛、Floyd 三重循环矩阵松弛、区间 DP 石子合并、树上 DP（没有上司的舞会）、状压 DP、线性筛/欧拉筛、堆综合操作与 `ph/hp` 映射、双向链表静态数组模拟、笛卡尔坐标系底板（GeoGebra 风格）。

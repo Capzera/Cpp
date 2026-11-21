@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16)
 project(SmartGround LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -120,7 +120,6 @@ add_executable(SmartGround
     src/modules/MergeSortModule.cpp
     src/modules/HeapBasicsModule.cpp
     src/modules/MonotonicStackModule.cpp
-    src/modules/DSUBasicModule.cpp
     src/modules/TwoRowArrayModule.cpp
     src/modules/PrefixSumModule.cpp
     src/modules/DifferenceModule.cpp
@@ -164,6 +163,8 @@ add_executable(SmartGround
     src/modules/FastPowModule.cpp
     src/modules/SieveOfEratosthenesModule.h
     src/modules/SieveOfEratosthenesModule.cpp
+    src/modules/EulerSieveModule.h
+    src/modules/EulerSieveModule.cpp
     src/modules/ForwardStarModule.h
     src/modules/ForwardStarModule.cpp
     src/modules/DSUPathCompressionModule.h
@@ -213,6 +214,14 @@ add_executable(SmartGround
     src/render/ValueBar.cpp
     src/render/SegmentBar.h
     src/render/SegmentBar.cpp
+    src/core/CartesianExpression.h
+    src/core/CartesianExpression.cpp
+    src/render/CartesianElements.h
+    src/render/CartesianElements.cpp
+    src/modules/CartesianModule.h
+    src/modules/CartesianModule.cpp
+    src/ui/widgets/CartesianPanel.h
+    src/ui/widgets/CartesianPanel.cpp
     src/resources.qrc
 )
 target_link_libraries(SmartGround Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Svg)

@@ -12,7 +12,6 @@
 #include "modules/MergeSortModule.h"
 #include "modules/HeapBasicsModule.h"
 #include "modules/MonotonicStackModule.h"
-#include "modules/DSUBasicModule.h"
 #include "modules/PrefixSumModule.h"
 #include "modules/DifferenceModule.h"
 #include "modules/StackModule.h"
@@ -44,6 +43,7 @@
 #include "modules/ShellSortModule.h"
 #include "modules/FastPowModule.h"
 #include "modules/SieveOfEratosthenesModule.h"
+#include "modules/EulerSieveModule.h"
 #include "modules/ForwardStarModule.h"
 #include "modules/DSUPathCompressionModule.h"
 #include "modules/TreeSubtreeSizeModule.h"
@@ -60,6 +60,8 @@
 #include "modules/HashTableModule.h"
 #include "modules/BucketSortModule.h"
 #include "modules/RadixSortModule.h"
+#include "modules/CartesianModule.h"
+#include "ui/widgets/CartesianPanel.h"
 #include "modules/CircularQueueModule.h"
 #include "modules/MonotonicQueueModule.h"
 #include "modules/ExgcdModule.h"
@@ -74,6 +76,7 @@
 #include "canvas/ToolController.h"
 #include "ui/widgets/CanvasToolBar.h"
 #include "ui/widgets/CanvasBrushSlider.h"
+#include "ui/widgets/ToolIconButton.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QMessageBox>
@@ -111,7 +114,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), currentModule(nul
     std::vector<std::pair<QString, std::vector<IModule*>>> categories;
     categories.push_back({"自由结构", {
         new SandboxArrayModule(), new SandboxMatrixModule(), new SandboxTreeModule(),
-        new SandboxGraphModule(), new SandboxBlankModule()}});
+        new SandboxGraphModule(), new SandboxBlankModule(), new CartesianModule()}});
     categories.push_back({"基础数据结构", {
         new StackModule(), new QueueModule(), new MonotonicStackModule(),
         new CircularQueueModule()}});
@@ -122,7 +125,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), currentModule(nul
     categories.push_back({"树与堆", {
         new HeapBasicsModule(), new HeapAdjustModule(), new HeapSortModule()}});
     categories.push_back({"数据结构 · 进阶", {
-        new DSUBasicModule(), new DSUPathCompressionModule(),
+        new DSUPathCompressionModule(),
         new FenwickTreeModule(),
         new SegmentTreeBuildModule(), new SegmentTreeQueryModule(),
         new SegmentTreeTagModule(),
@@ -143,7 +146,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), currentModule(nul
     categories.push_back({"数学", {
         new PrefixSumModule(), new DifferenceModule(),
         new BinarySearchClosedModule(), new BinarySearchHalfOpenModule(),
-        new SieveOfEratosthenesModule(), new FastPowModule(), new GcdModule(), new ExgcdModule()}});
+        new SieveOfEratosthenesModule(), new EulerSieveModule(), new FastPowModule(), new GcdModule(), new ExgcdModule()}});
     categories.push_back({"贪心", {
         new IntervalSchedModule(), new MonotonicQueueModule(), new HuffmanTreeModule()}});
     categories.push_back({"树形 DP", {
@@ -151,6 +154,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), currentModule(nul
 
     for (auto& category : categories) {
         for (IModule* m : category.second) registeredModules.push_back(m);
+    }
+
+    for (IModule* m : registeredModules) {
+        if (auto* cartesian = dynamic_cast<CartesianModule*>(m)) m_cartesianModule = cartesian;
     }
 
     auto findModule = [this](const QString& name) -> IModule* {
@@ -201,6 +208,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), currentModule(nul
     SceneGrid::setConfig(graphicsScene, gridCfg);
 }
 MainWindow::~MainWindow() {
+    if (m_toolController) m_toolController->setCartesianEngine(nullptr);
+    if (graphicsView) graphicsView->setCartesianEngine(nullptr);
+    if (m_cartesianPanel) m_cartesianPanel->setEngine(nullptr);
     for (auto module : registeredModules) delete module;
     registeredModules.clear();
 }
@@ -314,10 +324,15 @@ void MainWindow::setupUI() {
     playLayout->addWidget(btnStepBack);
     playLayout->addWidget(btnStep);
 
+    m_cartesianPanel = new CartesianPanel();
+    m_cartesianPanel->setObjectName("cartesianPanelHost");
+    m_cartesianPanel->setVisible(false);
+
     leftLayout->addWidget(labelTitle);
     leftLayout->addWidget(comboModules);
     leftLayout->addWidget(graphPanelHost);
     leftLayout->addWidget(modulePanelHost);
+    leftLayout->addWidget(m_cartesianPanel);
     leftLayout->addWidget(labelInput);
     leftLayout->addWidget(textInput, 1);
     leftLayout->addWidget(checkGrid);
@@ -454,6 +469,49 @@ void MainWindow::setupCanvasTools() {
         positionTableToolBar();
         graphicsView->refreshOverlay();
     });
+
+    connect(m_canvasToolBar, &CanvasToolBar::cartesianToolChanged, this, &MainWindow::onCartesianToolChanged);
+    connect(m_canvasToolBar, &CanvasToolBar::cartesianPointNamesChanged, this, &MainWindow::onCartesianPointNamesChanged);
+
+    if (m_cartesianModule) {
+        connect(m_cartesianModule, &CartesianModule::objectsChanged, this, [this]() {
+            if (m_cartesianPanel) m_cartesianPanel->refresh();
+        });
+        connect(m_cartesianModule, &CartesianModule::statusMessage, this, [this](const QString& text) {
+            labelStatus->setText(text);
+        });
+        connect(m_cartesianModule, &CartesianModule::requestPointEditor, this, [this](int index) {
+            CartesianEngine* engine = m_cartesianModule->engine();
+            if (!engine) return;
+            CartesianPointItem* point = engine->pointAt(index);
+            if (!point) return;
+            CartesianPointEditor editor(this);
+            editor.setPointData(point->name(), point->x(), point->y(), point->nameHidden());
+            if (editor.exec() == QDialog::Accepted) {
+                onCartesianPointEdited(index, editor.pointName(), editor.pointX(), editor.pointY(),
+                                       editor.nameHidden());
+            }
+        });
+        connect(m_cartesianModule, &CartesianModule::requestSegmentEditor, this, [this](int index) {
+            Q_UNUSED(index);
+            labelStatus->setText("线段方程已显示在图上：双击线段可随时查看 y = kx + b");
+        });
+    }
+
+    if (m_cartesianPanel) {
+        connect(m_cartesianPanel, &CartesianPanel::statusMessage, this, [this](const QString& text) {
+            labelStatus->setText(text);
+        });
+        connect(m_cartesianPanel, &CartesianPanel::pointEdited, this, &MainWindow::onCartesianPointEdited);
+        connect(m_cartesianPanel, &CartesianPanel::pointStyleEdited, this, &MainWindow::onCartesianPointStyleEdited);
+        connect(m_cartesianPanel, &CartesianPanel::functionStyleEdited, this, &MainWindow::onCartesianFunctionStyleEdited);
+        connect(m_cartesianPanel, &CartesianPanel::functionAddRequested, this, &MainWindow::onCartesianFunctionAdded);
+        connect(m_cartesianPanel, &CartesianPanel::functionRemoveRequested, this, &MainWindow::onCartesianFunctionRemoved);
+        connect(m_cartesianPanel, &CartesianPanel::pointSelected, this, [this](int index) {
+            Q_UNUSED(index);
+            labelStatus->setText("已选中该点，可在左侧面板中编辑其坐标或样式");
+        });
+    }
 }
 
 void MainWindow::positionTableToolBar() {
@@ -732,9 +790,37 @@ void MainWindow::onModuleChanged(int index) {
         applyGraphOptions();
         rebuildModulePanel();
         restoreAnnotations();
+
+        m_cartesianActive = currentModule->isCartesian();
+        if (m_canvasToolBar) m_canvasToolBar->setCartesianMode(m_cartesianActive);
+        if (m_toolController) {
+            m_toolController->setCartesianEngine(m_cartesianActive && m_cartesianModule
+                                                    ? m_cartesianModule->engine()
+                                                    : nullptr);
+        }
+        if (graphicsView) {
+            graphicsView->setCartesianEngine(m_cartesianActive && m_cartesianModule
+                                                 ? m_cartesianModule->engine()
+                                                 : nullptr);
+        }
+        if (m_cartesianPanel) {
+            m_cartesianPanel->setVisible(m_cartesianActive);
+            m_cartesianPanel->setEngine(m_cartesianActive && m_cartesianModule ? m_cartesianModule->engine() : nullptr);
+        }
+        if (m_cartesianActive && m_cartesianModule) {
+            rebuildCurrentLayout(currentModule->getDefaultInput(), false, false);
+            graphicsView->centerOn(QPointF(0, 0));
+            refreshCartesianViewport();
+        }
+        if (!m_cartesianActive && m_toolController) {
+            if (m_toolController->currentTool() == ToolController::CartPoint ||
+                m_toolController->currentTool() == ToolController::CartLine) {
+                m_toolController->setTool(ToolController::Select);
+            }
+        }
     } else {
-        currentModule = nullptr;
         clearScene();
+        currentModule = nullptr;
         m_frames.clear();
         m_frameIndex = 0;
         m_builtInput.clear();
@@ -748,6 +834,20 @@ void MainWindow::onModuleChanged(int index) {
         graphicsView->resetTransform();
         syncFrameSlider();
         labelStatus->setText("已清空画布，请选择算法模块。");
+
+        m_cartesianActive = false;
+        if (m_canvasToolBar) m_canvasToolBar->setCartesianMode(false);
+        if (m_toolController) m_toolController->setCartesianEngine(nullptr);
+        if (graphicsView) graphicsView->setCartesianEngine(nullptr);
+        if (m_cartesianPanel) {
+            m_cartesianPanel->setVisible(false);
+            m_cartesianPanel->setEngine(nullptr);
+        }
+        if (m_toolController &&
+            (m_toolController->currentTool() == ToolController::CartPoint ||
+             m_toolController->currentTool() == ToolController::CartLine)) {
+            m_toolController->setTool(ToolController::Select);
+        }
     }
 }
 
@@ -1307,4 +1407,109 @@ void MainWindow::adjustSceneBoundary(bool centerView) {
     if (centerView) {
         ViewportFitter::fitToItems(graphicsView, graphicsScene, options);
     }
+}
+
+void MainWindow::refreshCartesianViewport() {
+    if (!m_cartesianModule) return;
+    if (!graphicsView) return;
+    const QPointF topLeft = graphicsView->mapToSceneF(QPointF(0, 0));
+    const QPointF bottomRight = graphicsView->mapToSceneF(QPointF(graphicsView->viewport()->width(),
+                                                               graphicsView->viewport()->height()));
+    m_cartesianModule->setViewportRect(QRectF(topLeft, bottomRight).normalized());
+}
+
+void MainWindow::onCartesianToolChanged(int kind) {
+    if (!m_cartesianActive || !m_toolController) return;
+    CartesianEngine* engine = m_cartesianModule ? m_cartesianModule->engine() : nullptr;
+    if (kind == static_cast<int>(ToolIconButton::CartPoint)) {
+        m_toolController->setTool(ToolController::CartPoint);
+        if (engine) engine->setActiveTool(CartesianEngine::Point);
+        labelStatus->setText("画点工具：单击落点，长按拖动可实时跟随鼠标并吸附到网格交点");
+    } else if (kind == static_cast<int>(ToolIconButton::CartLine)) {
+        m_toolController->setTool(ToolController::CartLine);
+        if (engine) engine->setActiveTool(CartesianEngine::Line);
+        labelStatus->setText("连线工具：奇数次选点为起点，偶数次选点即连成线段");
+    } else {
+        if (engine) engine->setActiveTool(CartesianEngine::Select);
+        labelStatus->setText("函数绘制：在左侧「函数绘制」输入 f(x) = 表达式");
+    }
+}
+
+void MainWindow::onCartesianPointNamesChanged(bool on) {
+    if (!m_cartesianModule) return;
+    CartesianEngine* engine = m_cartesianModule->engine();
+    if (!engine) return;
+    CartesianEngine::Settings settings = engine->settings();
+    settings.showPointName = on;
+    engine->setSettings(settings);
+}
+
+void MainWindow::onCartesianPointEdited(int index, const QString& name, double x, double y, bool nameHidden) {
+    if (!m_cartesianModule) return;
+    CartesianEngine* engine = m_cartesianModule->engine();
+    if (!engine) return;
+    CartesianPointItem* point = engine->pointAt(index);
+    if (!point) return;
+    if (!name.isEmpty()) point->setName(name);
+    point->setMathPos(x, y);
+    point->setNameHidden(nameHidden);
+    if (m_cartesianPanel) m_cartesianPanel->refresh();
+    labelStatus->setText(QString("已更新点 %1 的名字与坐标").arg(point->name()));
+}
+
+void MainWindow::onCartesianPointStyleEdited(int index, const QColor& color, qreal size, int shape,
+                                             bool nameHidden) {
+    if (!m_cartesianModule) return;
+    CartesianEngine* engine = m_cartesianModule->engine();
+    if (!engine) return;
+    CartesianPointItem* point = engine->pointAt(index);
+    if (!point) return;
+    if (color.isValid()) point->setColor(color);
+    if (size >= 0) point->setSize(size);
+    if (shape >= 0) point->setShape(shape);
+    point->setNameHidden(nameHidden);
+    if (m_cartesianPanel) m_cartesianPanel->refresh();
+}
+
+void MainWindow::onCartesianFunctionStyleEdited(const QString& name, const QColor& color) {
+    if (!m_cartesianModule) return;
+    CartesianEngine* engine = m_cartesianModule->engine();
+    if (!engine) return;
+    for (int i = 0; i < engine->curveCount(); ++i) {
+        CartesianCurveItem* curve = engine->curveAt(i);
+        if (!curve || curve->name() != name) continue;
+        curve->setColor(color);
+        break;
+    }
+    if (m_cartesianPanel) m_cartesianPanel->refresh();
+}
+
+void MainWindow::onCartesianFunctionAdded(const QString& expression) {
+    if (!m_cartesianModule) return;
+    CartesianEngine* engine = m_cartesianModule->engine();
+    if (!engine) return;
+    static const QColor palette[] = {
+        QColor(214, 96, 77), QColor(52, 120, 214), QColor(96, 176, 118),
+        QColor(196, 128, 60), QColor(140, 108, 214), QColor(72, 168, 178)
+    };
+    const QColor color = palette[engine->curveCount() % 6];
+    const QString name = engine->uniqueFunctionName(engine->curveCount() == 0 ? QStringLiteral("f")
+                                                                             : QStringLiteral("g"));
+    if (engine->addFunction(name, expression, color) < 0) {
+        labelStatus->setText("函数表达式无法解析，请检查格式");
+        return;
+    }
+    refreshCartesianViewport();
+    if (m_cartesianPanel) m_cartesianPanel->refresh();
+    labelStatus->setText(QString("已绘制函数 %1(x) = %2").arg(name, expression));
+}
+
+void MainWindow::onCartesianFunctionRemoved(const QString& name) {
+    if (!m_cartesianModule) return;
+    CartesianEngine* engine = m_cartesianModule->engine();
+    if (!engine) return;
+    engine->removeCurve(name);
+    refreshCartesianViewport();
+    if (m_cartesianPanel) m_cartesianPanel->refresh();
+    labelStatus->setText(QString("已删除函数 %1").arg(name));
 }

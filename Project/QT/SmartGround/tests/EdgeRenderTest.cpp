@@ -5,7 +5,7 @@
 #include "render/GraphElements.h"
 #include "modules/GraphModuleUtils.h"
 #include "modules/GraphRenderHelper.h"
-#include "modules/DSUBasicModule.h"
+#include "modules/DSUPathCompressionModule.h"
 
 static int failures = 0;
 static void check(bool cond, const char* msg) {
@@ -43,26 +43,26 @@ int main(int argc, char** argv) {
     }
     {
         QGraphicsScene scene;
-        DSUBasicModule m;
+        DSUPathCompressionModule m;
         m.m_animated = false;
-        m.buildLayout(&scene, "6\n0 1 1 2 3 4 4 5 6 7");
+        m.buildLayout(&scene, "6\n1 2\n2 3\n3 4\n5 6");
         std::map<int, QPointF> before = m.captureNodePositions();
         check(before.size() == 6, "DSU built 6 nodes");
         std::map<int, QPointF> moved = before;
-        moved[0] = before[0] + QPointF(120, 90);
+        moved[1] = before[1] + QPointF(120, 90);
         m.restoreNodePositions(moved);
         std::map<int, QPointF> after = m.captureNodePositions();
-        check(std::abs(after[0].x() - moved[0].x()) < 0.01, "DSU node 0 moved to target");
-        check(std::abs(after[1].x() - before[1].x()) < 0.01, "DSU node 1 untouched");
+        check(std::abs(after[1].x() - moved[1].x()) < 0.01, "DSU node 1 moved to target");
+        check(std::abs(after[2].x() - before[2].x()) < 0.01, "DSU node 2 untouched");
     }
     {
         QGraphicsScene scene;
-        DSUBasicModule m;
+        DSUPathCompressionModule m;
         m.m_animated = false;
-        m.buildLayout(&scene, "6\n0 1 1 2 3 4 4 5 6 7");
+        m.buildLayout(&scene, "6\n1 2\n2 3\n3 4\n5 6");
         bool idsOk = true;
         for (auto& p : m.captureNodePositions()) {
-            if (p.first < 0 || p.first > 5) idsOk = false;
+            if (p.first < 1 || p.first > 6) idsOk = false;
         }
         check(idsOk, "DSU capture returns 6 keyed positions");
     }

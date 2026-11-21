@@ -39,7 +39,6 @@ set(SG_MODULE_SOURCES
     ../src/modules/MergeSortModule.cpp
     ../src/modules/HeapBasicsModule.cpp
     ../src/modules/MonotonicStackModule.cpp
-    ../src/modules/DSUBasicModule.cpp
     ../src/modules/TwoRowArrayModule.cpp
     ../src/modules/PrefixSumModule.cpp
     ../src/modules/DifferenceModule.cpp
@@ -74,6 +73,7 @@ set(SG_MODULE_SOURCES
     ../src/modules/ShellSortModule.cpp
     ../src/modules/FastPowModule.cpp
     ../src/modules/SieveOfEratosthenesModule.cpp
+    ../src/modules/EulerSieveModule.cpp
     ../src/modules/ForwardStarModule.cpp
     ../src/modules/DSUPathCompressionModule.cpp
     ../src/modules/TreeSubtreeSizeModule.cpp
@@ -98,6 +98,9 @@ set(SG_MODULE_SOURCES
     ../src/modules/LCSModule.cpp
     ../src/render/ValueBar.cpp
     ../src/render/SegmentBar.cpp
+    ../src/core/CartesianExpression.cpp
+    ../src/render/CartesianElements.cpp
+    ../src/modules/CartesianModule.cpp
 )
 
 set(SG_MODULE_HEADERS
@@ -141,6 +144,7 @@ set(SG_MODULE_HEADERS
     ../src/modules/ShellSortModule.h
     ../src/modules/FastPowModule.h
     ../src/modules/SieveOfEratosthenesModule.h
+    ../src/modules/EulerSieveModule.h
     ../src/modules/ForwardStarModule.h
     ../src/modules/DSUPathCompressionModule.h
     ../src/modules/TreeDpBase.h
@@ -166,6 +170,9 @@ set(SG_MODULE_HEADERS
     ../src/modules/LCSModule.h
     ../src/render/ValueBar.h
     ../src/render/SegmentBar.h
+    ../src/core/CartesianExpression.h
+    ../src/render/CartesianElements.h
+    ../src/modules/CartesianModule.h
     ../src/modules/TarjanModule.h
     ../src/modules/BubbleSortModule.h
     ../src/modules/SelectionSortModule.h
@@ -174,7 +181,6 @@ set(SG_MODULE_HEADERS
     ../src/modules/MergeSortModule.h
     ../src/modules/HeapBasicsModule.h
     ../src/modules/MonotonicStackModule.h
-    ../src/modules/DSUBasicModule.h
     ../src/modules/PrefixSumModule.h
     ../src/modules/DifferenceModule.h
     ../src/modules/StackModule.h
@@ -199,6 +205,7 @@ set(SG_WIDGET_SOURCES
     ../src/ui/widgets/MyColorPicker.cpp
     ../src/ui/widgets/MySegmentedControl.cpp
     ../src/ui/widgets/MyTextInput.cpp
+    ../src/ui/widgets/CartesianPanel.cpp
 )
 
 set(SG_CANVAS_SOURCES
@@ -338,6 +345,15 @@ add_sg_test(SmartGroundExgcdDebug ExgcdDebug.cpp)
 add_sg_test(SmartGroundHuffmanShot HuffmanShot.cpp)
 add_sg_test(SmartGroundHuffmanLayoutDump HuffmanLayoutDump.cpp)
 add_sg_test(SmartGroundStrictAudit StrictAudit.cpp)
+add_sg_test(SmartGroundAnimUpgrade AnimUpgradeTest.cpp)
 add_sg_test(SmartGroundBeamCurve BeamCurveTest.cpp)
 add_sg_test(SmartGroundBeamRender BeamRenderTest.cpp)
 add_sg_canvas_test(SmartGroundCanvasFeatures CanvasFeaturesTest.cpp)
+
+add_sg_test(SmartGroundBatch31 Batch31Test.cpp)
+add_sg_test(SmartGroundBatch31Visual Batch31Visual.cpp)
+add_sg_widget_test(SmartGroundVisualFix VisualFixTest.cpp)
+add_sg_ui_test(SmartGroundCartesian CartesianModuleTest.cpp)
+add_sg_ui_test(SmartGroundCartesianVisual CartesianVisualTest.cpp)
+add_sg_ui_test(SmartGroundCartesianPixel CartesianPixelTest.cpp)
+add_sg_ui_test(SmartGroundCartesianUi CartesianUiTest.cpp)

@@ -396,6 +396,61 @@ void drawRedo(QPainter& painter, const QRectF& box, const QColor& color) {
     painter.restore();
 }
 
+void drawCartPoint(QPainter& painter, const QRectF& box, const QColor& color) {
+    const QPointF c = box.center();
+    const double s = qMin(box.width(), box.height()) * 0.5;
+
+    QPainterPath path;
+    const double w = s * 0.86;
+    const double h = s * 1.10;
+    path.moveTo(c.x() - w * 0.42, c.y() - h * 0.56);
+    path.lineTo(c.x() - w * 0.42, c.y() + h * 0.40);
+    path.lineTo(c.x() - w * 0.06, c.y() + h * 0.06);
+    path.lineTo(c.x() + w * 0.20, c.y() + h * 0.52);
+    path.lineTo(c.x() + w * 0.40, c.y() + h * 0.38);
+    path.lineTo(c.x() + w * 0.12, c.y() - h * 0.06);
+    path.lineTo(c.x() + w * 0.52, c.y() - h * 0.14);
+    path.closeSubpath();
+    iconPen(painter, color, 1.5);
+    painter.drawPath(path);
+
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(color);
+    painter.drawEllipse(QPointF(c.x() - w * 0.42, c.y() - h * 0.56), 2.6, 2.6);
+}
+
+void drawCartLine(QPainter& painter, const QRectF& box, const QColor& color) {
+    const QPointF a = box.center() + QPointF(-box.width() * 0.34, box.height() * 0.28);
+    const QPointF b = box.center() + QPointF(box.width() * 0.34, -box.height() * 0.28);
+    iconPen(painter, color, 1.6);
+    painter.drawLine(a, b);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(color);
+    painter.drawEllipse(a, 2.6, 2.6);
+    painter.drawEllipse(b, 2.6, 2.6);
+}
+
+void drawCartFunction(QPainter& painter, const QRectF& box, const QColor& color) {
+    const QRectF r = box.adjusted(box.width() * 0.14, box.height() * 0.16,
+                                  -box.width() * 0.14, -box.height() * 0.16);
+    iconPen(painter, color, 1.5);
+    painter.drawRect(r);
+
+    QPainterPath curve;
+    const double w = r.width();
+    const double h = r.height();
+    for (int i = 0; i <= 24; ++i) {
+        const double t = static_cast<double>(i) / 24.0;
+        const double px = r.left() + w * t;
+        const double py = r.bottom() - h * (0.18 + 0.68 * t * t);
+        if (i == 0) curve.moveTo(px, py);
+        else curve.lineTo(px, py);
+    }
+    painter.setPen(QPen(color, 1.7, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawPath(curve);
+}
+
 }  // namespace
 
 ToolIconButton::ToolIconButton(Kind kind, const QString& tip, QWidget* parent)
@@ -440,6 +495,9 @@ void ToolIconButton::paintIcon(QPainter& painter, Kind kind, const QRectF& box, 
     case More: drawMore(painter, box, color); break;
     case Undo: drawUndo(painter, box, color); break;
     case Redo: drawRedo(painter, box, color); break;
+    case CartPoint: drawCartPoint(painter, box, color); break;
+    case CartLine: drawCartLine(painter, box, color); break;
+    case CartFunction: drawCartFunction(painter, box, color); break;
     default: break;
     }
 }

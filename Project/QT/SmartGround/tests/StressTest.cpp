@@ -7,7 +7,7 @@
 #include "modules/DijkstraNaiveModule.h"
 #include "modules/KruskalModule.h"
 #include "modules/TarjanModule.h"
-#include "modules/DSUBasicModule.h"
+#include "modules/DSUPathCompressionModule.h"
 #include "modules/HeapBasicsModule.h"
 #include "modules/StackModule.h"
 #include "modules/QueueModule.h"
@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
         "3 3\n1 2\n2 3\n3 1"
     });
 
-    stress(new DSUBasicModule(), "DSU", {"10\n0 1 1 2 3 4 4 5 6 7", "1\n0", "3\n0 0 0"});
+    stress(new DSUPathCompressionModule(), "DSU", {"8\n1 2\n2 3\n3 4\n6 7", "2\n1 2", "3\n1 2\n2 3"});
     stress(new HeapBasicsModule(), "Heap", {"5\n10 5 8 2 9", "1\n42", "8\n1 2 3 4 5 6 7 8"});
     stress(new StackModule(), "Stack", {"8\nPUSH 10\nPUSH 20\nPOP\nPUSH 40", "2\nPUSH 1\nPUSH 2\nPUSH 3", "1\nPOP"});
     stress(new QueueModule(), "Queue", {"8\nPUSH 10\nPUSH 20\nPOP\nPUSH 40", "2\nPUSH 1\nPUSH 2\nPUSH 3", "1\nPOP"});

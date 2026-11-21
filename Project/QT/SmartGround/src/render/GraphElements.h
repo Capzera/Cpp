@@ -86,6 +86,7 @@ class GraphEdge : public QGraphicsObject {
     Q_OBJECT
     Q_PROPERTY(qreal drawProgress READ drawProgress WRITE setDrawProgress)
     Q_PROPERTY(qreal beamProgress READ beamProgress WRITE setBeamProgress)
+    Q_PROPERTY(bool beamReversed READ beamReversed WRITE setBeamReversed)
 public:
     enum { Type = UserType + 2 };
     int type() const override { return Type; }
@@ -106,6 +107,7 @@ public:
     void setPathLabelColor(const QColor& c) { pathLabelColor = c; update(); }
     void setPenWidth(qreal w) { if (m_penWidth == w) return; m_penWidth = w; update(); }
     void setBendOffset(const QPointF& off) { if (m_bendOffset == off) return; prepareGeometryChange(); m_bendOffset = off; update(); }
+    void repointDest(GraphNode* newDest);
     qreal penWidth() const { return m_penWidth; }
     qreal drawProgress() const { return m_drawProgress; }
     void setDrawProgress(qreal p) {
@@ -119,6 +121,8 @@ public:
     qreal beamProgress() const { return m_beamProgress; }
     void setBeamProgress(qreal p);
     void clearBeam() { setBeamProgress(-1.0); }
+    bool beamReversed() const { return m_beamReversed; }
+    void setBeamReversed(bool on) { if (m_beamReversed == on) return; prepareGeometryChange(); m_beamReversed = on; update(); }
     QRectF boundingRect() const override;
     QPainterPath shape() const override;
     void adjust();
@@ -180,6 +184,7 @@ private:
     qreal m_penWidth = 2.0;
     qreal m_drawProgress = 1.0;
     qreal m_beamProgress = -1.0;
+    bool m_beamReversed = false;
     QPointer<QGraphicsTextItem> m_editor;
     std::shared_ptr<EditorGuard> m_guard = std::make_shared<EditorGuard>();
 };

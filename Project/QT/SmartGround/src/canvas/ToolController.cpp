@@ -9,6 +9,7 @@
 #include "CanvasTableItem.h"
 #include "SelectionOverlay.h"
 #include "CanvasView.h"
+#include "render/CartesianElements.h"
 #include "core/TextEditGuard.h"
 #include "ui/widgets/AnnotationEditor.h"
 #include <QMouseEvent>
@@ -66,6 +67,11 @@ void ToolController::setTool(Tool tool) {
     }
     m_tool = tool;
     m_eraserActive = (tool == Eraser);
+    if (m_cartesianEngine) {
+        if (tool == CartPoint) m_cartesianEngine->setActiveTool(CartesianEngine::Point);
+        else if (tool == CartLine) m_cartesianEngine->setActiveTool(CartesianEngine::Line);
+        else m_cartesianEngine->setActiveTool(CartesianEngine::Select);
+    }
     if (m_view && m_view->toolController() == this) {
         m_view->setDragMode(m_tool == Select ? QGraphicsView::ScrollHandDrag : QGraphicsView::NoDrag);
         m_view->viewport()->setCursor(m_tool == Select ? Qt::OpenHandCursor : Qt::CrossCursor);
@@ -366,7 +372,12 @@ bool ToolController::eventFilter(QObject* obj, QEvent* event) {
         return isDrawingTool();
     case QEvent::MouseButtonDblClick: {
         QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
-        const QPointF pos = m_view->mapToScene(mouseEvent->position().toPoint());
+        const QPointF pos = m_view->mapToSceneF(mouseEvent->position());
+        if (m_cartesianEngine && m_cartesianEngine->isEnabled()) {
+            cartesianDoubleClick(pos);
+            event->accept();
+            return true;
+        }
         const AnnotationItem* hit = itemAt(pos);
         if (hit) {
             AnnotationItem* item = const_cast<AnnotationItem*>(hit);
@@ -568,10 +579,130 @@ void ToolController::onMousePress(QMouseEvent* event) {
     case Table:
         createItemForTool(pos);
         break;
+    case CartPoint:
+        beginCartesianPoint(pos);
+        break;
+    case CartLine:
+        beginCartesianLink(pos);
+        break;
     default:
         break;
     }
     event->accept();
+}
+
+void ToolController::setCartesianEngine(CartesianEngine* engine) {
+    if (m_cartesianEngine == engine) return;
+    m_cartesianEngine = engine;
+    m_cartesianPending = nullptr;
+    m_cartesianLinkStart = nullptr;
+}
+
+void ToolController::beginCartesianPoint(const QPointF& pos) {
+    if (!m_cartesianEngine) return;
+
+    CartesianPointItem* existing = m_cartesianEngine->pointAtScene(pos);
+    if (existing) {
+        m_cartesianPending = existing;
+        m_cartesianDragging = true;
+        m_cartesianPressPos = pos;
+        m_cartesianEngine->setDraggingPoint(existing);
+        return;
+    }
+
+    const QPointF snapped = m_cartesianEngine->snapScene(pos);
+    const QPointF math = m_cartesianEngine->toMath(snapped);
+    const int index = m_cartesianEngine->addPoint(math.x(), math.y(), QString());
+    if (index < 0) return;
+    CartesianPointItem* created = m_cartesianEngine->pointAt(index);
+    if (!created) return;
+    m_cartesianPending = created;
+    m_cartesianDragging = true;
+    m_cartesianPressPos = pos;
+    m_cartesianEngine->setDraggingPoint(created);
+    emit statusMessage(QString("已描点 %1（%2, %3）")
+                           .arg(created->name())
+                           .arg(CartesianExpression::formatNumber(created->x()))
+                           .arg(CartesianExpression::formatNumber(created->y())));
+}
+
+void ToolController::updateCartesianPoint(const QPointF& pos) {
+    if (!m_cartesianEngine || !m_cartesianPending) return;
+    const QPointF snapped = m_cartesianEngine->snapScene(pos);
+    const QPointF math = m_cartesianEngine->toMath(snapped);
+    m_cartesianPending->setMathPos(math.x(), math.y());
+    emit statusMessage(QString("%1（%2, %3）")
+                           .arg(m_cartesianPending->name(),
+                                CartesianExpression::formatNumber(math.x()),
+                                CartesianExpression::formatNumber(math.y())));
+}
+
+void ToolController::finishCartesianPoint() {
+    if (!m_cartesianEngine) return;
+    if (m_cartesianPending) {
+        m_cartesianPending->setHighlighted(false);
+        m_cartesianPending = nullptr;
+    }
+    m_cartesianEngine->setDraggingPoint(nullptr);
+    m_cartesianDragging = false;
+}
+
+void ToolController::beginCartesianLink(const QPointF& pos) {
+    if (!m_cartesianEngine) return;
+
+    CartesianPointItem* target = m_cartesianEngine->pointAtScene(pos);
+    if (!target) {
+        emit statusMessage("连线工具：请在已有的点上单击选择端点");
+        return;
+    }
+
+    CartesianPointItem* start = m_cartesianEngine->linkStart();
+    if (!start) {
+        m_cartesianEngine->setLinkStart(target);
+        emit statusMessage(QString("已选择起点 %1，请再点一个点连成线段").arg(target->name()));
+        return;
+    }
+
+    if (start == target) {
+        m_cartesianEngine->setLinkStart(nullptr);
+        emit statusMessage("已取消起点选择");
+        return;
+    }
+
+    CartesianEngine* engine = m_cartesianEngine;
+    engine->setLinkStart(nullptr);
+
+    const int index = engine->linkPoints(start, target);
+    if (index < 0) {
+        emit statusMessage("线段创建失败");
+        return;
+    }
+    emit statusMessage(QString("已连接 %1 与 %2，双击线段可查看一次方程")
+                           .arg(start->name(), target->name()));
+}
+
+void ToolController::cartesianDoubleClick(const QPointF& pos) {
+    if (!m_cartesianEngine) return;
+
+    CartesianPointItem* point = m_cartesianEngine->pointAtScene(pos);
+    if (point) {
+        emit m_cartesianEngine->pointDoubleClicked(point->index());
+        return;
+    }
+
+    for (CartesianSegmentItem* segment : m_cartesianEngine->segments()) {
+        if (segment->hitTest(pos)) {
+            emit m_cartesianEngine->segmentDoubleClicked(segment->index());
+            return;
+        }
+    }
+
+    for (CartesianCurveItem* curve : m_cartesianEngine->curves()) {
+        if (curve->hitTest(pos)) {
+            emit m_cartesianEngine->curveDoubleClicked(curve->index());
+            return;
+        }
+    }
 }
 
 void ToolController::onMouseMove(QMouseEvent* event) {
@@ -609,6 +740,21 @@ void ToolController::onMouseMove(QMouseEvent* event) {
         event->accept();
         return;
     }
+    if (m_tool == CartPoint) {
+        if (m_cartesianDragging) {
+            const QPointF pos = m_view->mapToSceneF(event->position());
+            updateCartesianPoint(pos);
+            event->accept();
+            return;
+        }
+        if (m_view) m_view->refreshOverlay();
+        event->accept();
+        return;
+    }
+    if (m_tool == CartLine) {
+        event->accept();
+        return;
+    }
     if (!m_drawing) return;
     m_modifiers = event->modifiers();
     const QPointF pos = m_view->mapToSceneF(event->position());
@@ -639,6 +785,15 @@ void ToolController::onMouseRelease(QMouseEvent* event) {
         } else if (m_drawing && !m_selected.isEmpty()) {
             finishMoveSelection();
         }
+        event->accept();
+        return;
+    }
+    if (m_tool == CartPoint) {
+        finishCartesianPoint();
+        event->accept();
+        return;
+    }
+    if (m_tool == CartLine) {
         event->accept();
         return;
     }

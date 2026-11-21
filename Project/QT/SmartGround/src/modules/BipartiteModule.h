@@ -4,6 +4,7 @@
 #include "render/GraphElements.h"
 #include <QObject>
 #include <QGraphicsTextItem>
+#include <QPointer>
 #include <map>
 #include <vector>
 
@@ -33,22 +34,37 @@ private:
     QColor colorFor(int color) const;
     QString blueText() const;
     QString orangeText() const;
+    std::vector<int> extractOddCycle(int u, int v) const;
+    void buildQueueRow(int capacity);
+    void clearQueueRow();
+    void setQueueSlot(int index, int value, bool active);
+    void setQueuePointer(int index, const QString& label, PointerBlock* pointer);
+public:
+    const std::map<int, ArrayBlock*>& queueBlocks() const { return m_queueBlocks; }
 
     std::vector<AnimFrame> m_frames;
     std::map<int, GraphNode*> m_nodes;
     std::map<std::pair<int, int>, GraphEdge*> m_edges;
     std::map<int, ArrayBlock*> m_colorBlocks;
+    std::map<int, ArrayBlock*> m_queueBlocks;
     QGraphicsTextItem* m_mathText = nullptr;
     QGraphicsTextItem* m_verdictText = nullptr;
+    QGraphicsTextItem* m_cycleText = nullptr;
+    QPointer<PathTrail> m_cycleTrail;
+    PointerBlock* m_queueHeadPtr = nullptr;
+    PointerBlock* m_queueTailPtr = nullptr;
     std::vector<std::pair<int, int>> m_edgeList;
     GraphModuleUtils::GraphOptions m_options;
     int m_head[101];
     int m_to[2005];
     int m_next[2005];
     int m_color[101];
+    int m_parent[101];
+    int m_depth[101];
     int m_n = 0;
     int m_m = 0;
     int m_edgeCount = 0;
+    int m_queueCap = 0;
     bool m_valid = false;
 };
 

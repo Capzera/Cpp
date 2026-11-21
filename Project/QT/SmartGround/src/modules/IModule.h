@@ -33,6 +33,7 @@ public:
     virtual bool supportsGraphOptions() const { return false; }
     virtual bool supportsDirected() const { return true; }
     virtual bool supportsBidirectional() const { return true; }
+    virtual bool isCartesian() const { return false; }
     virtual GraphModuleUtils::GraphOptions getGraphOptions() const { return GraphModuleUtils::GraphOptions(); }
     virtual void setGraphOptions(const GraphModuleUtils::GraphOptions& options) { Q_UNUSED(options) }
 
@@ -153,13 +154,16 @@ protected:
     void playNodeAppear(QObject* item, int duration = 420);
     void playEdgeGrow(GraphEdge* edge, int duration = 200);
     void playEdgeTrace(GraphEdge* edge, QColor color, int duration = 420);
+    void playEdgeTraceFrom(GraphEdge* edge, QColor color, int fromNodeId, int duration = 420);
     void playNodeRipple(QObject* item, QColor color, qreal maxRadius = 40.0, int duration = 620);
     void playNodePop(QObject* item, qreal peak = 1.22, int duration = 340);
     void playEdgeSweep(GraphEdge* edge, QColor color, int duration = 460);
     void completeEdgeGrowth(std::vector<GraphEdge*>& edges);
     void completeVisibleEdges();
     void playEdgeTravel(GraphEdge* edge, QColor color, int duration = 520);
+    void playEdgeTravelFrom(GraphEdge* edge, QColor color, int fromNodeId, int duration = 520);
     void startBeam(GraphEdge* edge, QColor color, int duration = 520);
+    void startBeamFrom(GraphEdge* edge, QColor color, int fromNodeId, int duration = 520);
     void playDiscover(QObject* node, QColor color, qreal maxRadius = 46.0, int duration = 640);
     void playEdgeDiscover(GraphEdge* edge, QObject* node, QColor color, int duration = 520);
     void playNodeWake(QObject* node, QColor color, qreal maxRadius = 34.0, int duration = 520);
@@ -169,7 +173,7 @@ protected:
     void playCellLanding(ArrayBlock* cell, QColor color, int duration = 420);
     void playFadeIn(QObject* item, int duration = 360);
     void playFadeItem(QObject* item, qreal from, qreal to, int duration = 360);
-    void playMoveTo(std::vector<QGraphicsItem*> items, std::vector<QPointF> targets, int duration = 440);
+    void playMoveTo(std::vector<QGraphicsObject*> items, std::vector<QPointF> targets, int duration = 440);
     void playValueDropInto(QPointF start, ArrayBlock* target, int value,
                            QColor color = QColor(20, 30, 45), int duration = 520);
     void playValueFlyOut(QPointF start, int value,

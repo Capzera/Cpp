@@ -2,6 +2,7 @@
 #include "AnnotationScene.h"
 #include "ToolController.h"
 #include "SelectionOverlay.h"
+#include "render/CartesianElements.h"
 #include "core/TextEditGuard.h"
 #include <QMouseEvent>
 #include <QWheelEvent>
@@ -49,6 +50,19 @@ void CanvasView::setAnnotationScene(AnnotationScene* scene) {
 void CanvasView::setToolController(ToolController* controller) {
     m_toolController = controller;
     syncDragMode();
+}
+
+void CanvasView::setCartesianEngine(CartesianEngine* engine) {
+    if (m_cartesianEngine == engine) return;
+    m_cartesianEngine = engine;
+    syncCartesianViewport();
+}
+
+void CanvasView::syncCartesianViewport() {
+    if (!m_cartesianEngine) return;
+    const QPointF topLeft = mapToSceneF(QPointF(0, 0));
+    const QPointF bottomRight = mapToSceneF(QPointF(viewport()->width(), viewport()->height()));
+    m_cartesianEngine->updateViewport(QRectF(topLeft, bottomRight).normalized());
 }
 
 void CanvasView::syncDragMode() {
@@ -157,6 +171,13 @@ bool CanvasView::eventFilter(QObject* obj, QEvent* event) {
     if (event->type() == QEvent::Wheel) {
         QWheelEvent* wheelEvent = static_cast<QWheelEvent*>(event);
         const double angle = wheelEvent->angleDelta().y();
+        if (m_cartesianEngine) {
+            const double factor = std::pow(1.0015, angle);
+            const QPointF anchor = mapToSceneF(wheelEvent->position());
+            m_cartesianEngine->zoomBy(factor, anchor);
+            syncCartesianViewport();
+            return true;
+        }
         const double factor = std::pow(1.0015, angle);
         const double currentScale = transform().m11();
         if ((currentScale < 0.2 && factor < 1.0) || (currentScale > 5.0 && factor > 1.0)) return true;
@@ -197,6 +218,12 @@ bool CanvasView::eventFilter(QObject* obj, QEvent* event) {
         QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
         const QPoint delta = mouseEvent->position().toPoint() - m_panOrigin;
         m_panOrigin = mouseEvent->position().toPoint();
+        if (m_cartesianEngine) {
+            m_cartesianEngine->setOriginScene(
+                m_cartesianEngine->originScene() - QPointF(delta.x(), delta.y()));
+            syncCartesianViewport();
+            return true;
+        }
         horizontalScrollBar()->setValue(horizontalScrollBar()->value() - delta.x());
         verticalScrollBar()->setValue(verticalScrollBar()->value() - delta.y());
         return true;
@@ -217,4 +244,5 @@ bool CanvasView::eventFilter(QObject* obj, QEvent* event) {
 void CanvasView::resizeEvent(QResizeEvent* event) {
     QGraphicsView::resizeEvent(event);
     refreshOverlay();
+    syncCartesianViewport();
 }

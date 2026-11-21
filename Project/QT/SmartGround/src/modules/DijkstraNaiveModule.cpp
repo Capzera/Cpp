@@ -95,6 +95,88 @@ void DijkstraNaiveModule::buildLayout(QGraphicsScene* scene, const QString& inpu
     m_relaxPointer->setOpacity(0);
     scene->addItem(m_pickPointer);
     scene->addItem(m_relaxPointer);
+
+    buildCandidateRuler();
+}
+
+void DijkstraNaiveModule::buildCandidateRuler() {
+    const double rulerX = 900.0;
+    const double rulerY = 175.0;
+    const double cellW = 62.0;
+    const double cellH = 40.0;
+    const double rowStep = 78.0;
+
+    m_rulerText = createScriptText(m_scene,
+        QString("候选尺（按 dist 升序）"));
+    m_rulerText->setFont(QFont("Microsoft YaHei", 10, QFont::Bold));
+    m_rulerText->setDefaultTextColor(QColor(110, 125, 145));
+    m_rulerText->setPos(rulerX - 6.0, rulerY - 62.0);
+
+    for (int i = 1; i <= m_n; ++i) {
+        ArrayBlock* block = new ArrayBlock(i, 0, QString::number(i));
+        block->setCellSize(cellW, cellH);
+        block->setPos(rulerX, rulerY + (i - 1) * rowStep);
+        block->color = QColor(252, 252, 254);
+        m_scene->addItem(block);
+        m_candBlocks[i] = block;
+    }
+
+    m_candPointer = new PointerBlock("min", QColor(150, 60, 140));
+    m_candPointer->setOpacity(0);
+    m_candPointer->setDirection(PointerBlock::Left);
+    m_candPointer->setAnchorOffset(QPointF(-10.0, 20.0));
+    m_candPointer->setLabelAtTail(10.0);
+    m_scene->addItem(m_candPointer);
+}
+
+void DijkstraNaiveModule::paintRulerSlot(int index, const QColor& color, bool strike) {
+    auto it = m_candBlocks.find(index);
+    if (it == m_candBlocks.end()) return;
+    it->second->color = color;
+    it->second->setStruck(strike);
+    it->second->update();
+}
+
+void DijkstraNaiveModule::refreshCandidateRuler(const std::vector<int>& dist, const std::vector<bool>& used,
+                                                const std::vector<int>& doneOrder) {
+    std::vector<std::pair<int, int>> order;
+    for (int i = 1; i <= m_n; ++i) {
+        if (used[i]) continue;
+        order.push_back({dist[i], i});
+    }
+    std::stable_sort(order.begin(), order.end(),
+                     [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+                         return a.first < b.first;
+                     });
+    m_candOrder.clear();
+    for (const auto& entry : order) m_candOrder.push_back(entry.second);
+
+    int slot = 0;
+    for (int node : m_candOrder) {
+        auto it = m_candBlocks.find(node);
+        if (it == m_candBlocks.end()) continue;
+        it->second->setPos(900.0, 175.0 + slot * 78.0);
+        it->second->setCustomValue(dist[node] >= 1000000000
+                                       ? QString("∞")
+                                       : QString::number(dist[node]));
+        it->second->color = QColor(252, 252, 254);
+        it->second->setStruck(false);
+        it->second->update();
+        ++slot;
+    }
+    int doneSlot = slot;
+    for (int node : doneOrder) {
+        auto it = m_candBlocks.find(node);
+        if (it == m_candBlocks.end()) continue;
+        it->second->setPos(900.0, 175.0 + doneSlot * 78.0);
+        it->second->setCustomValue(dist[node] >= 1000000000
+                                       ? QString("∞")
+                                       : QString::number(dist[node]));
+        it->second->color = QColor(214, 226, 218);
+        it->second->setStruck(true);
+        it->second->update();
+        ++doneSlot;
+    }
 }
 
 std::vector<AnimFrame> DijkstraNaiveModule::runAlgorithm() {
@@ -118,32 +200,53 @@ std::vector<AnimFrame> DijkstraNaiveModule::runAlgorithm() {
     }
     if (!srcOverridden) distance[m_src] = 0;
     m_frames.push_back({ActionType::DJ_RESET, m_src, 0, 0, 0, {}, QString("从源点 %1 初始化距离数组").arg(m_src), QString("dist[%1] = 0，其余为 ∞").arg(m_src)});
+    std::vector<int> doneOrder;
     for (int round = 1; round <= m_n; ++round) {
+        std::vector<int> candidates;
+        for (int i = 1; i <= m_n; ++i) {
+            if (!used[i]) candidates.push_back(i);
+        }
+        std::vector<int> snapshot;
+        for (int i = 1; i <= m_n; ++i) {
+            snapshot.push_back(distance[i] >= 1000000000 ? -1 : distance[i]);
+        }
+        m_frames.push_back({ActionType::DJ_CANDIDATE, round, static_cast<int>(candidates.size()), 0, 0, snapshot,
+                            QString("第 %1 轮：列出全部未确定点，候选尺按 dist 升序排列").arg(round),
+                            QString("候选尺：未确定点共 %1 个").arg(candidates.size())});
         int u = 0;
         for (int i = 1; i <= m_n; ++i) {
             if (used[i]) continue;
-            int oldBest = u ? distance[u] : inf;
+            int oldBest = u ? distance[u] : 1000000000;
             bool choose = u == 0 || distance[i] < distance[u];
             if (choose) u = i;
-            m_frames.push_back({ActionType::DJ_SCAN, u, i, distance[i], oldBest, {0, choose ? 1 : 0}, QString("扫描未确定点 %1，比较当前最小距离").arg(i), QString("min(%1, %2) = %3").arg(oldBest == inf ? QString("∞") : QString::number(oldBest)).arg(distance[i] == inf ? QString("∞") : QString::number(distance[i])).arg(distance[u] == inf ? QString("∞") : QString::number(distance[u]))});
+            m_frames.push_back({ActionType::DJ_SCAN, u, i, distance[i], oldBest, {0, choose ? 1 : 0}, QString("扫描未确定点 %1，比较当前最小距离").arg(i), QString("min(%1, %2) = %3").arg(oldBest == 1000000000 ? QString("∞") : QString::number(oldBest)).arg(distance[i] == 1000000000 ? QString("∞") : QString::number(distance[i])).arg(distance[u] == 1000000000 ? QString("∞") : QString::number(distance[u]))});
         }
-        if (!u || distance[u] == inf) {
+        if (!u || distance[u] == 1000000000) {
             for (int i = 1; i <= m_n; ++i) if (!used[i]) m_frames.push_back({ActionType::DJ_UNREACHABLE, i, 0, 0, 0, {}, QString("节点 %1 与源点不连通").arg(i), QString("dist[%1] = ∞").arg(i)});
             break;
         }
+        m_frames.push_back({ActionType::DJ_CHOOSE, u, 0, distance[u], 0, {},
+                            QString("候选尺最上方就是 dist 最小的点 %1，dist = %2").arg(u).arg(distance[u]),
+                            QString("选 u = %1（dist 最小）").arg(u)});
         used[u] = true;
+        doneOrder.push_back(u);
         m_frames.push_back({ActionType::DJ_SELECT, u, round, distance[u], 0, {}, QString("确定节点 %1 的最短距离").arg(u), QString("dist[%1] = %2，加入已确定集合").arg(u).arg(distance[u])});
         for (int edge = m_head[u]; edge; edge = m_next[edge]) {
             int v = m_to[edge];
             int weight = m_weight[edge];
-            m_frames.push_back({ActionType::DJ_SCAN, u, v, weight, distance[v], {1, used[v] ? 1 : 0}, QString("沿边 %1 — %2 检查候选路径").arg(u).arg(v), QString("dist[%1] = %2，边权 w = %3").arg(v).arg(distance[v] == inf ? QString("∞") : QString::number(distance[v])).arg(weight)});
+            m_frames.push_back({ActionType::DJ_SCAN, u, v, weight, distance[v], {1, used[v] ? 1 : 0}, QString("沿边 %1 — %2 检查候选路径").arg(u).arg(v), QString("dist[%1] = %2，边权 w = %3").arg(v).arg(distance[v] == 1000000000 ? QString("∞") : QString::number(distance[v])).arg(weight)});
             if (used[v]) continue;
             int candidate = distance[u] + weight;
             if (candidate < distance[v]) {
                 int old = distance[v];
                 distance[v] = candidate;
                 parent[v] = u;
-                m_frames.push_back({ActionType::DJ_RELAX, u, v, candidate, old, {parent[v]}, QString("发现更短路径，更新 dist[%1]").arg(v), QString("dist[%1] = min(%2, %3 + %4) = %5").arg(v).arg(old == inf ? QString("∞") : QString::number(old)).arg(distance[u]).arg(weight).arg(candidate)});
+                m_frames.push_back({ActionType::DJ_RELAX, u, v, candidate, old, {parent[v]}, QString("发现更短路径，更新 dist[%1]").arg(v), QString("dist[%1] = min(%2, %3 + %4) = %5").arg(v).arg(old == 1000000000 ? QString("∞") : QString::number(old)).arg(distance[u]).arg(weight).arg(candidate)});
+            } else {
+                m_frames.push_back({ActionType::DJ_RELAX_KEEP, u, v, candidate, distance[v], {},
+                                    QString("候选值 %1 不小于现有 dist[%2] = %3，保持不变")
+                                        .arg(candidate).arg(v).arg(distance[v] == 1000000000 ? QString("∞") : QString::number(distance[v])),
+                                    QString("dist[%1] 不变").arg(v)});
             }
         }
     }
@@ -174,6 +277,19 @@ void DijkstraNaiveModule::renderFrame(const AnimFrame& frame) {
         m_relaxPointer->setOpacity(0);
         m_pickPointer->clearAnchor();
         m_relaxPointer->clearAnchor();
+        if (m_candPointer) {
+            m_candPointer->setOpacity(0);
+            m_candPointer->clearAnchor();
+        }
+        for (int i = 1; i <= m_n; ++i) {
+            auto it = m_candBlocks.find(i);
+            if (it == m_candBlocks.end()) continue;
+            it->second->setPos(900.0, 175.0 + (i - 1) * 78.0);
+            it->second->setCustomValue(i == frame.u ? QString("0") : QString("∞"));
+            it->second->color = QColor(252, 252, 254);
+            it->second->setStruck(false);
+            it->second->update();
+        }
         m_distBlocks[frame.u]->setCustomValue("0");
         m_distBlocks[frame.u]->color = QColor(170, 220, 245);
         m_distBlocks[frame.u]->update();
@@ -218,6 +334,64 @@ void DijkstraNaiveModule::renderFrame(const AnimFrame& frame) {
                 retargetPointerToNode(m_pickPointer, m_nodes[frame.v]);
             }
         }
+    } else if (frame.type == ActionType::DJ_CANDIDATE) {
+        std::vector<int> dist(m_n + 1, 1000000000);
+        std::vector<bool> used(m_n + 1, false);
+        for (int i = 1; i <= m_n; ++i) {
+            const int idx = i - 1;
+            if (idx < static_cast<int>(frame.group.size())) {
+                dist[i] = frame.group[idx] < 0 ? 1000000000 : frame.group[idx];
+            }
+            if (m_doneBlocks.count(i) && m_doneBlocks[i]->customValue == "1") used[i] = true;
+        }
+        std::vector<int> doneOrder;
+        for (int i = 1; i <= m_n; ++i) if (used[i]) doneOrder.push_back(i);
+        refreshCandidateRuler(dist, used, doneOrder);
+        if (m_rulerText) {
+            setScriptText(m_rulerText, QString("第 %1 轮候选尺：未确定点按 dist 升序").arg(frame.u));
+            m_rulerText->setDefaultTextColor(QColor(110, 125, 145));
+        }
+        if (!m_candOrder.empty()) {
+            auto it = m_candBlocks.find(m_candOrder.front());
+            if (it != m_candBlocks.end()) {
+                m_candPointer->setOpacity(1);
+                retargetPointerTo(m_candPointer, it->second, QPointF(-10.0, 20.0));
+                it->second->color = QColor(255, 214, 140);
+                it->second->update();
+                if (m_animated) {
+                    playScalePulse(it->second, 1.18, 260);
+                    playCellRipple(it->second, QColor(255, 200, 110), 0.9, 480);
+                }
+            }
+        }
+    } else if (frame.type == ActionType::DJ_CHOOSE) {
+        const int u = frame.u;
+        if (m_nodes.count(u)) {
+            m_nodes[u]->color = QColor(255, 214, 140);
+            m_nodes[u]->update();
+            playNodeWake(m_nodes[u], QColor(255, 200, 110), 36.0, 520);
+        }
+        if (m_pickPointer->opacity() < 0.05) {
+            m_pickPointer->setOpacity(1);
+            if (m_nodes.count(u)) retargetPointerToNode(m_pickPointer, m_nodes[u]);
+        }
+        if (m_mathText) {
+            setScriptText(m_mathText, QString("候选尺顶端 dist = %1 的点就是 %2")
+                               .arg(frame.val1).arg(u));
+            m_mathText->setDefaultTextColor(QColor(190, 110, 40));
+        }
+    } else if (frame.type == ActionType::DJ_RELAX_KEEP) {
+        const int u = frame.u, v = frame.v;
+        GraphEdge* edge = GraphRenderHelper::findEdge(m_edges, u, v);
+        if (edge) {
+            edge->setColor(QColor(198, 190, 205));
+            playEdgeSweep(edge, QColor(198, 190, 205), 340);
+        }
+        if (m_distBlocks.count(v)) {
+            m_distBlocks[v]->color = QColor(155, 210, 245);
+            m_distBlocks[v]->update();
+            playCellRipple(m_distBlocks[v], QColor(150, 160, 190), 0.7, 420);
+        }
     } else if (frame.type == ActionType::DJ_SELECT) {
         m_nodes[frame.u]->color = QColor(150, 220, 190);
         m_nodes[frame.u]->update();
@@ -261,10 +435,14 @@ void DijkstraNaiveModule::reset() {
     m_distBlocks.clear();
     m_doneBlocks.clear();
     m_parentBlocks.clear();
+    m_candBlocks.clear();
+    m_candOrder.clear();
     m_edgeList.clear();
     m_pickPointer = nullptr;
     m_relaxPointer = nullptr;
+    m_candPointer = nullptr;
     m_mathText = nullptr;
+    m_rulerText = nullptr;
     m_n = 0;
     m_m = 0;
     m_src = 1;
@@ -281,7 +459,11 @@ void DijkstraNaiveModule::releaseSceneItems() {
     m_distBlocks.clear();
     m_doneBlocks.clear();
     m_parentBlocks.clear();
+    m_candBlocks.clear();
+    m_candOrder.clear();
     m_pickPointer = nullptr;
     m_relaxPointer = nullptr;
+    m_candPointer = nullptr;
     m_mathText = nullptr;
+    m_rulerText = nullptr;
 }

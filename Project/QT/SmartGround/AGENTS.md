@@ -2,6 +2,8 @@
 
 For every task in this repository, treat `.cursorrules` and `Cursor_Workflow.md` as the project requirements. Read `docs/ProjectSummary.md`, `docs/ModuleStatus.md`, `docs/outlines.md`, and `docs/BugLog.md` before substantial implementation work. Keep these documents synchronized with code changes.
 
+**Read `docs/AnimationAesthetics.md` before writing any animation code.** It is the visual constitution of this project: color semantics (color = algorithmic fact), the four edge motions and when to use each, layout layering, toggle-switch semantics, state-completeness clauses, and the pre-delivery checklist. New visual concepts go into that file first, then into the code.
+
 ## Required collaboration and implementation rules
 
 - Before implementing a new algorithm module, present its animation storyboard, including pointers, temporary visual structures, labels, and state colors. Wait for the user to approve the storyboard before writing that module's C++ implementation.

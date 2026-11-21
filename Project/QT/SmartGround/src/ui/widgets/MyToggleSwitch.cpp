@@ -87,9 +87,9 @@ QRectF MyToggleSwitch::trackRect() const {
     qreal trackW = 50.0;
     qreal trackH = 24.0;
     qreal left = 0;
-    if (!m_onText.isEmpty()) {
+    if (!m_offText.isEmpty()) {
         QFontMetrics fm(font());
-        left = fm.horizontalAdvance(m_onText) + 10;
+        left = fm.horizontalAdvance(m_offText) + 10;
     }
     return QRectF(left, (height() - trackH) / 2.0, trackW, trackH);
 }
@@ -132,10 +132,10 @@ void MyToggleSwitch::paintEvent(QPaintEvent*) {
     QRectF leftRect(0, 0, track.left() - 8, height());
     QRectF rightRect(track.right() + 8, 0, width() - track.right() - 8, height());
 
-    painter.setPen(onActive ? UiTheme::textPrimary() : UiTheme::textMuted());
-    painter.drawText(leftRect, Qt::AlignRight | Qt::AlignVCenter, m_onText);
     painter.setPen(onActive ? UiTheme::textMuted() : UiTheme::textPrimary());
-    painter.drawText(rightRect, Qt::AlignLeft | Qt::AlignVCenter, m_offText);
+    painter.drawText(leftRect, Qt::AlignRight | Qt::AlignVCenter, m_offText);
+    painter.setPen(onActive ? UiTheme::textPrimary() : UiTheme::textMuted());
+    painter.drawText(rightRect, Qt::AlignLeft | Qt::AlignVCenter, m_onText);
 }
 
 void MyToggleSwitch::enterEvent(QEnterEvent* event) {

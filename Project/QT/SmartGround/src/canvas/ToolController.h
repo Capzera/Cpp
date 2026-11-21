@@ -21,6 +21,8 @@ class LatexItem;
 class CanvasTableItem;
 class CanvasView;
 class SelectionOverlay;
+class CartesianEngine;
+class CartesianPointItem;
 
 class ToolController : public QObject {
     Q_OBJECT
@@ -40,7 +42,9 @@ public:
         TextBox,
         Markdown,
         Latex,
-        Table
+        Table,
+        CartPoint,
+        CartLine
     };
     Q_ENUM(Tool)
 
@@ -173,6 +177,11 @@ private:
     void beginMosaic(const QPointF& pos);
     void updateMosaic(const QPointF& pos);
     void finishMosaic();
+    void beginCartesianPoint(const QPointF& pos);
+    void updateCartesianPoint(const QPointF& pos);
+    void finishCartesianPoint();
+    void beginCartesianLink(const QPointF& pos);
+    void cartesianDoubleClick(const QPointF& pos);
     void eraseAt(const QPointF& pos);
     void beginEraseDrag(const QPointF& pos);
     void updateEraseDrag(const QPointF& pos);
@@ -208,6 +217,9 @@ public:
     void setSelectedTextColor(const QColor& c);
     bool hasSelectedText() const;
 
+    void setCartesianEngine(CartesianEngine* engine);
+    CartesianEngine* cartesianEngine() const { return m_cartesianEngine; }
+
     QPointF constrainPoint(const QPointF& pos, const QPointF& origin) const;
     AnnotationItem* createItemForTool(const QPointF& pos);
 
@@ -227,6 +239,12 @@ public:
     QPointF m_currentPos;
     bool m_drawing = false;
     QVector<QPolygonF> m_mosaicCells;
+
+    CartesianEngine* m_cartesianEngine = nullptr;
+    CartesianPointItem* m_cartesianPending = nullptr;
+    CartesianPointItem* m_cartesianLinkStart = nullptr;
+    QPointF m_cartesianPressPos;
+    bool m_cartesianDragging = false;
 
     QVector<AnnotationItem*> m_selected;
     QPointF m_marqueeStart;

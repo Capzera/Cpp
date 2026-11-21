@@ -94,17 +94,26 @@ std::vector<AnimFrame> Knapsack01Module::runAlgorithm() {
     for (int i = 1; i <= n; ++i) {
         for (int j = 0; j <= W; ++j) {
             int skip = dp[i - 1][j];
-            m_frames.push_back({ActionType::KN_CANDIDATE, encode(i - 1, j), encode(i, j), skip, 0, {0}, QString("物品 %1：计算不选的价值").arg(i), QString("skip = dp[%1][%2] = %3").arg(i - 1).arg(j).arg(skip)});
             int best = skip;
             int take = -1;
+            int takeSource = -1;
             if (j >= w[i]) {
                 take = dp[i - 1][j - w[i]] + v[i];
-                m_frames.push_back({ActionType::KN_CANDIDATE, encode(i - 1, j - w[i]), encode(i, j), take, 1, {1}, QString("物品 %1：计算选入后的价值").arg(i), QString("take = dp[%1][%2] + %3 = %4").arg(i - 1).arg(j - w[i]).arg(v[i]).arg(take)});
-                best = std::max(skip, take);
+                takeSource = encode(i - 1, j - w[i]);
             }
+            m_frames.push_back({ActionType::KN_CANDIDATE, encode(i - 1, j), encode(i, j), skip, 0, {0}, QString("物品 %1：计算不选的价值").arg(i), QString("skip = dp[%1][%2] = %3").arg(i - 1).arg(j).arg(skip)});
+            if (takeSource >= 0) {
+                m_frames.push_back({ActionType::KN_CANDIDATE, takeSource, encode(i, j), take, 1, {1}, QString("物品 %1：计算选入后的价值").arg(i), QString("take = dp[%1][%2] + %3 = %4").arg(i - 1).arg(j - w[i]).arg(v[i]).arg(take)});
+            }
+            m_frames.push_back({ActionType::KN_COMPARE, encode(i, j), 0, skip, take, {takeSource >= 0 ? 1 : 0},
+                                QString("比较两个候选：skip = %1，take = %2").arg(skip).arg(take >= 0 ? QString::number(take) : QString("—")),
+                                takeSource >= 0
+                                    ? QString("max(%1, %2) = %3").arg(skip).arg(take).arg(std::max(skip, take))
+                                    : QString("容量不足，只能不选：dp[%1][%2] = %3").arg(i).arg(j).arg(skip)});
+            bool chooseTake = takeSource >= 0 && take > skip;
+            best = takeSource >= 0 ? std::max(skip, take) : skip;
             dp[i][j] = best;
-            bool chooseTake = take > skip;
-            QString formula = j >= w[i]
+            QString formula = takeSource >= 0
                 ? QString("dp[%1][%2] = max(%3, %4) = %5").arg(i).arg(j).arg(skip).arg(take).arg(best)
                 : QString("容量不足，dp[%1][%2] = %3").arg(i).arg(j).arg(best);
             m_frames.push_back({ActionType::KN_DECIDE, i, j, best, chooseTake ? 1 : 0, {}, QString("确定 dp[%1][%2]").arg(i).arg(j), formula});
@@ -130,14 +139,48 @@ void Knapsack01Module::renderFrame(const AnimFrame& frame) {
         int sourceRow = frame.u / (W + 1), sourceCol = frame.u % (W + 1);
         int targetRow = frame.v / (W + 1), targetCol = frame.v % (W + 1);
         ArrayBlock* source = m_dpGrid[sourceRow][sourceCol];
-        ArrayBlock* target = m_dpGrid[targetRow][targetCol];
         QColor color = frame.val2 == 1 ? QColor(255, 205, 125) : QColor(155, 210, 245);
-        m_itemBlocks[targetRow - 1]->color = color;
-        m_itemBlocks[targetRow - 1]->update();
-        playNodePop(m_itemBlocks[targetRow - 1], 1.16, 260);
+        if (targetRow >= 1 && targetRow - 1 < static_cast<int>(m_itemBlocks.size())) {
+            m_itemBlocks[targetRow - 1]->color = color;
+            m_itemBlocks[targetRow - 1]->update();
+            playNodePop(m_itemBlocks[targetRow - 1], 1.16, 260);
+        }
         source->color = color;
         source->update();
-        playValueFlight(source->centerPos(), target, frame.val1, color, true);
+        playNodePop(source, 1.14, 240);
+        playCellRipple(source, color, 0.8, 440);
+    } else if (frame.type == ActionType::KN_COMPARE) {
+        const int targetRow = frame.u / (W + 1), targetCol = frame.u % (W + 1);
+        const int skip = frame.val1;
+        const int take = frame.val2;
+        const bool hasTake = frame.group.size() > 0 && frame.group[0] != 0;
+        const int sourceRow = targetRow - 1;
+        ArrayBlock* skipCell = m_dpGrid[sourceRow][targetCol];
+        ArrayBlock* takeCell = nullptr;
+        if (hasTake) {
+            const int takeCol = targetCol - w[targetRow];
+            if (takeCol >= 0 && takeCol <= W) takeCell = m_dpGrid[sourceRow][takeCol];
+        }
+        const QColor skipColor = QColor(155, 210, 245);
+        const QColor takeColor = QColor(255, 205, 125);
+        skipCell->color = skipColor;
+        skipCell->update();
+        playNodePop(skipCell, 1.16, 240);
+        playCellRipple(skipCell, skipColor, 0.85, 460);
+        if (takeCell) {
+            takeCell->color = takeColor;
+            takeCell->update();
+            playNodePop(takeCell, 1.16, 240);
+            playCellRipple(takeCell, takeColor, 0.85, 460);
+        }
+        ArrayBlock* target = m_dpGrid[targetRow][targetCol];
+        const bool takeWins = hasTake && take > skip;
+        const int winner = takeWins ? take : skip;
+        ArrayBlock* winnerCell = takeWins ? takeCell : skipCell;
+        const QColor winnerColor = takeWins ? takeColor : skipColor;
+        if (winnerCell) {
+            playValueFlight(winnerCell->centerPos(), target, winner, winnerColor, true);
+        }
     } else if (frame.type == ActionType::KN_DECIDE) {
         if (frame.val2 == 2) {
             m_dpGrid[frame.u][frame.v]->value = frame.val1;

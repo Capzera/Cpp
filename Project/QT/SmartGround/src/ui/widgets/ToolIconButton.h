@@ -25,7 +25,10 @@ public:
         Style,
         More,
         Undo,
-        Redo
+        Redo,
+        CartPoint,
+        CartLine,
+        CartFunction
     };
     Q_ENUM(Kind)
 

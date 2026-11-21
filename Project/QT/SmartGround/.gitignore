@@ -88,3 +88,21 @@ CMakeLists.txt.user*
 
 # 测试运行期在 build/tests 下生成的截图
 /build/tests/*.png
+
+# 临时截图 / 视觉验证产物目录
+/shots/
+/tools/_recovered/
+/tools/__pycache__/
+
+# 一次性补丁与恢复脚本的中间产物
+/tools/_*.py
+/tools/_*.cpp
+/tools/_*.h
+/tools/_*.json
+/tools/_*.jsonl
+/tools/_*.txt
+/tools/*.py
+
+# Qt Creator / clangd 本地索引
+/.qtc_clangd/
+*.pdf
