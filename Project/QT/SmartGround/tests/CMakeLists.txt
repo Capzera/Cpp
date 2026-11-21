@@ -372,3 +372,5 @@ add_sg_ui_test(SmartGroundCartesianRound2Shot CartesianRound2Shot.cpp)
 add_sg_ui_test(SmartGroundCartesianGridExtent CartesianGridExtentTest.cpp)
 
 add_sg_ui_test(SmartGroundCartesianRound3 CartesianRound3Test.cpp)
+
+add_sg_ui_test(SmartGroundCartesianRound4 CartesianRound4Test.cpp)

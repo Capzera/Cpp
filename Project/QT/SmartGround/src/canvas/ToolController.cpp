@@ -608,6 +608,74 @@ void ToolController::setCartesianEngine(CartesianEngine* engine) {
     m_cartesianLinkStart = nullptr;
 }
 
+bool ToolController::cartesianSelectAll() {
+    if (!m_cartesianEngine) return false;
+    m_cartesianEngine->setSelectedPoints(m_cartesianEngine->points());
+    emit statusMessage(QString("已全选 %1 个点").arg(m_cartesianEngine->selectedPoints().size()));
+    return true;
+}
+
+bool ToolController::cartesianCopySelection() {
+    if (!m_cartesianEngine) return false;
+    const QVector<CartesianPointItem*> points = m_cartesianEngine->selectedPoints();
+    if (points.isEmpty()) return false;
+    QVector<QPointF> coords;
+    for (CartesianPointItem* point : points) {
+        if (point) coords.append(QPointF(point->x(), point->y()));
+    }
+    m_cartesianEngine->setClipboardPoints(coords);
+    emit statusMessage(QString("已复制 %1 个点").arg(coords.size()));
+    return true;
+}
+
+bool ToolController::cartesianCutSelection() {
+    if (!cartesianCopySelection()) return false;
+    return cartesianDeleteSelection();
+}
+
+bool ToolController::cartesianDeleteSelection() {
+    if (!m_cartesianEngine) return false;
+    const QVector<CartesianPointItem*> points = m_cartesianEngine->selectedPoints();
+    if (points.isEmpty()) return false;
+    for (CartesianPointItem* point : points) {
+        if (!point) continue;
+        const int index = m_cartesianEngine->points().indexOf(point);
+        if (index < 0) continue;
+        m_cartesianEngine->removePoint(index);
+    }
+    m_cartesianEngine->clearPointSelection();
+    emit statusMessage(QString("已删除 %1 个点").arg(points.size()));
+    return true;
+}
+
+bool ToolController::cartesianPasteAtCursor() {
+    if (!m_cartesianEngine || !m_view) return false;
+    const QVector<QPointF> coords = m_cartesianEngine->clipboardPoints();
+    if (coords.isEmpty()) return false;
+    const QPoint local = m_view->viewport()->mapFromGlobal(QCursor::pos());
+    const QPointF sceneAnchor = m_view->mapToSceneF(local);
+    const QPointF mathAnchor = m_cartesianEngine->toMath(sceneAnchor);
+    QPointF origin = coords.first();
+    QVector<CartesianPointItem*> created;
+    for (const QPointF& coord : coords) {
+        const QPointF delta = coord - origin;
+        const int index = m_cartesianEngine->addPoint(mathAnchor.x() + delta.x(),
+                                                      mathAnchor.y() + delta.y(), QString());
+        if (index < 0) continue;
+        CartesianPointItem* point = m_cartesianEngine->pointAt(index);
+        if (point) created.append(point);
+    }
+    if (created.isEmpty()) return false;
+    m_cartesianEngine->setSelectedPoints(created);
+    emit statusMessage(QString("已粘贴 %1 个点").arg(created.size()));
+    return true;
+}
+
+void ToolController::cartesianClearSelection() {
+    if (!m_cartesianEngine) return;
+    m_cartesianEngine->clearPointSelection();
+}
+
 void ToolController::beginCartesianPoint(const QPointF& pos) {
     if (!m_cartesianEngine) return;
 
@@ -619,6 +687,8 @@ void ToolController::beginCartesianPoint(const QPointF& pos) {
         m_cartesianEngine->setDraggingPoint(existing);
         return;
     }
+
+    emit cartesianBackgroundClicked();
 
     const QPointF snapped = m_cartesianEngine->snapScene(pos);
     const QPointF math = m_cartesianEngine->toMath(snapped);
@@ -641,6 +711,8 @@ void ToolController::updateCartesianPoint(const QPointF& pos) {
     const QPointF snapped = m_cartesianEngine->snapScene(pos);
     const QPointF math = m_cartesianEngine->toMath(snapped);
     m_cartesianPending->setMathPos(math.x(), math.y());
+    const QPointF travel = pos - m_cartesianPressPos;
+    if (std::hypot(travel.x(), travel.y()) > 3.0) m_cartesianPointMoved = true;
     emit statusMessage(QString("%1（%2, %3）")
                            .arg(m_cartesianPending->name(),
                                 CartesianExpression::formatNumber(math.x()),
@@ -651,10 +723,19 @@ void ToolController::finishCartesianPoint() {
     if (!m_cartesianEngine) return;
     if (m_cartesianPending) {
         m_cartesianPending->setHighlighted(false);
+        if (!m_cartesianPointMoved) {
+            if (m_modifiers.testFlag(Qt::ShiftModifier)) {
+                m_cartesianEngine->toggleSelectedPoint(m_cartesianPending);
+            } else {
+                m_cartesianEngine->setSelectedPoints({m_cartesianPending});
+            }
+            emit statusMessage(QString("已选中点 %1").arg(m_cartesianPending->name()));
+        }
         m_cartesianPending = nullptr;
     }
     m_cartesianEngine->setDraggingPoint(nullptr);
     m_cartesianDragging = false;
+    m_cartesianPointMoved = false;
 }
 
 void ToolController::beginCartesianLink(const QPointF& pos) {
@@ -662,6 +743,7 @@ void ToolController::beginCartesianLink(const QPointF& pos) {
 
     CartesianPointItem* target = m_cartesianEngine->pointAtScene(pos);
     if (!target) {
+        emit cartesianBackgroundClicked();
         emit statusMessage("连线工具：请在已有的点上单击选择端点");
         return;
     }
@@ -850,6 +932,7 @@ bool ToolController::onKeyPress(QKeyEvent* event) {
     }
 
     const bool ctrl = event->modifiers().testFlag(Qt::ControlModifier);
+    const bool cartesianActive = m_cartesianEngine && m_cartesianEngine->isEnabled();
     if (ctrl) {
         if (event->key() == Qt::Key_Z) {
             if (event->modifiers().testFlag(Qt::ShiftModifier)) redo();
@@ -863,22 +946,26 @@ bool ToolController::onKeyPress(QKeyEvent* event) {
             return true;
         }
         if (event->key() == Qt::Key_C) {
-            copySelection();
+            if (cartesianActive) cartesianCopySelection();
+            else copySelection();
             event->accept();
             return true;
         }
         if (event->key() == Qt::Key_X) {
-            cutSelection();
+            if (cartesianActive) cartesianCutSelection();
+            else cutSelection();
             event->accept();
             return true;
         }
         if (event->key() == Qt::Key_V) {
-            pasteAtCursor();
+            if (cartesianActive) cartesianPasteAtCursor();
+            else pasteAtCursor();
             event->accept();
             return true;
         }
         if (event->key() == Qt::Key_A) {
-            selectAll();
+            if (cartesianActive) cartesianSelectAll();
+            else selectAll();
             event->accept();
             return true;
         }
@@ -886,6 +973,11 @@ bool ToolController::onKeyPress(QKeyEvent* event) {
     }
 
     if (event->key() == Qt::Key_Backspace || event->key() == Qt::Key_Delete) {
+        if (cartesianActive && m_cartesianEngine->selectedPoints().size() > 0) {
+            cartesianDeleteSelection();
+            event->accept();
+            return true;
+        }
         if (!m_selected.isEmpty()) {
             deleteSelected();
             event->accept();

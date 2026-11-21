@@ -13,6 +13,7 @@ class MyButton;
 class MySlider;
 class MyColorPicker;
 class MyTextInput;
+class QLabel;
 
 class CanvasToolBar : public QWidget {
     Q_OBJECT
@@ -44,6 +45,7 @@ signals:
     void clearRequested();
     void cartesianToolChanged(int kind);
     void cartesianPointNamesChanged(bool on);
+    void cartesianFunctionAddRequested(const QString& expression);
 
 protected:
     void paintEvent(QPaintEvent*) override;
@@ -83,6 +85,8 @@ private:
 
     QWidget* m_cartesianRow = nullptr;
     QVector<ToolIconButton*> m_cartesianButtons;
+    MyTextInput* m_cartFunctionInput = nullptr;
+    QLabel* m_cartFunctionFeedback = nullptr;
     bool m_cartesianMode = false;
     bool m_cartesianPointNames = true;
     bool m_cartesianPanelOpen = false;

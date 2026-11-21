@@ -196,11 +196,16 @@ static void testEnginePoints() {
     }
 
     engine.addPoint(-3.0, 4.0, QString());
-    check(engine.pointAt(1)->name() == "B", "second auto name is B");
+    check(engine.pointAt(1)->name() == "A",
+          "the smallest freed name is reused when the original owner was renamed");
 
     engine.removePoint(0);
     check(engine.pointCount() == 1, "removePoint shrinks the list");
-    check(engine.pointAt(0)->name() == "B", "remaining point keeps its name");
+    check(engine.pointAt(0)->name() == "A", "remaining point keeps its name");
+
+    engine.addPoint(5.0, 6.0, QString());
+    check(engine.pointAt(1)->name() == "B",
+          "the next free name in lexicographic order is taken next");
 }
 
 static void testEngineSegments() {

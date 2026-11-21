@@ -113,6 +113,45 @@ void CartesianEngine::setDraggingPoint(CartesianPointItem* point) {
     m_draggingPoint = point;
 }
 
+void CartesianEngine::setSelectedPoints(const QVector<CartesianPointItem*>& points) {
+    for (CartesianPointItem* point : m_selectedPoints) {
+        if (point) point->setSelected(false);
+    }
+    m_selectedPoints.clear();
+    for (CartesianPointItem* point : points) {
+        if (!point) continue;
+        if (m_selectedPoints.contains(point)) continue;
+        m_selectedPoints.push_back(point);
+        point->setSelected(true);
+    }
+    emit pointSelectionChanged(m_selectedPoints.size());
+}
+
+void CartesianEngine::toggleSelectedPoint(CartesianPointItem* point) {
+    if (!point) return;
+    if (m_selectedPoints.contains(point)) {
+        m_selectedPoints.removeAll(point);
+        point->setSelected(false);
+    } else {
+        m_selectedPoints.push_back(point);
+        point->setSelected(true);
+    }
+    emit pointSelectionChanged(m_selectedPoints.size());
+}
+
+void CartesianEngine::clearPointSelection() {
+    if (m_selectedPoints.isEmpty()) return;
+    for (CartesianPointItem* point : m_selectedPoints) {
+        if (point) point->setSelected(false);
+    }
+    m_selectedPoints.clear();
+    emit pointSelectionChanged(0);
+}
+
+bool CartesianEngine::isPointSelected(const CartesianPointItem* point) const {
+    return point && m_selectedPoints.contains(const_cast<CartesianPointItem*>(point));
+}
+
 QVector<qreal> CartesianEngine::stepLadder() {
     QVector<qreal> ladder;
     ladder << 100.0 << 50.0 << 20.0 << 10.0 << 5.0 << 2.0 << 1.0
@@ -188,9 +227,9 @@ QPointF CartesianEngine::snapMath(double x, double y) const {
 }
 
 void CartesianEngine::setSnapTolerance(qreal value) {
-    const qreal clamped = qBound(0.0, value, m_step * 0.5);
-    if (qAbs(clamped - m_snapTolerance) < kEpsilon) return;
-    m_snapTolerance = clamped;
+    const qreal clamped = qBound(0.0, value, 0.5);
+    if (qAbs(clamped - m_snapRatio) < kEpsilon) return;
+    m_snapRatio = clamped;
 }
 
 void CartesianEngine::setSnapEnabled(bool on) {
@@ -203,7 +242,7 @@ QPointF CartesianEngine::snappedMath(const QPointF& math) const {
     const QPointF nearest = snapMath(math.x(), math.y());
     const double dx = nearest.x() - math.x();
     const double dy = nearest.y() - math.y();
-    if (std::hypot(dx, dy) > m_snapTolerance) return math;
+    if (std::hypot(dx, dy) > snapTolerance()) return math;
     return nearest;
 }
 
@@ -212,7 +251,7 @@ bool CartesianEngine::isSnapped(const QPointF& math) const {
     const QPointF nearest = snapMath(math.x(), math.y());
     const double dx = nearest.x() - math.x();
     const double dy = nearest.y() - math.y();
-    return std::hypot(dx, dy) <= m_snapTolerance;
+    return std::hypot(dx, dy) <= snapTolerance();
 }
 
 QPointF CartesianEngine::snapScene(const QPointF& scene) const {
@@ -247,21 +286,24 @@ void CartesianEngine::updateSettings() {
 }
 
 QString CartesianEngine::nextPointName() {
-    static const char* letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    for (int attempt = 0; attempt < 26 * 26; ++attempt) {
-        const int serial = m_nextPointSerial;
-        m_nextPointSerial = (m_nextPointSerial + 1) % (26 * 26);
-        const QString name = QString(QLatin1Char(letters[serial % 26]));
-        bool exists = false;
-        for (const CartesianPointItem* point : m_points) {
-            if (point->name() == name) {
-                exists = true;
-                break;
-            }
-        }
-        if (!exists) return name;
+    QSet<QString> used;
+    for (const CartesianPointItem* point : m_points) used.insert(point->name());
+    for (const QString& candidate : pointNamePool()) {
+        if (!used.contains(candidate)) return candidate;
     }
     return QString("P");
+}
+
+QStringList CartesianEngine::pointNamePool() {
+    static const char* letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    QStringList pool;
+    for (int i = 0; i < 26; ++i) pool.append(QString(QLatin1Char(letters[i])));
+    for (int i = 0; i < 26; ++i) {
+        for (int j = 0; j < 26; ++j) {
+            pool.append(QString(QLatin1Char(letters[i])) + QString(QChar('a' + j)));
+        }
+    }
+    return pool;
 }
 
 QString CartesianEngine::uniqueFunctionName(const QString& base) const {
@@ -328,6 +370,7 @@ CartesianCurveItem* CartesianEngine::curveAt(int index) const {
 void CartesianEngine::removePoint(int index) {
     if (index < 0 || index >= m_points.size()) return;
     CartesianPointItem* point = m_points.at(index);
+    m_selectedPoints.removeAll(point);
     for (int i = m_segments.size() - 1; i >= 0; --i) {
         CartesianSegmentItem* segment = m_segments.at(i);
         if (segment->start() == point || segment->end() == point) {
@@ -341,6 +384,7 @@ void CartesianEngine::removePoint(int index) {
     m_points.removeAt(index);
     for (int i = 0; i < m_points.size(); ++i) m_points.at(i)->setIndex(i);
     for (int i = 0; i < m_segments.size(); ++i) m_segments.at(i)->setIndex(i);
+    emit pointSelectionChanged(m_selectedPoints.size());
     emit objectsChanged();
 }
 
@@ -360,7 +404,8 @@ void CartesianEngine::clearObjects() {
         delete point;
     }
     m_points.clear();
-    m_nextPointSerial = 0;
+    m_selectedPoints.clear();
+    emit pointSelectionChanged(0);
     emit objectsChanged();
 }
 
@@ -382,6 +427,24 @@ void CartesianEngine::rebuildSegments() {
         delete segment;
     }
     m_segments.clear();
+}
+
+void CartesianEngine::refreshSegmentsFor(const CartesianPointItem* point) {
+    if (!point) return;
+    for (CartesianSegmentItem* segment : m_segments) {
+        if (segment->start() != point && segment->end() != point) continue;
+        segment->refreshGeometry();
+    }
+}
+
+void CartesianEngine::removeSegment(int index) {
+    if (index < 0 || index >= m_segments.size()) return;
+    CartesianSegmentItem* segment = m_segments.at(index);
+    if (m_scene && segment->scene() == m_scene) m_scene->removeItem(segment);
+    delete segment;
+    m_segments.removeAt(index);
+    for (int i = 0; i < m_segments.size(); ++i) m_segments.at(i)->setIndex(i);
+    emit objectsChanged();
 }
 
 int CartesianEngine::addFunction(const QString& name, const QString& expression, const QColor& color) {
@@ -581,7 +644,10 @@ void CartesianPointItem::setMathPos(double x, double y) {
     m_y = y;
     if (m_engine) setPos(m_engine->toScene(x, y));
     update();
-    if (m_engine) emit m_engine->pointMoved(m_index, x, y);
+    if (m_engine) {
+        m_engine->refreshSegmentsFor(this);
+        emit m_engine->pointMoved(m_index, x, y);
+    }
 }
 
 void CartesianPointItem::setName(const QString& name) {
@@ -627,6 +693,12 @@ void CartesianPointItem::setHighlighted(bool on) {
     update();
 }
 
+void CartesianPointItem::setSelected(bool on) {
+    if (m_selected == on) return;
+    m_selected = on;
+    update();
+}
+
 void CartesianPointItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option,
                                QWidget* widget) {
     Q_UNUSED(option);
@@ -639,6 +711,12 @@ void CartesianPointItem::paint(QPainter* painter, const QStyleOptionGraphicsItem
         painter->setPen(Qt::NoPen);
         painter->setBrush(QColor(m_color.red(), m_color.green(), m_color.blue(), 60));
         painter->drawEllipse(QPointF(0, 0), r * 2.2, r * 2.2);
+    }
+
+    if (m_selected) {
+        painter->setPen(QPen(m_color.darker(120), 1.6, Qt::SolidLine, Qt::RoundCap));
+        painter->setBrush(Qt::NoBrush);
+        painter->drawEllipse(QPointF(0, 0), r + 5.0, r + 5.0);
     }
 
     painter->setPen(QPen(m_color.darker(125), 1.6));

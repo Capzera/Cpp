@@ -109,6 +109,24 @@ PM 决定本批只做一个模块：**笛卡尔坐标系**，功能对标 GeoGeb
 
 **规则沉淀**：`docs/AnimationAesthetics.md` 新增 **9.13 交互行为的验收方式（真实事件链）**；`.cursor/rules/smartground-project.mdc` 新增「Verification rules」小节 —— 画布交互类功能**必须**用真实事件验收，渲染类断言**必须**用相对判据。
 
+### ⑩ 第四轮：九项实测回归修复（2026-11-21）
+
+用户第三轮实测提出九个问题，逐条定位修复（详见 `docs/BugLog.md`「BUG-241」）：
+
+| 反馈 | 根因 | 修复 |
+|---|---|---|
+| 拖点仍被硬量化到格点 | 描点落地与**拖动**走同一条 `snapMath()` 硬量化路径 | 拖动改走 `snappedMath()` **接近吸附**，容差 `snapTolerance() = m_snapRatio * m_step`（`0.28`）**相对分度尺** —— 任意缩放级别下都能落在格子内部，靠近格点（≤ 0.28 分度尺）仍吸附 |
+| 右键平移方向上下相反 | 平移量直接加到 `originScene()`，鼠标往下 → 画面往下 | 统一改为 `originScene() - delta`：鼠标往下 → `originY` 减小 → 画面向上 |
+| 拖动有连线的点时线段留残影 | 点位移后线段几何未刷新 | `CartesianPointItem::setMathPos()` 补调 `m_engine->refreshSegmentsFor(this)` → `prepareGeometryChange()` + 重算路径 + `update()` |
+| 左侧列表字号太小、不能双击改坐标 | 行标签复用全局 `hintLabel` 样式（9px）被压制；无编辑入口 | 新增设计令牌 `cartesianObjectName`（13px/600）与 `cartesianObjectValue`（12px 等宽）；双击点行触发 `editPointCoordinates()` → `pointEdited` → 点位与线段立即重绘 |
+| `Ctrl+A` / `Ctrl+C` / `Backspace` 失效 | `MainWindow::keyPressEvent` 未把笛卡尔分支接入快捷键 | `m_cartesianActive` 时路由到 `cartesianSelectAll` / `cartesianCopySelection` / `cartesianCutSelection` / `cartesianPasteAtCursor` / `cartesianDeleteSelection` |
+| 删点后新点不复用被释放的名字 | 名字来自单调递增序号 | `pointNamePool()` 生成 `A..Z` → `Aa..Zz` **有序**候选池（去掉 `sort()`，否则 `Aa` 会排到 `B` 前），逐个跳过已占用名 → 取**字典序最小的被释放单字母**（保留 `A B E G` → 新点 `C D F`） |
+| 线段删除后右侧信息卡不消失 | 检视卡只由双击打开，没有关闭路径 | `cartesianBackgroundClicked` 与 `objectsChanged` 接到 `dismissCartesianInfo()`，点击空白或删除对象即收起。**附带修掉索引漂移**：原按**下标**判存活，删除**兄弟**线段后下标前移会误收仍存在的卡片 —— 改为 `QPointer<QObject>` **按对象身份**跟踪，存活判据改为「指针仍在引擎容器中」 |
+| 函数输入应放进顶部下拉菜单 | 函数输入留在左侧面板；「函数」按钮实际只是「瞄点」 | `CanvasToolBar::createCartesianPage(CartFunction)` 内嵌输入框 + 解析反馈；点「函数」只展开下拉页、**不切换绘图工具**；左侧面板移除函数段 |
+| 对象过多时列表没有滚动条 | 对象行直接塞进面板布局 | 新增 `m_listScroll`（`QScrollArea`）承载全部对象行 |
+
+新增 `tests/CartesianRound4Test.cpp`（28 条断言，九项诉求逐条用真实鼠标事件驱动）；改写 `tests/CartesianModuleTest.cpp` 的命名断言（按新复用语义）、`tests/CartesianUxTest.cpp` / `tests/CartesianAppViewTest.cpp` 的函数输入定位。**91 个测试可执行文件全部零失败**，两套构建树 Release 均构建成功。
+
 新增 `tests/CartesianRound2Test.cpp`（32 条断言覆盖七项诉求）与 `tests/CartesianRound2Shot.cpp`（四态截图存档），改写 `tests/CartesianModuleTest.cpp` 的吸附断言。**87 个测试可执行文件全部零失败**，`SmartGround.exe` Release 构建成功。
 
 回归中另修两处连带缺陷：`CanvasToolBar::mainBarWidth()` 原本返回 `sizeHint().width()`，移除根布局后该值退化为 `-1`（`SmartGroundToolSuite` 失败），改为返回 `mainRowWidth()`；`CartesianPanel` 的函数按钮文案由 `"+"` 改「绘制」会与算法「绘制可视化效果」按钮在 `findButton("绘制")` 检索上撞车（`SmartGroundUiBehaviorTest` 14 项失败），最终定名「绘图」。**全量 85 个测试可执行文件零失败**。

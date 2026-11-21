@@ -486,6 +486,7 @@ void MainWindow::setupCanvasTools() {
 
     connect(m_canvasToolBar, &CanvasToolBar::cartesianToolChanged, this, &MainWindow::onCartesianToolChanged);
     connect(m_canvasToolBar, &CanvasToolBar::cartesianPointNamesChanged, this, &MainWindow::onCartesianPointNamesChanged);
+    connect(m_canvasToolBar, &CanvasToolBar::cartesianFunctionAddRequested, this, &MainWindow::onCartesianFunctionAdded);
 
     if (m_cartesianPanel) {
         connect(m_cartesianPanel, &CartesianPanel::statusMessage, this, [this](const QString& text) {
@@ -494,12 +495,12 @@ void MainWindow::setupCanvasTools() {
         connect(m_cartesianPanel, &CartesianPanel::pointEdited, this, &MainWindow::onCartesianPointEdited);
         connect(m_cartesianPanel, &CartesianPanel::pointStyleEdited, this, &MainWindow::onCartesianPointStyleEdited);
         connect(m_cartesianPanel, &CartesianPanel::functionStyleEdited, this, &MainWindow::onCartesianFunctionStyleEdited);
-        connect(m_cartesianPanel, &CartesianPanel::functionAddRequested, this, &MainWindow::onCartesianFunctionAdded);
         connect(m_cartesianPanel, &CartesianPanel::functionRemoveRequested, this, &MainWindow::onCartesianFunctionRemoved);
         connect(m_cartesianPanel, &CartesianPanel::pointSelected, this, [this](int index) {
             Q_UNUSED(index);
             labelStatus->setText("已选中该点，可在左侧面板中编辑其坐标或样式");
         });
+        connect(m_cartesianPanel, &CartesianPanel::segmentSelected, this, &MainWindow::onCartesianSegmentDoubleClicked);
     }
 }
 
@@ -536,6 +537,10 @@ void MainWindow::setupCartesianWiring() {
     connect(m_cartesianModule, &CartesianModule::pointInspected, this, &MainWindow::onCartesianPointDoubleClicked);
     connect(m_cartesianModule, &CartesianModule::segmentInspected, this, &MainWindow::onCartesianSegmentDoubleClicked);
     connect(m_cartesianModule, &CartesianModule::curveInspected, this, &MainWindow::onCartesianCurveDoubleClicked);
+    connect(m_toolController, &ToolController::cartesianBackgroundClicked, this, &MainWindow::dismissCartesianInfo);
+    connect(m_cartesianModule->engine(), &CartesianEngine::objectsChanged, this, [this]() {
+        syncCartesianInfoTarget();
+    });
 }
 
 void MainWindow::positionTableToolBar() {
@@ -683,6 +688,8 @@ void MainWindow::applyStyleSheet() {
         "QLabel#sectionLabel { font-family:'Microsoft YaHei UI','Segoe UI'; font-size:11px; font-weight:600; color:%4; }"
         "QLabel#fieldLabel { font-family:'Microsoft YaHei UI','Segoe UI'; font-size:10px; color:%5; }"
         "QLabel#hintLabel { font-family:'Microsoft YaHei UI','Segoe UI'; font-size:9px; color:%6; }"
+        "QLabel#cartesianObjectName { font-family:'Microsoft YaHei UI','Segoe UI'; font-size:13px; font-weight:600; color:%5; }"
+        "QLabel#cartesianObjectValue { font-family:'Cascadia Mono','Consolas'; font-size:12px; color:%5; }"
         "QLabel#statusLabel { font-family:'Microsoft YaHei UI','Segoe UI'; font-size:11px; font-weight:600; color:%5;"
         " background:%7; padding:8px 14px; border-top:1px solid %8; }"
         "QWidget#statusBar { background:%7; border-top:1px solid %8; }"
@@ -734,6 +741,9 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
                 event->accept();
                 return;
             }
+            const bool cartesianActive = m_cartesianActive && m_cartesianModule
+                                        && m_cartesianModule->engine()
+                                        && m_cartesianModule->engine()->isEnabled();
             if (event->key() == Qt::Key_Z) {
                 if (event->modifiers().testFlag(Qt::ShiftModifier)) m_toolController->redo();
                 else m_toolController->undo();
@@ -744,20 +754,35 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
                 return;
             }
             if (event->key() == Qt::Key_C) {
-                m_toolController->copySelection();
+                if (cartesianActive) m_toolController->cartesianCopySelection();
+                else m_toolController->copySelection();
                 return;
             }
             if (event->key() == Qt::Key_X) {
-                m_toolController->cutSelection();
+                if (cartesianActive) m_toolController->cartesianCutSelection();
+                else m_toolController->cutSelection();
                 return;
             }
             if (event->key() == Qt::Key_V) {
-                m_toolController->pasteAtCursor();
+                if (cartesianActive) m_toolController->cartesianPasteAtCursor();
+                else m_toolController->pasteAtCursor();
                 return;
             }
             if (event->key() == Qt::Key_A) {
-                m_toolController->selectAll();
+                if (cartesianActive) m_toolController->cartesianSelectAll();
+                else m_toolController->selectAll();
                 return;
+            }
+        }
+        if (event->key() == Qt::Key_Backspace || event->key() == Qt::Key_Delete) {
+            const bool cartesianActive = m_cartesianActive && m_cartesianModule
+                                        && m_cartesianModule->engine()
+                                        && m_cartesianModule->engine()->isEnabled();
+            if (cartesianActive) {
+                if (m_toolController->cartesianDeleteSelection()) {
+                    event->accept();
+                    return;
+                }
             }
         }
     }
@@ -1514,6 +1539,9 @@ void MainWindow::onCartesianPointDoubleClicked(int index) {
                               ? QString("已吸附到坐标交点。")
                               : QString("自由坐标（靠近交点时才会自动吸附）。");
     m_cartesianInfo->showPoint(point->name(), point->x(), point->y(), point->color(), extra);
+    m_cartesianInfoTarget = CartesianInfoTarget::Point;
+    m_cartesianInfoIndex = index;
+    m_cartesianInfoObject = point;
     positionCartesianInfo();
     labelStatus->setText(QString("点 %1：(%2, %3)").arg(point->name())
                              .arg(CartesianExpression::formatNumber(point->x(), 4))
@@ -1529,8 +1557,40 @@ void MainWindow::onCartesianSegmentDoubleClicked(int index) {
     if (!segment) return;
     const QString equation = segment->equationText();
     m_cartesianInfo->showSegment(equation, segment->segmentSummary());
+    m_cartesianInfoTarget = CartesianInfoTarget::Segment;
+    m_cartesianInfoIndex = index;
+    m_cartesianInfoObject = segment;
     positionCartesianInfo();
     labelStatus->setText(equation.isEmpty() ? QString("线段退化为一个点") : equation);
+}
+
+void MainWindow::dismissCartesianInfo() {
+    if (!m_cartesianInfo) return;
+    if (!m_cartesianInfo->isVisible()) return;
+    m_cartesianInfo->clearInfo();
+    m_cartesianInfoTarget = CartesianInfoTarget::None;
+    m_cartesianInfoIndex = -1;
+    m_cartesianInfoObject = nullptr;
+}
+
+void MainWindow::syncCartesianInfoTarget() {
+    if (!m_cartesianInfo || !m_cartesianModule) return;
+    if (!m_cartesianInfo->isVisible()) return;
+    CartesianEngine* engine = m_cartesianModule->engine();
+    if (!engine) return;
+    if (m_cartesianInfoObject.isNull()) {
+        dismissCartesianInfo();
+        return;
+    }
+    bool alive = false;
+    if (m_cartesianInfoTarget == CartesianInfoTarget::Point) {
+        alive = engine->points().contains(static_cast<CartesianPointItem*>(m_cartesianInfoObject.data()));
+    } else if (m_cartesianInfoTarget == CartesianInfoTarget::Segment) {
+        alive = engine->segments().contains(static_cast<CartesianSegmentItem*>(m_cartesianInfoObject.data()));
+    } else if (m_cartesianInfoTarget == CartesianInfoTarget::Curve) {
+        alive = engine->curves().contains(static_cast<CartesianCurveItem*>(m_cartesianInfoObject.data()));
+    }
+    if (!alive) dismissCartesianInfo();
 }
 
 void MainWindow::onCartesianCurveDoubleClicked(int index) {
@@ -1540,6 +1600,9 @@ void MainWindow::onCartesianCurveDoubleClicked(int index) {
     CartesianCurveItem* curve = engine->curveAt(index);
     if (!curve) return;
     m_cartesianInfo->showCurve(curve->name(), curve->expression(), curve->color());
+    m_cartesianInfoTarget = CartesianInfoTarget::Curve;
+    m_cartesianInfoIndex = index;
+    m_cartesianInfoObject = curve;
     positionCartesianInfo();
     labelStatus->setText(QString("函数 %1：y = %2").arg(curve->name(), curve->expression()));
 }
@@ -1557,8 +1620,7 @@ void MainWindow::onCartesianToolChanged(int kind) {
         labelStatus->setText("连线工具：奇数次选点为起点，偶数次选点即连成线段");
     } else {
         if (engine) engine->setActiveTool(CartesianEngine::Select);
-        if (m_cartesianPanel) m_cartesianPanel->focusFunctionInput();
-        labelStatus->setText("函数绘制：在左侧「函数绘制」输入 f(x) = 表达式后回车即可");
+        labelStatus->setText("函数绘制：在顶部「函数」下拉菜单中输入 f(x) = 表达式后回车即可");
     }
 }
 

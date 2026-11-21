@@ -9,6 +9,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVector>
+#include <QSet>
 #include <QStyleOptionGraphicsItem>
 #include <functional>
 #include <map>
@@ -53,7 +54,7 @@ public:
     QPointF snapScene(const QPointF& scene) const;
     QPointF snapMath(double x, double y) const;
 
-    qreal snapTolerance() const { return m_snapTolerance; }
+    qreal snapTolerance() const { return m_snapRatio * m_step; }
     void setSnapTolerance(qreal value);
     bool snapEnabled() const { return m_snapEnabled; }
     void setSnapEnabled(bool on);
@@ -90,6 +91,8 @@ public:
     int addFunction(const QString& name, const QString& expression, const QColor& color);
     void clearFunctions();
 
+    void removeSegment(int index);
+
     QVector<CartesianSegmentItem*> segments() const { return m_segments; }
     QVector<CartesianCurveItem*> curves() const { return m_curves; }
 
@@ -97,6 +100,7 @@ public:
     CartesianCurveItem* curveAt(int index) const;
 
     QString nextPointName();
+    static QStringList pointNamePool();
     QString uniqueFunctionName(const QString& base) const;
 
     void refreshAll();
@@ -113,6 +117,15 @@ public:
     CartesianPointItem* draggingPoint() const { return m_draggingPoint; }
     void setDraggingPoint(CartesianPointItem* point);
 
+    QVector<CartesianPointItem*> selectedPoints() const { return m_selectedPoints; }
+    void setSelectedPoints(const QVector<CartesianPointItem*>& points);
+    void toggleSelectedPoint(CartesianPointItem* point);
+    void clearPointSelection();
+    bool isPointSelected(const CartesianPointItem* point) const;
+
+    QVector<QPointF> clipboardPoints() const { return m_clipboardPoints; }
+    void setClipboardPoints(const QVector<QPointF>& points) { m_clipboardPoints = points; }
+
 signals:
     void objectsChanged();
     void pointMoved(int index, double x, double y);
@@ -121,6 +134,7 @@ signals:
     void curveDoubleClicked(int index);
     void functionChanged();
     void statusMessage(const QString& text);
+    void pointSelectionChanged(int count);
 
 private:
     friend class CartesianPointItem;
@@ -128,6 +142,7 @@ private:
     friend class CartesianCurveItem;
 
     void rebuildSegments();
+    void refreshSegmentsFor(const CartesianPointItem* point);
 
     QGraphicsScene* m_scene = nullptr;
     CartesianGridItem* m_grid = nullptr;
@@ -139,13 +154,14 @@ private:
     qreal m_step = 1.0;
     qreal m_originX = 0.0;
     qreal m_originY = 0.0;
-    qreal m_snapTolerance = 0.28;
+    qreal m_snapRatio = 0.28;
     bool m_snapEnabled = true;
     bool m_enabled = false;
-    int m_nextPointSerial = 0;
     ActiveTool m_activeTool = Select;
     CartesianPointItem* m_linkStart = nullptr;
     CartesianPointItem* m_draggingPoint = nullptr;
+    QVector<CartesianPointItem*> m_selectedPoints;
+    QVector<QPointF> m_clipboardPoints;
 };
 
 class CartesianGridItem : public QGraphicsObject {
@@ -199,6 +215,8 @@ public:
 
     bool highlighted() const { return m_highlighted; }
     void setHighlighted(bool on);
+    bool selected() const { return m_selected; }
+    void setSelected(bool on);
 
     void paintLabel(QPainter* painter, const QPointF& anchor, const QString& text, const QColor& color);
 
@@ -217,6 +235,7 @@ private:
     qreal m_size = 7.0;
     int m_shape = 0;
     bool m_highlighted = false;
+    bool m_selected = false;
 };
 
 class CartesianSegmentItem : public QGraphicsObject {

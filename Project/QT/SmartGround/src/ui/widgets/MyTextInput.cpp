@@ -26,6 +26,7 @@ MyTextInput::MyTextInput(QWidget* parent) : QWidget(parent) {
         emit textChanged(text);
     });
     connect(m_edit, &QLineEdit::editingFinished, this, &MyTextInput::editingFinished);
+    connect(m_edit, &QLineEdit::returnPressed, this, &MyTextInput::returnPressed);
 }
 
 QString MyTextInput::text() const {

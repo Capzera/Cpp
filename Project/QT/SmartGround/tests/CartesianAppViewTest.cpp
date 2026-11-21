@@ -3,6 +3,8 @@
 #include <QGraphicsScene>
 #include <QPainter>
 #include <QLabel>
+#include <QKeyEvent>
+#include <QLineEdit>
 #include <cstdio>
 #include "ui/MainWindow.h"
 #include "ui/widgets/MyComboBox.h"
@@ -56,14 +58,19 @@ int main(int argc, char** argv) {
            engine->originScene().x(), engine->originScene().y(),
            engine->scale(), engine->step());
 
-    MyTextInput* fnInput = panel->findChild<MyTextInput*>("cartesianFunctionInput");
-    MyButton* addButton = panel->findChild<MyButton*>("cartesianFunctionAdd");
-    check(fnInput != nullptr, "function input present");
-    check(addButton != nullptr, "function add button present");
+    MyTextInput* fnInput = w.findChild<MyTextInput*>("canvasCartFunctionInput");
+    check(fnInput != nullptr, "the function input lives in the top toolbar dropdown");
+    check(panel->findChild<MyTextInput*>("cartesianFunctionInput") == nullptr,
+          "the left panel no longer hosts a function input");
 
     fnInput->setText("3x^2 - 8x + 7");
     pump(60);
-    addButton->click();
+    QLineEdit* fnLine = fnInput->findChild<QLineEdit*>();
+    if (fnLine) {
+        fnLine->setFocus();
+        QKeyEvent press(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+        QApplication::sendEvent(fnLine, &press);
+    }
     pump(300);
 
     printf("curveCount=%d\n", engine->curveCount());

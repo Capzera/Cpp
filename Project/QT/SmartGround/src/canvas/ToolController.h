@@ -151,6 +151,7 @@ signals:
     void selectionChanged(int count);
     void tableActivated(CanvasTableItem* table);
     void tableContextRequested(CanvasTableItem* table, int row, int col, const QPoint& globalPos);
+    void cartesianBackgroundClicked();
 
 private:
     struct Command {
@@ -220,6 +221,13 @@ public:
     void setCartesianEngine(CartesianEngine* engine);
     CartesianEngine* cartesianEngine() const { return m_cartesianEngine; }
 
+    bool cartesianSelectAll();
+    bool cartesianCopySelection();
+    bool cartesianCutSelection();
+    bool cartesianPasteAtCursor();
+    bool cartesianDeleteSelection();
+    void cartesianClearSelection();
+
     QPointF constrainPoint(const QPointF& pos, const QPointF& origin) const;
     AnnotationItem* createItemForTool(const QPointF& pos);
 
@@ -246,6 +254,7 @@ public:
     QPointF m_cartesianPressPos;
     bool m_cartesianDragging = false;
     bool m_cartesianPanning = false;
+    bool m_cartesianPointMoved = false;
     QPoint m_cartesianPanLast;
 
     QVector<AnnotationItem*> m_selected;

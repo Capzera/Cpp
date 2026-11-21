@@ -7,6 +7,8 @@
 #include "MyTextInput.h"
 #include "MyToggleSwitch.h"
 #include "ui/UiTheme.h"
+#include "ui/UiFonts.h"
+#include "core/CartesianExpression.h"
 #include "canvas/ToolController.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -156,14 +158,34 @@ void CanvasToolBar::buildCartesianRow() {
     const Entry entries[] = {
         {ToolIconButton::CartPoint, "画点工具 (P) — 再次点击展开描点设置", "画点"},
         {ToolIconButton::CartLine, "连线工具 (S) — 奇数次选点为起点，偶数次选点连线", "连线"},
-        {ToolIconButton::CartFunction, "函数绘制 — 在左侧列表输入 f(x) = 表达式", "函数"}
+        {ToolIconButton::CartFunction, "函数绘制 — 点击展开下拉菜单输入 f(x) = 表达式", "函数"}
     };
 
     for (const Entry& entry : entries) {
         ToolIconButton* button = new ToolIconButton(entry.kind, entry.tip, m_cartesianRow);
         button->setObjectName(QString("canvasCartTool_%1").arg(static_cast<int>(entry.kind)));
         button->setCaption(QString::fromUtf8(entry.label));
-        connect(button, &QAbstractButton::clicked, this, [this, button, entry]() {
+        const bool isFunction = entry.kind == ToolIconButton::CartFunction;
+        connect(button, &QAbstractButton::clicked, this, [this, button, entry, isFunction]() {
+            if (isFunction) {
+                const bool panelOpen = m_toolPanel && m_toolPanel->isVisible();
+                m_cartesianPanelOpen = !panelOpen;
+                for (ToolIconButton* other : m_cartesianButtons) other->setActive(false);
+                button->setActive(m_cartesianPanelOpen);
+                if (m_toolPanel) {
+                    if (m_cartesianPanelOpen) {
+                        showToolPage(-1 - static_cast<int>(entry.kind));
+                        m_toolPanel->adjustSize();
+                        m_toolPanel->layout()->activate();
+                        m_toolPanel->show();
+                        m_toolPanel->raise();
+                    } else {
+                        m_toolPanel->hide();
+                    }
+                }
+                reposition();
+                return;
+            }
             const bool alreadyActive = button->isActive();
             if (alreadyActive) {
                 m_cartesianPanelOpen = !m_cartesianPanelOpen;
@@ -450,9 +472,47 @@ QWidget* CanvasToolBar::createCartesianPage(int kind) {
         layout->addWidget(hint);
     } else {
         layout->addWidget(makePanelTitle("函数绘制", page));
-        QLabel* hint = makePanelLabel("在左侧「函数绘制」输入 f(x) = 表达式，支持一次 / 二次 / 三次函数，可同时绘制多条曲线", page);
-        hint->setWordWrap(true);
-        layout->addWidget(hint);
+        QHBoxLayout* functionRow = new QHBoxLayout();
+        functionRow->setSpacing(6);
+        QLabel* prefix = makePanelLabel("f(x) =", page);
+        prefix->setFont(UiFonts::mono(10, true));
+        functionRow->addWidget(prefix);
+
+        m_cartFunctionInput = new MyTextInput(page);
+        m_cartFunctionInput->setObjectName("canvasCartFunctionInput");
+        m_cartFunctionInput->setPlaceholderText("3x^2 - 8x + 7");
+        m_cartFunctionInput->setMinimumWidth(150);
+        functionRow->addWidget(m_cartFunctionInput, 1);
+        layout->addLayout(functionRow);
+
+        m_cartFunctionFeedback = makePanelLabel("支持一次 / 二次 / 三次函数，回车即可绘制", page);
+        m_cartFunctionFeedback->setWordWrap(true);
+        layout->addWidget(m_cartFunctionFeedback);
+
+        connect(m_cartFunctionInput, &MyTextInput::textChanged, this, [this](const QString& text) {
+            const QString expression = text.trimmed();
+            if (expression.isEmpty()) {
+                m_cartFunctionFeedback->setText("支持一次 / 二次 / 三次函数，回车即可绘制");
+                m_cartFunctionFeedback->setStyleSheet("color:#8e98a8;");
+                return;
+            }
+            const CartesianExpression::Result result = CartesianExpression::parse(expression);
+            if (result.ok) {
+                m_cartFunctionFeedback->setText("将绘制：" + CartesianExpression::describe(result));
+                m_cartFunctionFeedback->setStyleSheet("color:#2ea86a;");
+            } else {
+                m_cartFunctionFeedback->setText("无法解析：" + result.error);
+                m_cartFunctionFeedback->setStyleSheet("color:#e5484d;");
+            }
+        });
+        connect(m_cartFunctionInput, &MyTextInput::returnPressed, this, [this]() {
+            const QString expression = m_cartFunctionInput->text().trimmed();
+            if (expression.isEmpty()) return;
+            emit cartesianFunctionAddRequested(expression);
+            m_cartFunctionInput->setText("");
+            m_cartFunctionFeedback->setText("支持一次 / 二次 / 三次函数，回车即可绘制");
+            m_cartFunctionFeedback->setStyleSheet("color:#8e98a8;");
+        });
     }
     return page;
 }

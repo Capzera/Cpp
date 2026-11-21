@@ -20,6 +20,8 @@
 #include <QDialogButtonBox>
 #include <QGraphicsItem>
 #include <QMouseEvent>
+#include <QScrollArea>
+#include <QFrame>
 #include <functional>
 #include <cmath>
 
@@ -134,88 +136,33 @@ CartesianPanel::CartesianPanel(QWidget* parent) : QWidget(parent) {
     root->addWidget(buildGuideCard(this));
     root->addWidget(makeSectionTitle("对象列表", this));
 
-    m_listHost = new QWidget(this);
+    m_listScroll = new QScrollArea(this);
+    m_listScroll->setObjectName("cartesianListScroll");
+    m_listScroll->setWidgetResizable(true);
+    m_listScroll->setFrameShape(QFrame::NoFrame);
+    m_listScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_listScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_listScroll->viewport()->setObjectName("cartesianListScrollViewport");
+    m_listScroll->viewport()->setAutoFillBackground(false);
+    m_listScroll->setStyleSheet(
+        "QScrollArea#cartesianListScroll { background:transparent; border:none; }"
+        "QScrollArea#cartesianListScroll > QWidget > QWidget { background:transparent; }"
+        "QScrollBar:vertical { background:transparent; width:8px; margin:0px; }"
+        "QScrollBar::handle:vertical { background:#c6ced9; border-radius:4px; min-height:24px; }"
+        "QScrollBar::handle:vertical:hover { background:#a8b2c0; }"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0px; }"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background:transparent; }");
+
+    m_listHost = new QWidget(m_listScroll);
     m_listHost->setObjectName("cartesianListHost");
+    m_listHost->setAttribute(Qt::WA_TranslucentBackground, true);
     QVBoxLayout* listLayout = new QVBoxLayout(m_listHost);
-    listLayout->setContentsMargins(0, 0, 0, 0);
+    listLayout->setContentsMargins(0, 0, 6, 0);
     listLayout->setSpacing(4);
-    root->addWidget(m_listHost);
-
-    root->addWidget(makeSectionTitle("函数绘制", this));
-
-    QHBoxLayout* functionRow = new QHBoxLayout();
-    functionRow->setSpacing(6);
-    QLabel* prefix = new QLabel("f(x) =", this);
-    prefix->setObjectName("fieldLabel");
-    prefix->setFont(UiFonts::mono(10, true));
-    functionRow->addWidget(prefix);
-
-    m_functionInput = new MyTextInput(this);
-    m_functionInput->setObjectName("cartesianFunctionInput");
-    m_functionInput->setPlaceholderText("3x^2 - 8x + 7");
-    m_functionInput->setMinimumWidth(120);
-    functionRow->addWidget(m_functionInput, 1);
-
-    m_functionAddButton = new MyButton("绘图", this);
-    m_functionAddButton->setObjectName("cartesianFunctionAdd");
-    m_functionAddButton->setVariant(MyButton::Soft);
-    m_functionAddButton->setCompact(true);
-    m_functionAddButton->setFixedWidth(44);
-    m_functionAddButton->setToolTip("绘制该函数图像（也可在输入框中直接回车）");
-    functionRow->addWidget(m_functionAddButton);
-    root->addLayout(functionRow);
-
-    m_functionFeedback = new QLabel("支持一次 / 二次 / 三次函数，回车即可绘制；双击曲线可改表达式", this);
-    m_functionFeedback->setObjectName("hintLabel");
-    m_functionFeedback->setWordWrap(true);
-    root->addWidget(m_functionFeedback);
-
-    connect(m_functionAddButton, &MyButton::clicked, this, [this]() {
-        submitFunction();
-    });
-    connect(m_functionInput, &MyTextInput::editingFinished, this, [this]() {
-        if (!m_functionInput->text().trimmed().isEmpty()) submitFunction();
-    });
-    connect(m_functionInput, &MyTextInput::textChanged, this, [this](const QString& text) {
-        updateFunctionFeedback(text);
-    });
+    m_listScroll->setWidget(m_listHost);
+    root->addWidget(m_listScroll, 1);
 }
 
-void CartesianPanel::updateFunctionFeedback(const QString& text) {
-    if (!m_functionFeedback) return;
-    const QString expression = text.trimmed();
-    if (expression.isEmpty()) {
-        m_functionFeedback->setText("支持一次 / 二次 / 三次函数，回车即可绘制；双击曲线可改表达式");
-        m_functionFeedback->setStyleSheet("color:#8e98a8;");
-        return;
-    }
-    const CartesianExpression::Result result = CartesianExpression::parse(expression);
-    if (result.ok) {
-        m_functionFeedback->setText("将绘制：" + CartesianExpression::describe(result));
-        m_functionFeedback->setStyleSheet("color:#2ea86a;");
-    } else {
-        m_functionFeedback->setText("无法解析：" + result.error);
-        m_functionFeedback->setStyleSheet("color:#e5484d;");
-    }
-}
-
-void CartesianPanel::submitFunction() {
-    if (!m_engine) return;
-    const QString expression = m_functionInput->text().trimmed();
-    if (expression.isEmpty()) {
-        emit statusMessage("请先输入函数表达式，例如 3x^2 - 8x + 7");
-        return;
-    }
-    const CartesianExpression::Result result = CartesianExpression::parse(expression);
-    if (!result.ok) {
-        emit statusMessage("函数表达式无法解析：" + result.error);
-        updateFunctionFeedback(expression);
-        return;
-    }
-    emit functionAddRequested(expression);
-    m_functionInput->setText("");
-    updateFunctionFeedback(QString());
-}
 CartesianPanel::~CartesianPanel() {}
 
 void CartesianPanel::setEngine(CartesianEngine* engine) {
@@ -224,18 +171,12 @@ void CartesianPanel::setEngine(CartesianEngine* engine) {
     refresh();
 }
 
-void CartesianPanel::focusFunctionInput() {
-    if (!m_functionInput) return;
-    m_functionInput->setFocus(Qt::MouseFocusReason);
-    m_functionInput->selectAll();
-}
-
 QWidget* CartesianPanel::buildGuideCard(QWidget* parent) {
     GuideCard* card = new GuideCard(parent);
     card->addStep(1, "画点", "点画布上方「画点」按钮（或按 P），在画布上单击即可落点。");
     card->addStep(2, "连线", "按 S 切到连线工具，奇数次选点为起点，偶数次选点即连成线段。");
-    card->addStep(3, "函数", "在下方「函数绘制」输入 f(x) = 3x^2 - 8x + 7 后回车即可绘图。");
-    card->addStep(4, "管理", "点、线、函数都在上方「对象列表」中编辑、删除或改样式。");
+    card->addStep(3, "函数", "点顶部「函数」按钮展开下拉菜单，在其中输入 f(x) = 表达式后回车。");
+    card->addStep(4, "管理", "双击列表中的点可直接改坐标；点、线、函数都在「对象列表」中管理。");
     return card;
 }
 
@@ -271,6 +212,13 @@ void CartesianPanel::rebuildList() {
         hostLayout->addWidget(buildPointRow(points.at(i), i));
     }
 
+    const QVector<CartesianSegmentItem*> segments = m_engine->segments();
+    for (int i = 0; i < segments.size(); ++i) {
+        CartesianSegmentItem* segment = segments.at(i);
+        if (!segment) continue;
+        hostLayout->addWidget(buildSegmentRow(segment, i));
+    }
+
     for (int i = 0; i < curves.size(); ++i) {
         CartesianCurveItem* curve = curves.at(i);
         if (!curve) continue;
@@ -284,9 +232,36 @@ bool CartesianPanel::eventFilter(QObject* obj, QEvent* event) {
         if (mouseEvent->button() == Qt::LeftButton) {
             QWidget* widget = qobject_cast<QWidget*>(obj);
             if (widget && widget->parent() == m_listHost) {
+                const QVariant pointValue = widget->property("cartesianPointIndex");
+                if (pointValue.isValid()) {
+                    emit pointSelected(pointValue.toInt());
+                    return true;
+                }
+                const QVariant segmentValue = widget->property("cartesianSegmentIndex");
+                if (segmentValue.isValid()) {
+                    emit segmentSelected(segmentValue.toInt());
+                    return true;
+                }
+            }
+        }
+    }
+    if (event->type() == QEvent::MouseButtonDblClick) {
+        QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+        if (mouseEvent->button() == Qt::LeftButton) {
+            QWidget* widget = qobject_cast<QWidget*>(obj);
+            if (widget && widget->parent() == m_listHost) {
                 const QVariant value = widget->property("cartesianPointIndex");
                 if (value.isValid()) {
-                    emit pointSelected(value.toInt());
+                    const int index = value.toInt();
+                    CartesianPointItem* point = m_engine ? m_engine->pointAt(index) : nullptr;
+                    if (point) {
+                        editPointCoordinates(point, index);
+                        return true;
+                    }
+                }
+                const QVariant segmentValue = widget->property("cartesianSegmentIndex");
+                if (segmentValue.isValid()) {
+                    emit segmentSelected(segmentValue.toInt());
                     return true;
                 }
             }
@@ -295,27 +270,44 @@ bool CartesianPanel::eventFilter(QObject* obj, QEvent* event) {
     return QWidget::eventFilter(obj, event);
 }
 
+void CartesianPanel::editPointCoordinates(CartesianPointItem* point, int index) {
+    if (!point) return;
+    CartesianPointEditor editor(this);
+    editor.setPointData(point->name(), point->x(), point->y(), point->nameHidden());
+    if (editor.exec() != QDialog::Accepted) return;
+    const double x = editor.pointX();
+    const double y = editor.pointY();
+    emit pointEdited(index, editor.pointName(), x, y, editor.nameHidden());
+    emit statusMessage(QString("点 %1 的坐标已更新为 (%2, %3)")
+                           .arg(point->name(),
+                                CartesianExpression::formatNumber(x, 4),
+                                CartesianExpression::formatNumber(y, 4)));
+}
+
 QWidget* CartesianPanel::buildPointRow(CartesianPointItem* point, int index) {
     QWidget* row = new QWidget(m_listHost);
     row->setObjectName("cartesianObjectRow");
     QHBoxLayout* layout = new QHBoxLayout(row);
-    layout->setContentsMargins(6, 4, 4, 4);
+    layout->setContentsMargins(6, 5, 4, 5);
     layout->setSpacing(8);
 
     QLabel* swatch = new QLabel(row);
-    swatch->setFixedSize(12, 12);
+    swatch->setFixedSize(13, 13);
+    swatch->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     swatch->setStyleSheet(QString("background:%1; border-radius:6px;").arg(point->color().name()));
     layout->addWidget(swatch);
 
     QLabel* nameLabel = new QLabel(point->name(), row);
-    nameLabel->setObjectName("fieldLabel");
-    nameLabel->setFont(UiFonts::forText(point->name(), 10, true));
-    nameLabel->setFixedWidth(34);
+    nameLabel->setObjectName("cartesianObjectName");
+    nameLabel->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    nameLabel->setFont(UiFonts::forText(point->name(), 12, true));
+    nameLabel->setFixedWidth(40);
     layout->addWidget(nameLabel);
 
     QLabel* coordLabel = new QLabel(QString("(%1, %2)").arg(formatCoord(point->x()), formatCoord(point->y())), row);
-    coordLabel->setObjectName("hintLabel");
-    coordLabel->setFont(UiFonts::mono(9, false));
+    coordLabel->setObjectName("cartesianObjectValue");
+    coordLabel->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    coordLabel->setFont(UiFonts::mono(11, false));
     layout->addWidget(coordLabel, 1);
 
     MenuButton* menu = new MenuButton(row);
@@ -327,6 +319,51 @@ QWidget* CartesianPanel::buildPointRow(CartesianPointItem* point, int index) {
 
     row->installEventFilter(this);
     row->setProperty("cartesianPointIndex", index);
+    row->setToolTip("双击该行可直接修改点的坐标");
+    row->setCursor(Qt::PointingHandCursor);
+
+    m_rows.push_back(row);
+    return row;
+}
+
+QWidget* CartesianPanel::buildSegmentRow(CartesianSegmentItem* segment, int index) {
+    QWidget* row = new QWidget(m_listHost);
+    row->setObjectName("cartesianObjectRow");
+    QHBoxLayout* layout = new QHBoxLayout(row);
+    layout->setContentsMargins(6, 5, 4, 5);
+    layout->setSpacing(8);
+
+    QLabel* swatch = new QLabel(row);
+    swatch->setFixedSize(13, 13);
+    swatch->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    swatch->setStyleSheet(QString("background:%1; border-radius:6px;").arg(segment->color().name()));
+    layout->addWidget(swatch);
+
+    const QString label = segment->start() && segment->end()
+                              ? QString("%1—%2").arg(segment->start()->name(), segment->end()->name())
+                              : QString("线段");
+    QLabel* nameLabel = new QLabel(label, row);
+    nameLabel->setObjectName("cartesianObjectName");
+    nameLabel->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    nameLabel->setFont(UiFonts::forText(label, 12, true));
+    nameLabel->setFixedWidth(56);
+    layout->addWidget(nameLabel);
+
+    QLabel* eqLabel = new QLabel(segment->equationText(), row);
+    eqLabel->setObjectName("cartesianObjectValue");
+    eqLabel->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    eqLabel->setFont(UiFonts::mono(11, false));
+    layout->addWidget(eqLabel, 1);
+
+    MenuButton* menu = new MenuButton(row);
+    layout->addWidget(menu);
+
+    menu->setOnClick([this, segment, index, menu]() {
+        showSegmentMenu(segment, index, menu->mapToGlobal(QPoint(0, menu->height())));
+    });
+
+    row->installEventFilter(this);
+    row->setProperty("cartesianSegmentIndex", index);
     row->setCursor(Qt::PointingHandCursor);
 
     m_rows.push_back(row);
@@ -337,23 +374,26 @@ QWidget* CartesianPanel::buildFunctionRow(CartesianCurveItem* curve, int index) 
     QWidget* row = new QWidget(m_listHost);
     row->setObjectName("cartesianObjectRow");
     QHBoxLayout* layout = new QHBoxLayout(row);
-    layout->setContentsMargins(6, 4, 4, 4);
+    layout->setContentsMargins(6, 5, 4, 5);
     layout->setSpacing(8);
 
     QLabel* swatch = new QLabel(row);
-    swatch->setFixedSize(12, 12);
+    swatch->setFixedSize(13, 13);
+    swatch->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     swatch->setStyleSheet(QString("background:%1; border-radius:6px;").arg(curve->color().name()));
     layout->addWidget(swatch);
 
     QLabel* nameLabel = new QLabel(curve->name(), row);
-    nameLabel->setObjectName("fieldLabel");
-    nameLabel->setFont(UiFonts::forText(curve->name(), 10, true));
-    nameLabel->setFixedWidth(34);
+    nameLabel->setObjectName("cartesianObjectName");
+    nameLabel->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    nameLabel->setFont(UiFonts::forText(curve->name(), 12, true));
+    nameLabel->setFixedWidth(40);
     layout->addWidget(nameLabel);
 
     QLabel* exprLabel = new QLabel(curve->expression(), row);
-    exprLabel->setObjectName("hintLabel");
-    exprLabel->setFont(UiFonts::mono(9, false));
+    exprLabel->setObjectName("cartesianObjectValue");
+    exprLabel->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    exprLabel->setFont(UiFonts::mono(11, false));
     layout->addWidget(exprLabel, 1);
 
     MenuButton* menu = new MenuButton(row);
@@ -377,7 +417,7 @@ void CartesianPanel::showPointMenu(CartesianPointItem* point, int index, const Q
     QAction* chosen = menu.exec(globalPos);
     if (!chosen) return;
     if (chosen == editAction) {
-        emit pointSelected(index);
+        editPointCoordinates(point, index);
     } else if (chosen == styleAction) {
         showPointStyleEditor(point, index, globalPos);
     } else if (chosen == deleteAction) {
@@ -484,6 +524,23 @@ void CartesianPanel::showPointStyleEditor(CartesianPointItem* point, int index, 
     });
 
     menu.exec(globalPos);
+}
+
+void CartesianPanel::showSegmentMenu(CartesianSegmentItem* segment, int index, const QPoint& globalPos) {
+    QMenu menu(this);
+    QAction* inspectAction = menu.addAction("查看一次方程");
+    menu.addSeparator();
+    QAction* deleteAction = menu.addAction("删除");
+    Q_UNUSED(segment);
+
+    QAction* chosen = menu.exec(globalPos);
+    if (!chosen) return;
+    if (chosen == inspectAction) {
+        emit segmentSelected(index);
+    } else if (chosen == deleteAction) {
+        if (m_engine) m_engine->removeSegment(index);
+        emit statusMessage("已删除该线段");
+    }
 }
 
 void CartesianPanel::showFunctionMenu(CartesianCurveItem* curve, int index, const QPoint& globalPos) {

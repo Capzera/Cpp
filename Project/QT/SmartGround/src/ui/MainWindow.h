@@ -7,6 +7,7 @@
 #include <QElapsedTimer>
 #include <QVBoxLayout>
 #include <QLabel>
+#include <QPointer>
 #include <vector>
 #include "modules/IModule.h"
 #include "ui/widgets/MyButton.h"
@@ -75,6 +76,8 @@ private slots:
     void onCartesianCurveDoubleClicked(int index);
     void refreshCartesianViewport();
     void positionCartesianInfo();
+    void dismissCartesianInfo();
+    void syncCartesianInfoTarget();
 private:
     void setupUI();
     void setupCartesianWiring();
@@ -162,6 +165,10 @@ private:
     CartesianInfoPanel* m_cartesianInfo = nullptr;
     bool m_cartesianActive = false;
     bool m_cartesianWired = false;
+    enum class CartesianInfoTarget { None, Point, Segment, Curve };
+    CartesianInfoTarget m_cartesianInfoTarget = CartesianInfoTarget::None;
+    int m_cartesianInfoIndex = -1;
+    QPointer<QObject> m_cartesianInfoObject;
     friend class UiBehaviorProbe;
     friend class GroupAProbe;
 

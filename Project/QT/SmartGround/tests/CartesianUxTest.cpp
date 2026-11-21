@@ -4,6 +4,7 @@
 #include <QPainter>
 #include <QLabel>
 #include <QKeyEvent>
+#include <QLineEdit>
 #include <cstdio>
 #include "ui/MainWindow.h"
 #include "ui/widgets/MyComboBox.h"
@@ -115,16 +116,24 @@ int main(int argc, char** argv) {
     check(!cfg.showGuides, "SceneGrid guides are hidden while in cartesian mode");
 
     printf("--- issue 4: functions actually draw ---\n");
-    MyTextInput* fnInput = panel->findChild<MyTextInput*>("cartesianFunctionInput");
-    MyButton* addButton = panel->findChild<MyButton*>("cartesianFunctionAdd");
-    check(fnInput != nullptr, "function input present");
-    check(addButton != nullptr, "function draw button present");
+    MyTextInput* fnInput = w.findChild<MyTextInput*>("canvasCartFunctionInput");
+    check(fnInput != nullptr, "the function input lives in the top toolbar dropdown");
+    check(panel->findChild<MyTextInput*>("cartesianFunctionInput") == nullptr,
+          "the left panel no longer hosts a function input");
 
     fnInput->setText("3x^2 - 8x + 7");
     pump(60);
-    addButton->click();
+    QLineEdit* fnLine = fnInput->findChild<QLineEdit*>();
+    if (fnLine) {
+        fnLine->setFocus();
+        QKeyEvent press(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+        QApplication::sendEvent(fnLine, &press);
+    }
     pump(300);
     check(engine && engine->curveCount() == 1, "the curve was created");
+    if (fnLine) fnLine->clearFocus();
+    w.setFocus();
+    pump(60);
 
     if (engine && view && engine->curveCount() > 0) {
         CartesianCurveItem* curve = engine->curveAt(0);

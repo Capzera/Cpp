@@ -1,8 +1,8 @@
 # SmartGround 模块开发状态跟踪
 
-> **更新时间**: 2026-11-21 - 第 33 批（新增「自由结构 - 笛卡尔坐标系」模块，GeoGebra 对标；已过两轮实测回归）
+> **更新时间**: 2026-11-21 - 第 33 批（新增「自由结构 - 笛卡尔坐标系」模块，GeoGebra 对标；已过三轮实测回归）
 > **当前进度**: 63 个唯一可运行模块（63 个下拉条目） | 0 个头文件骨架
-> **核心变化**：本批新增**笛卡尔坐标系模块**——理论上无限延伸的网格画布（视口裁剪），滚轮缩放驱动**分度尺阶梯**（1.0 / 0.5 / 0.2 / 0.1 / 0.05 / 0.02 / 0.01），画布工具栏**扩展第二排**（画点 / 连线 / 函数），左侧新增**对象列表面板**（点坐标管理 + 样式设置 + `f(x) = 表达式` 函数录入），一次 / 二次 / 三次函数**按可视范围自适应绘制**，平移出视口即消失、移回即恢复。两轮实测回归后补齐：对象列表实时刷新、描点**接近吸附**（可落 `(0.5, 0.8)` 等自由坐标）、工具按钮**图标与文字同一命中区**、画点 / 连线模式**右键拖动平移画布**、网格**真无限**（`exposedRect` 视口驱动）、双击对象弹**右侧检视面板**。
+> **核心变化**：本批新增**笛卡尔坐标系模块**——理论上无限延伸的网格画布（视口裁剪），滚轮缩放驱动**分度尺阶梯**（1.0 / 0.5 / 0.2 / 0.1 / 0.05 / 0.02 / 0.01），画布工具栏**扩展第二排**（画点 / 连线 / 函数），左侧新增**对象列表面板**（点坐标管理 + 样式设置 + `f(x) = 表达式` 函数录入），一次 / 二次 / 三次函数**按可视范围自适应绘制**，平移出视口即消失、移回即恢复。三轮实测回归后补齐：对象列表实时刷新、描点与**拖点**统一**接近吸附**（可落 `(0.5, 0.8)` 等自由坐标，靠近格点仍吸附）、工具按钮**图标与文字同一命中区**、画点 / 连线模式**右键拖动平移画布**（鼠标向下则画面向上）、网格**真无限**（`exposedRect` 视口驱动）、双击对象弹**右侧检视面板**（点击空白或删除对象即收起）、对象列表**双击改坐标**并联动线段、**快捷键**（`Ctrl+A/C/X/V`、`Backspace`）生效、点名**按字典序最小复用**被释放的名字、**函数输入上移至顶部工具栏下拉菜单**、对象列表支持**滚动条**。
 
 ## 2026-11-21 第 32 批：笛卡尔坐标系新模块（GeoGebra 对标）
 
@@ -39,6 +39,25 @@
 | 连带崩溃修复 | `src/render/GraphElements.{h,cpp}` | `PointerBlock` 的 `Qt::UniqueConnection` + lambda 组合在 Qt 6.11 触发致命断言（26 个测试进程 fail-fast）。新增 `m_anchorConn` 与 `disconnectAnchor()`，改用普通 lambda 连接并显式断开 |
 | 新增测试 | `tests/CartesianRound2Test.cpp`（新建，32 条断言）、`tests/CartesianRound2Shot.cpp`（新建，截图存档）、`tests/CartesianModuleTest.cpp`（改写吸附断言） | 覆盖七项诉求逐条断言；旧「`snapScene` 必落在交点」断言与新语义冲突，改写为「远处点击保持自由坐标 / 靠近交点才吸附」 |
 | 全量回归 | `tests/build/` | **90 个测试可执行文件全部零失败**（修复 `PointerBlock` 崩溃前有 26 个失败）；`SmartGround.exe` Release 构建成功 |
+
+## 2026-11-21 第 33 批补二：笛卡尔坐标系第三轮九项实测回归修复（第四轮）
+
+针对用户第三轮实测提出的九个问题（拖点被硬量化 / 右键平移方向反 / 拖点时线段残影 / 列表字号过小且无法双击改坐标 / 快捷键失效 / 点名不复用 / 线段信息卡残留 / 函数输入未上移 / 列表无滚动条）完成一轮修复。
+
+| 项目 | 涉及文件 | 实现要点 |
+|---|---|---|
+| 拖点接近吸附 | `src/render/CartesianElements.{h,cpp}`、`src/canvas/ToolController.cpp` | 硬量化 `snapMath()` 只用于**描点落地**；拖动路径改走 `snappedMath()`，容差 `snapTolerance() = m_snapRatio * m_step`（`m_snapRatio = 0.28`）**相对分度尺**，任意缩放级别下都能落在格子内部，靠近格点（≤ 0.28 分度尺）仍吸附到格点 |
+| 平移方向 | `src/canvas/ToolController.cpp`、`src/canvas/CanvasView.cpp` | 右键 / 中键平移统一为 `originScene() - delta`：鼠标往下 → `originY` 减小 → 画面向上；左右同向 |
+| 线段跟随 | `src/render/CartesianElements.cpp` | `CartesianPointItem::setMathPos()` 内补调 `m_engine->refreshSegmentsFor(this)`，对两端含该点的线段执行 `prepareGeometryChange()` + 重算路径 + `update()`，拖动过程逐帧跟随、无残影 |
+| 列表字号 | `src/ui/widgets/CartesianPanel.cpp`、`src/ui/MainWindow.cpp` | 新增设计令牌 `cartesianObjectName`（13px / 字重 600）与 `cartesianObjectValue`（12px 等宽字体），替代原先被全局 `hintLabel`（9px）压制的字号 |
+| 双击改坐标 | `src/ui/widgets/CartesianPanel.{h,cpp}` | 双击点行触发 `editPointCoordinates()` → 发 `pointEdited` → 点位与所连线段立即按新坐标重绘 |
+| 快捷键 | `src/ui/MainWindow.cpp` | `m_cartesianActive` 时把 `Ctrl+A` / `Ctrl+C` / `Ctrl+X` / `Ctrl+V` / `Backspace` / `Delete` 路由到 `ToolController` 的 `cartesianSelectAll` / `cartesianCopySelection` / `cartesianCutSelection` / `cartesianPasteAtCursor` / `cartesianDeleteSelection` |
+| 点名回收 | `src/render/CartesianElements.cpp` | `pointNamePool()` 生成 `A..Z` → `Aa..Zz` 的**有序**候选池（去掉 `sort()`，否则 `Aa` 会排到 `B` 前），逐个跳过已占用名 → 天然取到**字典序最小的被释放单字母**（保留 `A B E G` 时新点依次为 `C D F`） |
+| 信息卡消失 | `src/ui/MainWindow.cpp`、`src/canvas/ToolController.cpp` | `ToolController::cartesianBackgroundClicked` 与 `CartesianEngine::objectsChanged` 接到 `MainWindow::dismissCartesianInfo()`，点击画布空白或删除对象即刻收起右侧检视卡。**附带修掉索引漂移缺陷**：原按**下标**判存活，删除**兄弟**线段后下标前移会误收仍存在的卡片 —— 改为 `QPointer<QObject> m_cartesianInfoObject` **按对象身份**跟踪，存活判据改为「指针仍在 `engine->points()/segments()/curves()` 中」 |
+| 函数上移 | `src/ui/widgets/CanvasToolBar.{h,cpp}`、`src/ui/widgets/CartesianPanel.cpp` | `createCartesianPage(CartFunction)` 内嵌 `MyTextInput`（objectName = `canvasCartFunctionInput`）+ 解析反馈标签；点击「函数」按钮只展开下拉页、**不切换绘图工具**；左侧面板移除函数输入段 |
+| 列表滚动条 | `src/ui/widgets/CartesianPanel.{h,cpp}` | 新增 `m_listScroll`（`QScrollArea`）承载全部对象行，对象过多时出现垂直滚动条 |
+| 新增测试 | `tests/CartesianRound4Test.cpp`（新建，28 条断言）、`tests/CartesianModuleTest.cpp`（改写命名断言）、`tests/CartesianUxTest.cpp`、`tests/CartesianAppViewTest.cpp` | 覆盖九项诉求逐条断言（真实鼠标事件驱动），另含「删除兄弟线段不应误收仍存在的检视卡」回归项；旧命名断言按「字典序最小复用」新语义改写 |
+| 全量回归 | `build/tests/` | **91 个测试可执行文件全部零失败**（新增 `SmartGroundCartesianRound4`，清理掉草稿诊断程序 `SmartGroundCartesianDiag4`）；两套构建树（`build/`、`build/Desktop_Qt_6_11_1_MinGW_64_bit-Release/`）均 Release 构建成功 |
 
 ## 2026-11-21 第 33 批补：笛卡尔坐标系交互行为的**真实事件链**验收（第三轮）
 
